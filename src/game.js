@@ -35,6 +35,7 @@ const SOCIAL = require('./social.js');
 const AD = require('./ad.js');
 const DAILY = require('./daily.js');
 const PEARLS = require('./pearls.js');
+const LEVELFLOW = require('./level-flow.js');
 const PHYSICS = require('./physics.js');
 const RENDERER = require('./renderer.js');
 const SCREENS = require('./screens.js');
@@ -268,132 +269,14 @@ class Game {
     return this.levels[this.currentLevelIndex];
   }
 
-  loadLevel(index) {
-    const level = this.levels[index];
-    if (!level) return;
-    this.isDaily = false;
-    this.dailyLevel = null;
-    this.isBonus = false;
-    this.bonusLevel = null;
-    this.bonusMeta = null;
-    this.currentLevelIndex = index;
-    this.setupLevel(level);
-  }
-
-  /** 开始每日挑战：以当天日期为种子生成限定关卡（全体玩家同题） */
-  startDaily() {
-    this.isDaily = true;
-    this.isBonus = false;
-    this.bonusLevel = null;
-    this.bonusMeta = null;
-    this.currentLevelIndex = -1;
-    this.dailyLevel = DAILY.generateLevel(DAILY.todayString(), this.levels);
-    this.setupLevel(this.dailyLevel);
-  }
-
-  /** 进入下一个已解锁珍珠关（在解锁池中轮换） */
-  startNextBonus() {
-    const unlocked = PEARLS.unlockedMetas(this.progress);
-    if (unlocked.length === 0) return;
-    this.bonusCursor = (this.bonusCursor + 1) % unlocked.length;
-    this.startBonus(unlocked[this.bonusCursor]);
-  }
-
-  /** 开始指定珍珠关（种子=珍珠 ID，确定性生成，重开内容一致） */
-  startBonus(meta) {
-    this.isDaily = false;
-    this.dailyLevel = null;
-    this.isBonus = true;
-    this.bonusMeta = meta;
-    this.currentLevelIndex = -1;
-    this.bonusLevel = PEARLS.generateBonusLevel(meta, this.levels);
-    this.setupLevel(this.bonusLevel);
-  }
-
-  setupLevel(level) {
-    this.score = 0;
-    this.combo = 0;
-    this.maxCombo = 0;
-    this.extraBirds = [];
-    this.pendingExplosions = [];
-    // 未寿终的粒子/飘字直接回收进池（复用时 reset，无状态残留）
-    for (const p of this.particles) {
-      if (this.particlePool.length < 300) this.particlePool.push(p);
-    }
-    for (const t of this.floatingTexts) {
-      if (this.textPool.length < 50) this.textPool.push(t);
-    }
-    this.particles = [];
-    this.floatingTexts = [];
-    this.shakeAmount = 0;
-    // 教学提示：第 1 关每次进入显示拖拽教学；技能关首次进入显示对应技能教学（存档记录，看过即不再打扰）
-    const isTutorial = !this.isDaily && this.currentLevelIndex === 0;
-    const showSkillHint = !this.isDaily && !!level.hint && !this.progress.hintShown[this.currentLevelIndex];
-    this.hintAlpha = (isTutorial || showSkillHint) ? 1 : 0;
-    this.hintText = showSkillHint ? level.hint : null;
-    if (showSkillHint) {
-      this.progress.hintShown = { ...this.progress.hintShown, [this.currentLevelIndex]: true };
-      this.saveProgress();
-    }
-    this.buttons = {};
-    this.winAnim = null;
-    this.reviveUsed = false;
-    this.adDoubleUsed = false;
-    this.trajectoryBoost = false;
-    this.lastTrail = null;
-    this.newPearlAwarded = null;
-
-    // 场景珍珠（已入库的不再出现，保持"找隐藏"的一次性惊喜）
-    this.pearls = (level.pearls || [])
-      .map(p => ({ ...p, collected: !!this.progress.pearls[p.id] }));
-
-    // 生成猪
-    this.pigs = level.pigs.map(p => new E.Pig(p.x, p.y, p.radius));
-
-    // 生成方块
-    this.blocks = level.blocks.map(b => new E.Block(b.x, b.y, b.width, b.height, b.type));
-
-    // 生成小鸟队列（支持数组鸟种队列；兼容旧的数字形式 → 全小青）
-    const birdTypes = Array.isArray(level.birds)
-      ? level.birds
-      : Array(level.birds).fill('normal');
-    this.birdsRemaining = birdTypes.length;
-    this.birds = birdTypes.map((t, i) => {
-      const pos = this.queuePosition(i);
-      return new E.Bird(pos.x, pos.y, t);
-    });
-
-    this.spawnBird();
-    this.state = 'READY';
-  }
-
-  /**
-   * 候飞队列站位：3 列 × 2 排网格（前排站地面，后排站高处）。
-   * 原先单排 28px 间距，5~6 只鸟时 x 越出屏幕左缘（L9 六只时 3 只不可见，
-   * 玩家会误以为"用完又凭空出鸟"）。网格布局保证全部鸟始终可见。
-   */
-  queuePosition(i) {
-    const col = i % 3;
-    const row = Math.floor(i / 3);
-    return {
-      x: C.SLINGSHOT_X - 35 - col * 21,
-      y: C.GROUND_Y - C.BIRD_RADIUS - row * 28,
-    };
-  }
-
-  spawnBird() {
-    if (this.birds.length === 0) return;
-    this.currentBird = this.birds.shift();
-    this.currentBird.x = C.SLINGSHOT_X;
-    this.currentBird.y = C.SLINGSHOT_Y - 15;
-    this.currentBird.launched = false;
-    this.currentBird.vx = 0;
-    this.currentBird.vy = 0;
-    this.currentBird.trail = [];
-    this.currentBird.stillFrames = 0;
-    this.currentBird.onGround = false;
-    this.currentBird.abilityUsed = false;
-  }
+  // 关卡流程实现在 level-flow.js（此处为薄委托，保持对外方法签名不变）
+  loadLevel(index) { LEVELFLOW.loadLevel(this, index); }
+  startDaily() { LEVELFLOW.startDaily(this); }
+  startNextBonus() { LEVELFLOW.startNextBonus(this); }
+  startBonus(meta) { LEVELFLOW.startBonus(this, meta); }
+  setupLevel(level) { LEVELFLOW.setupLevel(this, level); }
+  queuePosition(i) { return LEVELFLOW.queuePosition(i); }
+  spawnBird() { LEVELFLOW.spawnBird(this); }
 
   // ==================== 状态转换 ====================
 
