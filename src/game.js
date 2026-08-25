@@ -33,9 +33,8 @@ const { getLevels } = require('./levels.js');
 const AUDIO = require('./audio.js');
 const SOCIAL = require('./social.js');
 const AD = require('./ad.js');
-const DAILY = require('./daily.js');
-const PEARLS = require('./pearls.js');
 const LEVELFLOW = require('./level-flow.js');
+const SETTLE = require('./settle.js');
 const PHYSICS = require('./physics.js');
 const RENDERER = require('./renderer.js');
 const SCREENS = require('./screens.js');
@@ -962,198 +961,15 @@ class Game {
     return true;
   }
 
-  /** 按当前得分重算星级 */
-  computeStars() {
-    const level = this.getCurrentLevel();
-    this.stars = 0;
-    if (this.score >= level.stars[0]) this.stars = 1;
-    if (this.score >= level.stars[1]) this.stars = 2;
-    if (this.score >= level.stars[2]) this.stars = 3;
-  }
-
-  /** 保存通关进度（星级/最高分）并上传排行榜成绩 */
-  saveWinProgress() {
-    if (this.isBonus) return; // 珍珠关不计战役档（纯挑战内容）
-    if (this.isDaily) {
-      // 每日挑战：只记当日最佳分，不计入战役星级/排行榜总分
-      const today = DAILY.todayString();
-      if (!this.progress.daily ||
-          this.progress.daily.date !== today ||
-          this.score > this.progress.daily.best) {
-        this.progress.daily = { date: today, best: this.score };
-      }
-      this.saveProgress();
-      return;
-    }
-    const prevStars = this.progress.stars[this.currentLevelIndex] || 0;
-    if (this.stars > prevStars) {
-      this.progress.stars[this.currentLevelIndex] = this.stars;
-    }
-    const prevBest = this.progress.bestScores[this.currentLevelIndex] || 0;
-    if (this.score > prevBest) {
-      this.progress.bestScores[this.currentLevelIndex] = this.score;
-    }
-    // 章节全三星 → 奖励章节珍珠（结算页提示，珍珠关解锁池扩充）
-    const award = PEARLS.checkChapterAward(this.progress, this.currentLevelIndex);
-    if (award) {
-      this.progress.pearls = { ...this.progress.pearls, [award.id]: true };
-      this.newPearlAwarded = award.label;
-    }
-    this.saveProgress();
-    this.uploadScore();
-  }
-
-  /** 激励视频点位 1：失败后 +1 只鸟继续（挽回流失，eCPM 最高点位） */
-  watchAdRevive() {
-    AD.show(() => {
-      this.reviveUsed = true;
-      this.birdsRemaining += 1;
-      const pos = this.queuePosition(this.birds.length);
-      this.birds.push(new E.Bird(pos.x, pos.y, 'normal'));
-      this.buttons = {};
-      this.spawnBird();
-      this.state = 'READY';
-    });
-  }
-
-  /** 激励视频点位 2：胜利结算双倍积分（加倍后重算星级并存档） */
-  watchAdDoubleScore() {
-    AD.show(() => {
-      this.adDoubleUsed = true;
-      this.score *= 2;
-      this.computeStars();
-      this.saveWinProgress();
-      this.buttons = {}; // 重建按钮（双倍按钮消失）
-      // 同步结算动画显示态（双倍可能带来新星，直接呈现）
-      if (this.winAnim) {
-        this.winAnim.displayedScore = this.score;
-        this.winAnim.starsShown = this.stars;
-        this.winAnim.starPop = 1;
-      }
-    });
-  }
-
-  /** 激励视频点位 3：卡关解锁本关弹道全显，并立即重开本关 */
-  watchAdTrajectoryBoost() {
-    AD.show(() => {
-      this.retryLevel();
-      this.trajectoryBoost = true; // retryLevel 会重置标志，需在重开后设置
-    });
-  }
-
-  /**
-   * 结算仪式感动画推进（60Hz 逻辑帧驱动）：
-   *  count 45帧：得分从 0 缓动滚动到击杀分
-   *  birds 32帧/只：剩豚逐只飞入，每只 +5000 并飘字
-   *  stars 34帧/颗：三星依次弹出（节奏放缓），弹出音 + 轻震动
-   */
-  updateWinAnim() {
-    const a = this.winAnim;
-    if (!a || a.phase === 'done') return;
-    a.timer++;
-
-    if (a.phase === 'count') {
-      const p = Math.min(1, a.timer / 45);
-      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
-      a.displayedScore = Math.floor(a.baseScore * eased);
-      if (p >= 1) {
-        a.phase = a.birdsTotal > 0 ? 'birds' : 'stars';
-        a.timer = 0;
-      }
-    } else if (a.phase === 'birds') {
-      if (a.timer >= 32) {
-        a.timer = 0;
-        a.birdsShown++;
-        a.displayedScore += 5000;
-        AUDIO.play('pop');
-        this.addFloatingText(C.SCREEN_WIDTH / 2 + 60, C.SCREEN_HEIGHT / 2 - 30, '+5000', C.COLORS.starGold, 18);
-        if (a.birdsShown >= a.birdsTotal) {
-          a.phase = 'stars';
-          a.timer = 0;
-        }
-      }
-    } else if (a.phase === 'stars') {
-      if (a.timer >= 34) {
-        a.timer = 0;
-        if (a.starsShown < this.stars) {
-          a.starsShown++;
-          a.starPop = 0;
-          AUDIO.play('ding');
-          this.vibrate('light');
-        } else {
-          a.phase = 'done';
-        }
-      }
-    }
-
-    // 最新一颗星的弹出进度（drawWinScreen 据此做回弹缩放）
-    if (a.starPop < 1) a.starPop = Math.min(1, a.starPop + 1 / 18);
-  }
-
-  /** 跳过结算动画：立即呈现最终态（动画期间首次点击仅跳过，不触发按钮） */
-  skipWinAnim() {
-    const a = this.winAnim;
-    if (!a || a.phase === 'done') return;
-    a.phase = 'done';
-    a.displayedScore = this.score;
-    a.birdsShown = a.birdsTotal;
-    a.starsShown = this.stars;
-    a.starPop = 1;
-  }
-
-  checkWinLose() {
-    const alivePigs = this.pigs.filter(p => p.alive && !p.dying);
-
-    if (alivePigs.length === 0) {
-      // 胜利
-      this.state = 'WIN';
-      this.buttons = {};
-      // 剩余小鸟奖励
-      const bonus = this.birdsRemaining * 5000;
-      if (bonus > 0) {
-        this.score += bonus;
-      }
-      // 计算星级
-      this.computeStars();
-
-      // 结算仪式感动画：击杀分滚动累计 → 剩豚逐只飞入加分 → 三星依次弹出。
-      // 数据已定稿（存档/分享/双倍均用最终值），这里只是显示层的表演进度。
-      this.winAnim = {
-        phase: 'count',              // count → birds → stars → done
-        timer: 0,
-        baseScore: this.score - bonus, // 击杀得分（滚动目标值）
-        displayedScore: 0,           // 当前显示分
-        birdsTotal: this.birdsRemaining,
-        birdsShown: 0,               // 已飞入加分的鸟数
-        starsShown: 0,               // 已弹出的星数
-        starPop: 1,                  // 当前星的弹出动画进度 0→1
-      };
-
-      // 解锁下一关（每日挑战/珍珠关不涉及战役解锁）
-      if (!this.isDaily && !this.isBonus &&
-          this.currentLevelIndex + 1 >= this.progress.unlockedLevels &&
-          this.currentLevelIndex + 1 < this.levels.length) {
-        this.progress.unlockedLevels = this.currentLevelIndex + 2;
-      }
-      // 保存最佳星级与最高分并上传排行榜
-      this.saveWinProgress();
-
-      AUDIO.play('win');
-      this.vibrate('medium');
-    } else if (this.birdsRemaining <= 0) {
-      // 失败（记录卡关次数，>=2 次时结算页出现"弹道全显"广告点位；每日/珍珠关单独计）
-      const failKey = this.isDaily ? 'daily' : this.isBonus ? 'bonus' : this.currentLevelIndex;
-      this.failCounts[failKey] = (this.failCounts[failKey] || 0) + 1;
-      this.state = 'LOSE';
-      this.buttons = {};
-      AUDIO.play('lose');
-      this.vibrate('long');
-    } else {
-      // 继续 - 加载下一只鸟
-      this.spawnBird();
-      this.state = 'READY';
-    }
-  }
+  // 结算与激励视频实现在 settle.js（此处为薄委托，保持对外方法签名不变）
+  computeStars() { SETTLE.computeStars(this); }
+  saveWinProgress() { SETTLE.saveWinProgress(this); }
+  watchAdRevive() { SETTLE.watchAdRevive(this); }
+  watchAdDoubleScore() { SETTLE.watchAdDoubleScore(this); }
+  watchAdTrajectoryBoost() { SETTLE.watchAdTrajectoryBoost(this); }
+  updateWinAnim() { SETTLE.updateWinAnim(this); }
+  skipWinAnim() { SETTLE.skipWinAnim(this); }
+  checkWinLose() { SETTLE.checkWinLose(this); }
 
   // ==================== 粒子系统 ====================
 
