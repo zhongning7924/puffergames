@@ -242,13 +242,15 @@ function drawUI(game) {
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText('得分: ' + game.score, 13, 21);
 
-  // 关卡名
+  // 关卡名（带风味名时合并显示，字号收窄避免与左侧得分重叠）
   const level = game.getCurrentLevel();
+  const levelLabel = level.flavor ? `${level.name}·${level.flavor}` : level.name;
+  ctx.font = level.flavor ? 'bold 15px Arial' : 'bold 18px Arial';
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.fillText(level.name, C.SCREEN_WIDTH / 2 + 1, 22);
+  ctx.fillText(levelLabel, C.SCREEN_WIDTH / 2 + 1, 22);
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(level.name, C.SCREEN_WIDTH / 2, 21);
+  ctx.fillText(levelLabel, C.SCREEN_WIDTH / 2, 21);
 
   // 剩余小鸟图标（按候飞队列实际鸟种着色，最右为下一只上场）
   const birdIconX = C.SCREEN_WIDTH - 14;

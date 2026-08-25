@@ -125,6 +125,15 @@ test('难度修正数据：L8 双石镇 + 门槛 20000；L9 弹道 30 + 门槛 2
   assert.strictEqual(game.levels[8].stars[2], 23000);
 });
 
+test('风味名：全部 10 关均有 flavor 字段（HUD 合并显示）', () => {
+  fresh();
+  game.levels.forEach((lv, i) => {
+    assert.ok(typeof lv.flavor === 'string' && lv.flavor.length >= 2,
+      `L${i + 1} 缺少 flavor`);
+  });
+  assert.strictEqual(game.levels[4].flavor, '珊瑚要塞');
+});
+
 // =====================================================================
 // 3. 弹道残影（P0）
 // =====================================================================

@@ -25,6 +25,7 @@ function getLevels() {
     // ====== 第1关：教程 - 地面上的猪 ======
     {
       name: '第 1 关',
+      flavor: '晨滩初醒',   // 风味名（HUD 与关卡主题）
       birds: ['normal', 'normal', 'normal'],
       trajectory: 70,
       stars: [2000, 4000, 6000],
@@ -40,6 +41,7 @@ function getLevels() {
     // ====== 第2关：简单木屋 ======
     {
       name: '第 2 关',
+      flavor: '孤屿木屋',   // 风味名（HUD 与关卡主题）
       hint: '新技能：梭梭空中点击极速冲刺！', // 首次进入显示技能教学
       birds: ['normal', 'dash', 'normal'],
       trajectory: 60,
@@ -64,6 +66,7 @@ function getLevels() {
     // ====== 第3关：石塔 ======
     {
       name: '第 3 关',
+      flavor: '石塔守望',   // 风味名（HUD 与关卡主题）
       hint: '新技能：砰砰空中点击范围爆炸！', // 首次进入显示技能教学
       birds: ['normal', 'normal', 'bomb', 'normal'],
       trajectory: 50,
@@ -94,6 +97,7 @@ function getLevels() {
     // ====== 第4关：混合堡垒 ======
     {
       name: '第 4 关',
+      flavor: '礁堡迷阵',   // 风味名（HUD 与关卡主题）
       birds: ['dash', 'normal', 'bomb', 'normal'],
       trajectory: 45,
       stars: [5000, 10000, 15000],
@@ -124,6 +128,7 @@ function getLevels() {
     // ====== 第5关：珊瑚要塞 ======
     {
       name: '第 5 关',
+      flavor: '珊瑚要塞',   // 风味名（HUD 与关卡主题）
       birds: ['normal', 'dash', 'bomb', 'normal', 'normal'],
       trajectory: 40,
       stars: [6000, 12000, 20000],
@@ -162,6 +167,7 @@ function getLevels() {
     // ====== 第6关：双子塔 ======
     {
       name: '第 6 关',
+      flavor: '双子灯塔',   // 风味名（HUD 与关卡主题）
       birds: ['dash', 'normal', 'bomb', 'normal', 'normal'],
       trajectory: 35,
       stars: [7000, 13000, 19000],
@@ -194,6 +200,7 @@ function getLevels() {
     // ====== 第7关：阶梯塔 ======
     {
       name: '第 7 关',
+      flavor: '潮阶塔林',   // 风味名（HUD 与关卡主题）
       hint: '新技能：三丸子空中点击一分为三！', // 首次进入显示技能教学
       birds: ['normal', 'split', 'dash', 'bomb', 'normal'],
       trajectory: 30,
@@ -228,6 +235,7 @@ function getLevels() {
     // ====== 第8关：冰晶宫（全冰，脆） ======
     {
       name: '第 8 关',
+      flavor: '冰晶宫殿',   // 风味名（HUD 与关卡主题）
       birds: ['split', 'split', 'dash', 'normal', 'normal'],
       trajectory: 28,
       stars: [9000, 15000, 20000],
@@ -257,6 +265,7 @@ function getLevels() {
     // ====== 第9关：钢铁方阵（全石，硬） ======
     {
       name: '第 9 关',
+      flavor: '钢铁方阵',   // 风味名（HUD 与关卡主题）
       birds: ['bomb', 'bomb', 'normal', 'dash', 'normal', 'normal'],
       trajectory: 30,
       stars: [10000, 17000, 23000],
@@ -289,6 +298,7 @@ function getLevels() {
     // ====== 第10关：终极要塞（综合） ======
     {
       name: '第 10 关',
+      flavor: '深渊王座',   // 风味名（HUD 与关卡主题）
       birds: ['normal', 'dash', 'bomb', 'split', 'bomb', 'normal'],
       trajectory: 22,
       stars: [12000, 20000, 30000],
