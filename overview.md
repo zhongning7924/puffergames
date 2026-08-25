@@ -16,16 +16,27 @@ angry-birds/
 ├── build-preview.js     # 浏览器预览打包器（CommonJS -> IIFE）
 ├── verify-preview.js    # 浏览器预览端到端验证脚本
 ├── tools/
-│   └── gen-sounds.js    # 音效合成器：程序化生成 WAV（零依赖/零版权素材）
+│   ├── gen-sounds.js    # 音效合成器：程序化生成 WAV（零依赖/零版权素材）
+│   ├── validate-levels.js # 关卡静态校验（几何/越界/珍珠可达 + 难度指标；含生成关卡）
+│   ├── e2e-tests.js     # 端到端行为测试（18 组断言，mock 环境驱动真实单例）
+│   └── test-harness.js  # 测试环境（虚拟时钟 60Hz / 触摸 / 激励视频 mock）
 ├── sounds/              # 生成的音效文件（launch/hit/pop/break/win/lose/tap）
 └── src/
     ├── config.js        # 全局配置：屏幕尺寸、物理常量、颜色
     ├── utils.js         # 数学工具：向量运算、碰撞检测
     ├── entities.js      # 游戏实体：河豚、章鱼怪、方块、粒子、按钮、云朵、珍珠绘制
-    ├── levels.js        # 10 个递进难度关卡数据（含 6 颗隐藏珍珠坐标）
+    ├── levels.js        # 10 个递进难度关卡数据（风味名 + 6 颗隐藏珍珠坐标）
     ├── pearls.js        # 珍珠收集系统：隐藏珍珠定义、章节奖励、珍珠关生成
+    ├── level-flow.js    # 关卡流程：装载/生成/候飞队列（3×2 站位网格）
+    ├── settle.js        # 结算：胜负判定、进度存档、结算动画、激励视频点位
+    ├── combat.js        # 战斗事件：技能/爆炸/击杀/摧毁/珍珠拾取
+    ├── effects.js       # 特效：粒子/飘字/震屏/撞击音效（对象池）
+    ├── input.js         # 输入：触摸分发（按下选中/抬起重放/瞄准拖拽）
+    ├── physics.js       # 物理：碰撞检测与响应
+    ├── renderer.js      # 世界内绘制：背景/弹弓/弹道残影/HUD
+    ├── screens.js       # 全屏界面：菜单/章节化选关/排行榜/胜负结算
     ├── audio.js         # 音效管理器（封装 wx.createInnerAudioContext）
-    └── game.js          # 主控制器：状态机、物理引擎、渲染、输入、音效接入
+    └── game.js          # 主控制器：状态机骨架、存档、主循环、渲染编排（≤800 行）
 └── preview/             # 浏览器本地预览（零安装）
     ├── index.html       # wx API 适配层 + 画布，双击即玩
     └── bundle.js        # 打包后的浏览器 IIFE（由 build-preview.js 生成）
@@ -101,3 +112,14 @@ MENU → LEVEL_SELECT → READY → AIMING → FLYING → SETTLING → WIN/LOSE
 
 ## 打包器修复记录
 - `build-preview.js` 的 `files` 清单曾漏掉 `src/audio.js`（音效模块），导致浏览器预览包运行时报 `registry["src/audio.js"] is not a function`。已补入，预览包恢复可用。
+
+## 迭代 T1：架构健康 + 章节化（已完成）
+**回归门**：任何源码改动后依次跑 `node tools/validate-levels.js` → `node tools/e2e-tests.js` → `node build-preview.js && node verify-preview.js`，全绿才算完成。
+
+1. **测试固化**：validate-levels（几何/越界/珍珠可达/难度指标，覆盖手工 + 生成关卡）、e2e-tests（18 组行为断言）、test-harness（虚拟时钟 mock）。上线即抓到两处历史数据缺陷（L5 猪 A 沉地 2px、L9 两猪互叠 1px，经 remix 传导至珍珠关），已修复。
+2. **game.js 拆分**（1527 → 689 行，纯搬移 + 薄委托）：level-flow（关卡流程）/ settle（结算与广告）/ combat（战斗事件）/ effects（特效）/ input（输入分发）。physics/renderer/screens 零改动。
+3. **章节化**：选关页按「新手湾(1-3) / 珊瑚海(4-7) / 深渊要塞(8-10)」分组 + 章节星数进度；线性解锁规则不变（章节仅为展示分组）。
+4. **HUD 风味名**：10 关 flavor 字段（晨滩初醒/孤屿木屋/石塔守望/礁堡迷阵/珊瑚要塞/双子灯塔/潮阶塔林/冰晶宫殿/钢铁方阵/深渊王座），HUD 显示「第 N 关·风味名」。
+5. **L7 教学补强**：中柱顶冰帽 34→54 宽——本关首只即三丸子（分裂对冰 2 倍克制），宽冰帽让解法在关卡结构里自解释。
+
+**遗留**：entities.js 1079 行超 800 上限（未拆，历史文件），留待后续迭代按同样模式拆分。
