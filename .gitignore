@@ -1,0 +1,5 @@
+# 系统文件
+.DS_Store
+
+# 生成物（由 build-preview.js 生成，不入库）
+preview/bundle.js

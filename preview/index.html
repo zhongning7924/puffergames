@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>冲吧！小河豚 - 本地预览</title>
+<style>
+  html, body {
+    margin: 0; height: 100%;
+    background: #1b1b2f;
+    display: flex; align-items: center; justify-content: center;
+    font-family: Arial, "PingFang SC", sans-serif;
+    overflow: hidden;
+  }
+  #wrap { position: relative; }
+  #game {
+    background: #87CEEB;
+    display: block;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.45);
+    touch-action: none;
+  }
+  #hint {
+    position: absolute; bottom: 10px; left: 0; right: 0;
+    text-align: center; color: #fff; font-size: 12px; opacity: .75;
+    pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.5);
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+  <div id="hint">浏览器本地预览版 · 拖动河豚瞄准发射</div>
+</div>
+
+<script>
+/**
+ * 浏览器版 wx API 适配层
+ * 把微信小游戏的 wx.* 调用映射到标准 HTML5 Canvas / DOM，
+ * 并把鼠标/触摸事件转换成微信 touch 事件格式。
+ */
+(function () {
+  const SCREEN_W = 375, SCREEN_H = 667;
+  const dpr = window.devicePixelRatio || 1;
+  const canvas = document.getElementById('game');
+  canvas.style.width = SCREEN_W + 'px';
+  canvas.style.height = SCREEN_H + 'px';
+  canvas.width = Math.round(SCREEN_W * dpr);
+  canvas.height = Math.round(SCREEN_H * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const touchHandlers = {};
+  function bind(type, wxType) {
+    canvas.addEventListener(type, function (e) {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      let cx, cy;
+      if (type === 'touchend' || type === 'touchcancel') {
+        const t = (e.changedTouches && e.changedTouches[0]);
+        cx = t ? t.clientX : 0; cy = t ? t.clientY : 0;
+      } else {
+        const t = (e.touches && e.touches[0]) || e;
+        cx = t.clientX; cy = t.clientY;
+      }
+      const x = cx - rect.left, y = cy - rect.top;
+      const tobj = { clientX: x, clientY: y, identifier: 0 };
+      const evt = {
+        touches: (type === 'touchend' || type === 'touchcancel') ? [] : [tobj],
+        changedTouches: [tobj],
+      };
+      if (touchHandlers[wxType]) touchHandlers[wxType](evt);
+    }, { passive: false });
+  }
+  bind('mousedown', 'touchstart');
+  bind('mousemove', 'touchmove');
+  bind('mouseup', 'touchend');
+  bind('touchstart', 'touchstart');
+  bind('touchmove', 'touchmove');
+  bind('touchend', 'touchend');
+  bind('touchcancel', 'touchcancel');
+
+  // 微信语义：createCanvas 首次返回上屏画布，之后返回离屏画布
+  var mainCanvasUsed = false;
+  window.wx = {
+    createCanvas: function () {
+      if (!mainCanvasUsed) { mainCanvasUsed = true; return canvas; }
+      return document.createElement('canvas');
+    },
+    getSystemInfoSync: function () {
+      return {
+        screenWidth: SCREEN_W, screenHeight: SCREEN_H, devicePixelRatio: dpr,
+        windowWidth: SCREEN_W, windowHeight: SCREEN_H, statusBarHeight: 0,
+        safeArea: { top: 0, bottom: SCREEN_H, left: 0, right: SCREEN_W },
+      };
+    },
+    getStorageSync: function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+    setStorageSync: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+    vibrateShort: function () { if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) {} } },
+    vibrateLong: function () { if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} } },
+    onTouchStart: function (cb) { touchHandlers.touchstart = cb; },
+    onTouchMove: function (cb) { touchHandlers.touchmove = cb; },
+    onTouchEnd: function (cb) { touchHandlers.touchend = cb; },
+    onTouchCancel: function (cb) { touchHandlers.touchcancel = cb; },
+  };
+  // 浏览器原生 requestAnimationFrame / cancelAnimationFrame 已存在，无需覆盖
+})();
+</script>
+<script src="bundle.js"></script>
+</body>
+</html>
