@@ -132,7 +132,7 @@ function getLevels() {
         { x: STRUCT_BASE_X - 5, y: GROUND_Y - 18, radius: 18 },
         { x: STRUCT_BASE_X + 25, y: GROUND_Y - 80, radius: 18 },
         // 右侧结构
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 18, radius: 20 },
+        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 20, radius: 20 },
         { x: STRUCT_BASE_X + 95, y: GROUND_Y - 100, radius: 18 },
         // 顶部
         { x: STRUCT_BASE_X + 55, y: GROUND_Y - 170, radius: 16 },
@@ -262,9 +262,9 @@ function getLevels() {
       stars: [10000, 17000, 23000],
       pigs: [
         // 宫内左地面
-        { x: STRUCT_BASE_X + 44, y: GROUND_Y - 16, radius: 16 },
+        { x: STRUCT_BASE_X + 43, y: GROUND_Y - 16, radius: 16 },
         // 宫内右地面
-        { x: STRUCT_BASE_X + 75, y: GROUND_Y - 16, radius: 16 },
+        { x: STRUCT_BASE_X + 77, y: GROUND_Y - 16, radius: 16 },
         // 屋顶猪 1
         { x: STRUCT_BASE_X + 40, y: GROUND_Y - 100 - 24 - 18, radius: 16 },
         // 屋顶猪 2
