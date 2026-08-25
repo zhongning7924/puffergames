@@ -220,10 +220,11 @@ function getLevels() {
         { x: STRUCT_BASE_X + 0, y: GROUND_Y - 120, width: 30, height: 120, type: 'stone' },
         { x: STRUCT_BASE_X + 0, y: GROUND_Y - 120 - 70, width: 30, height: 70, type: 'wood' },
         { x: STRUCT_BASE_X - 2, y: GROUND_Y - 120 - 70 - 26, width: 34, height: 26, type: 'ice' },
-        // 中柱（木+石+冰）
+        // 中柱（木+石+冰）——柱顶冰帽加宽：本关首只即三丸子（分裂对冰 2 倍克制），
+        // 宽冰帽让"分裂→破冰"的解法在关卡结构里自解释，技能教学即关卡本身
         { x: STRUCT_BASE_X + 45, y: GROUND_Y - 90, width: 30, height: 90, type: 'wood' },
         { x: STRUCT_BASE_X + 45, y: GROUND_Y - 90 - 60, width: 30, height: 60, type: 'stone' },
-        { x: STRUCT_BASE_X + 43, y: GROUND_Y - 90 - 60 - 24, width: 34, height: 24, type: 'ice' },
+        { x: STRUCT_BASE_X + 33, y: GROUND_Y - 90 - 60 - 24, width: 54, height: 24, type: 'ice' },
         // 右柱（木+冰）
         { x: STRUCT_BASE_X + 95, y: GROUND_Y - 60, width: 30, height: 60, type: 'wood' },
         { x: STRUCT_BASE_X + 93, y: GROUND_Y - 60 - 24, width: 34, height: 24, type: 'ice' },

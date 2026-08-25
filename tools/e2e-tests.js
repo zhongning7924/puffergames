@@ -125,6 +125,13 @@ test('难度修正数据：L8 双石镇 + 门槛 20000；L9 弹道 30 + 门槛 2
   assert.strictEqual(game.levels[8].stars[2], 23000);
 });
 
+test('L7 教学补强：中柱顶冰帽加宽（分裂→破冰克制自解释）', () => {
+  fresh();
+  const ice = game.levels[6].blocks.filter(b => b.type === 'ice');
+  assert.strictEqual(ice.length, 3, 'L7 三根柱顶各一冰帽');
+  assert.strictEqual(Math.max(...ice.map(b => b.width)), 54, '中柱冰帽应为 54 宽');
+});
+
 test('风味名：全部 10 关均有 flavor 字段（HUD 合并显示）', () => {
   fresh();
   game.levels.forEach((lv, i) => {
