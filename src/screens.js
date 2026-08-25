@@ -12,6 +12,7 @@ const U = require('./utils.js');
 const E = require('./entities.js');
 const AD = require('./ad.js');
 const DAILY = require('./daily.js');
+const PEARLS = require('./pearls.js');
 
 function drawMenu(game) {
   const ctx = game.ctx;
@@ -123,6 +124,17 @@ function drawMenu(game) {
     ctx.font = 'bold 16px Arial';
     ctx.fillStyle = C.COLORS.starGold;
     ctx.fillText('★ x ' + totalStars, cx, C.SCREEN_HEIGHT * 0.5 + 202);
+  }
+
+  // 珍珠收集进度（隐藏收集系统；收集到第一颗后才显示，保持发现感）
+  const pearlCount = PEARLS.totalCollected(game.progress);
+  if (pearlCount > 0) {
+    const pearlY = C.SCREEN_HEIGHT * 0.5 + 226;
+    E.drawPearl(ctx, cx - 36, pearlY, 7, game.frameCount);
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#E1F5FE';
+    ctx.fillText(pearlCount + ' / ' + PEARLS.TOTAL, cx + 8, pearlY + 1);
   }
 }
 
@@ -262,23 +274,32 @@ function drawLevelSelect(game) {
     }
   }
 
-  // 每日挑战入口（关卡网格下方）
+  // 每日挑战入口（关卡网格下方；按钮文本随今日成绩刷新）
   const rows = Math.ceil(game.levels.length / cols);
   const dailyW = 200;
-  const dailyH = 44;
+  const dailyH = 40;
   const dailyY = startY + rows * (btnSize + gap) + 12;
   if (!game.buttons.daily) {
     game.buttons.daily = new E.Button(cx - dailyW / 2, dailyY, dailyW, dailyH, '每日挑战', '#7E57C2');
   }
+  const todayBest = game.progress.daily && game.progress.daily.date === DAILY.todayString()
+    ? game.progress.daily.best : null;
+  game.buttons.daily.text = todayBest !== null
+    ? '每日挑战 · 今日最佳 ' + todayBest
+    : '每日挑战';
   game.buttons.daily.draw(ctx);
 
-  // 今日最佳成绩
-  const today = DAILY.todayString();
-  if (game.progress.daily && game.progress.daily.date === today) {
-    ctx.font = '13px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.fillText('今日最佳: ' + game.progress.daily.best, cx, dailyY + dailyH + 16);
+  // 珍珠关入口（收集到珍珠后出现；轮换进入已解锁的珍珠关）
+  const pearlCount = PEARLS.totalCollected(game.progress);
+  if (pearlCount > 0) {
+    const bonusY = dailyY + dailyH + 10;
+    if (!game.buttons.bonus) {
+      game.buttons.bonus = new E.Button(cx - dailyW / 2, bonusY, dailyW, 36, '', '#0288D1');
+    }
+    game.buttons.bonus.text = '珍珠关 · 已收集 ' + pearlCount + ' / ' + PEARLS.TOTAL;
+    game.buttons.bonus.draw(ctx);
+  } else {
+    delete game.buttons.bonus;
   }
 
   // 返回按钮
@@ -314,7 +335,14 @@ function drawWinScreen(game) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#4CAF50';
-  ctx.fillText(game.isDaily ? '每日挑战完成！' : '通关！', cx, panelY + 45);
+  ctx.fillText(game.isDaily ? '每日挑战完成！' : game.isBonus ? '珍珠关完成！' : '通关！', cx, panelY + 45);
+
+  // 章节珍珠解锁提示（本章全三星时）
+  if (game.newPearlAwarded) {
+    ctx.font = 'bold 14px Arial';
+    ctx.fillStyle = '#4FC3F7';
+    ctx.fillText('珍珠解锁：' + game.newPearlAwarded, cx, panelY + 76);
+  }
 
   // 结算仪式感动画状态（兜底：无动画对象时直接呈现最终态）
   const anim = game.winAnim || {
@@ -424,8 +452,8 @@ function drawWinScreen(game) {
   // 按钮（仅创建一次，避免每帧重建丢失按下状态）
   const btnH = 38;
   const btnY = panelY + panelH - 60;
-  // 每日挑战没有"下一关"（nextLevel 会回选关页，这里直接不显示该按钮）
-  const isLastLevel = game.isDaily || game.currentLevelIndex >= game.levels.length - 1;
+  // 每日挑战/珍珠关没有"下一关"（nextLevel 会回选关页，这里直接不显示该按钮）
+  const isLastLevel = game.isDaily || game.isBonus || game.currentLevelIndex >= game.levels.length - 1;
 
   if (!isLastLevel) {
     if (!game.buttons.next) {

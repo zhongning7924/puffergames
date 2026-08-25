@@ -174,6 +174,27 @@ function drawSlingshotFront(game) {
   ctx.stroke();
 }
 
+/** 上一发完整弹道残影（原版同款学习工具：发射下一只前保留白点轨迹，便于修正瞄准） */
+function drawLastTrail(game) {
+  if (!game.lastTrail || game.lastTrail.length === 0) return;
+  const ctx = game.ctx;
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  for (let i = 0; i < game.lastTrail.length; i += 2) {
+    const p = game.lastTrail[i];
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** 场景珍珠（只画未拾取的；已入库的不再出现，保持隐藏探索的一次性） */
+function drawPearls(game) {
+  const ctx = game.ctx;
+  for (const p of game.pearls) {
+    if (!p.collected) E.drawPearl(ctx, p.x, p.y, 9, game.frameCount);
+  }
+}
+
 function drawTrajectory(game) {
   if (!game.currentBird) return;
   const ctx = game.ctx;
@@ -288,9 +309,11 @@ function drawUI(game) {
 module.exports = {
   initBackgroundCache,
   drawBackground,
+  drawLastTrail,
   drawWaitingBirds,
   drawSlingshotBack,
   drawSlingshotFront,
+  drawPearls,
   drawTrajectory,
   drawUI,
 };

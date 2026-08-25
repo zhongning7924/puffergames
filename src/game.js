@@ -34,6 +34,7 @@ const AUDIO = require('./audio.js');
 const SOCIAL = require('./social.js');
 const AD = require('./ad.js');
 const DAILY = require('./daily.js');
+const PEARLS = require('./pearls.js');
 const PHYSICS = require('./physics.js');
 const RENDERER = require('./renderer.js');
 const SCREENS = require('./screens.js');
@@ -131,6 +132,18 @@ class Game {
 
     // 胜利结算仪式感动画（数据在 checkWinLose 立即定稿，此状态只驱动显示层）
     this.winAnim = null;
+
+    // 珍珠收集系统（对标原版金蛋）
+    this.pearls = [];            // 本关场景珍珠（collected = 已拾取/已入库）
+    this.isBonus = false;        // 当前是否在进行珍珠关
+    this.bonusLevel = null;      // 珍珠关数据（珍珠 ID 种子确定性生成）
+    this.bonusMeta = null;       // 当前珍珠关对应的珍珠 meta
+    this.newPearlAwarded = null; // 本次结算新解锁的章节珍珠（结算页展示用）
+    this.lastMascotTapTime = 0;  // 主菜单吉祥物双击计时（隐藏珍珠彩蛋）
+    this.bonusCursor = -1;       // 珍珠关轮换游标
+
+    // 上一发完整弹道（ghost trail：发射下一只前保留，供瞄准修正）
+    this.lastTrail = null;       // null = 无记录；[] = 正在记录本发
   }
 
   initClouds() {
@@ -157,6 +170,7 @@ class Game {
     if (!this.progress.bestScores) this.progress.bestScores = {};
     if (!this.progress.stars) this.progress.stars = {};
     if (!this.progress.hintShown) this.progress.hintShown = {}; // 已看过的技能教学关卡
+    if (!this.progress.pearls) this.progress.pearls = {};       // 已收集的隐藏珍珠
   }
 
   saveProgress() {
@@ -247,9 +261,11 @@ class Game {
 
   // ==================== 关卡管理 ====================
 
-  /** 当前进行中的关卡数据（每日挑战时为当日生成关卡） */
+  /** 当前进行中的关卡数据（每日挑战/珍珠关时为对应生成关卡） */
   getCurrentLevel() {
-    return this.isDaily ? this.dailyLevel : this.levels[this.currentLevelIndex];
+    if (this.isDaily) return this.dailyLevel;
+    if (this.isBonus) return this.bonusLevel;
+    return this.levels[this.currentLevelIndex];
   }
 
   loadLevel(index) {
@@ -257,6 +273,9 @@ class Game {
     if (!level) return;
     this.isDaily = false;
     this.dailyLevel = null;
+    this.isBonus = false;
+    this.bonusLevel = null;
+    this.bonusMeta = null;
     this.currentLevelIndex = index;
     this.setupLevel(level);
   }
@@ -264,9 +283,31 @@ class Game {
   /** 开始每日挑战：以当天日期为种子生成限定关卡（全体玩家同题） */
   startDaily() {
     this.isDaily = true;
+    this.isBonus = false;
+    this.bonusLevel = null;
+    this.bonusMeta = null;
     this.currentLevelIndex = -1;
     this.dailyLevel = DAILY.generateLevel(DAILY.todayString(), this.levels);
     this.setupLevel(this.dailyLevel);
+  }
+
+  /** 进入下一个已解锁珍珠关（在解锁池中轮换） */
+  startNextBonus() {
+    const unlocked = PEARLS.unlockedMetas(this.progress);
+    if (unlocked.length === 0) return;
+    this.bonusCursor = (this.bonusCursor + 1) % unlocked.length;
+    this.startBonus(unlocked[this.bonusCursor]);
+  }
+
+  /** 开始指定珍珠关（种子=珍珠 ID，确定性生成，重开内容一致） */
+  startBonus(meta) {
+    this.isDaily = false;
+    this.dailyLevel = null;
+    this.isBonus = true;
+    this.bonusMeta = meta;
+    this.currentLevelIndex = -1;
+    this.bonusLevel = PEARLS.generateBonusLevel(meta, this.levels);
+    this.setupLevel(this.bonusLevel);
   }
 
   setupLevel(level) {
@@ -299,6 +340,12 @@ class Game {
     this.reviveUsed = false;
     this.adDoubleUsed = false;
     this.trajectoryBoost = false;
+    this.lastTrail = null;
+    this.newPearlAwarded = null;
+
+    // 场景珍珠（已入库的不再出现，保持"找隐藏"的一次性惊喜）
+    this.pearls = (level.pearls || [])
+      .map(p => ({ ...p, collected: !!this.progress.pearls[p.id] }));
 
     // 生成猪
     this.pigs = level.pigs.map(p => new E.Pig(p.x, p.y, p.radius));
@@ -372,8 +419,8 @@ class Game {
   }
 
   nextLevel() {
-    if (this.isDaily) {
-      // 每日挑战无"下一关"，回到选关页
+    if (this.isDaily || this.isBonus) {
+      // 每日挑战/珍珠关无"下一关"，回到选关页
       this.goToLevelSelect();
     } else if (this.currentLevelIndex < this.levels.length - 1) {
       this.loadLevel(this.currentLevelIndex + 1);
@@ -385,6 +432,8 @@ class Game {
   retryLevel() {
     if (this.isDaily) {
       this.startDaily(); // 重新生成当日关卡（同种子，内容一致）
+    } else if (this.isBonus) {
+      this.startBonus(this.bonusMeta); // 同种子确定性重开
     } else {
       this.loadLevel(this.currentLevelIndex);
     }
@@ -420,6 +469,22 @@ class Game {
 
     switch (this.state) {
       case 'MENU':
+        // 隐藏珍珠彩蛋：快速双击主菜单吉祥物（河豚）收集"彩蛋珍珠"
+        const mascotX = C.SCREEN_WIDTH / 2;
+        const mascotY = C.SCREEN_HEIGHT * 0.3 - 42;
+        if (U.distance(x, y, mascotX, mascotY) < 32 && !this.progress.pearls.ui) {
+          const now = Date.now();
+          if (now - this.lastMascotTapTime < 500) {
+            this.progress.pearls = { ...this.progress.pearls, ui: true };
+            this.saveProgress();
+            this.addFloatingText(mascotX, mascotY - 45, '发现隐藏珍珠！', '#E1F5FE', 18);
+            AUDIO.play('ding');
+            this.vibrate('light');
+            this.lastMascotTapTime = 0;
+          } else {
+            this.lastMascotTapTime = now;
+          }
+        }
         if (this.buttons.play && this.buttons.play.contains(x, y)) {
           this.buttons.play.pressed = true;
           AUDIO.play('tap');
@@ -464,6 +529,10 @@ class Game {
         }
         if (this.buttons.daily && this.buttons.daily.contains(x, y)) {
           this.buttons.daily.pressed = true;
+          AUDIO.play('tap');
+        }
+        if (this.buttons.bonus && this.buttons.bonus.contains(x, y)) {
+          this.buttons.bonus.pressed = true;
           AUDIO.play('tap');
         }
         if (this.buttons.back && this.buttons.back.contains(x, y)) {
@@ -610,6 +679,11 @@ class Game {
           this.startDaily();
           return;
         }
+        if (this.buttons.bonus && this.buttons.bonus.pressed) {
+          this.buttons.bonus.pressed = false;
+          this.startNextBonus();
+          return;
+        }
         for (let i = 0; i < this.levels.length; i++) {
           const btn = this.buttons['level' + i];
           if (btn && btn.pressed && i < this.progress.unlockedLevels) {
@@ -637,6 +711,7 @@ class Game {
             this.currentBird.launch(vx, vy);
             this.birdsRemaining--;
             this.state = 'FLYING';
+            this.lastTrail = []; // 开始记录本发完整弹道（上一发残影被替换）
             this.createLaunchParticles(this.currentBird.x, this.currentBird.y);
             this.combo = 0;
             AUDIO.play('launch');
@@ -806,6 +881,37 @@ class Game {
     this.vibrate('medium');
   }
 
+  /** 飞行小鸟触碰场景珍珠 → 拾取入库 */
+  checkPearlCollection(bird) {
+    if (!bird) return;
+    for (const pearl of this.pearls) {
+      if (pearl.collected) continue;
+      if (U.distance(bird.x, bird.y, pearl.x, pearl.y) < bird.radius + 9) {
+        this.collectPearl(pearl);
+      }
+    }
+  }
+
+  /** 珍珠拾取结算（入库存档 + 珠光粒子 + 飘字提示） */
+  collectPearl(pearl) {
+    pearl.collected = true;
+    this.progress.pearls = { ...this.progress.pearls, [pearl.id]: true };
+    this.saveProgress();
+    this.addFloatingText(pearl.x, pearl.y - 22, '发现珍珠！', '#E1F5FE', 18);
+    for (let i = 0; i < 10; i++) {
+      const angle = U.random(0, Math.PI * 2);
+      const speed = U.random(1, 3.5);
+      this.spawnParticle(
+        pearl.x, pearl.y,
+        Math.cos(angle) * speed, Math.sin(angle) * speed - 1,
+        i % 2 === 0 ? '#E1F5FE' : '#F8BBD0',
+        U.randomInt(20, 35), U.random(2, 4)
+      );
+    }
+    AUDIO.play('ding');
+    this.vibrate('light');
+  }
+
   /** 方块被摧毁的统一结算（分数/特效/音效） */
   onBlockDestroyed(block) {
     this.score += 500;
@@ -909,6 +1015,13 @@ class Game {
   }
 
   updateFlying() {
+    // 记录本发完整弹道（ghost trail；仅记主鸟——分裂鸟路径近似，够用于瞄准修正）
+    if (this.currentBird && Array.isArray(this.lastTrail)) {
+      this.lastTrail.push({ x: this.currentBird.x, y: this.currentBird.y });
+    }
+    // 飞行途中触碰场景珍珠 → 拾取
+    this.checkPearlCollection(this.currentBird);
+
     // 更新主鸟（可能因爆炸已被移除）
     if (this.currentBird) {
       this.currentBird.update();
@@ -928,6 +1041,7 @@ class Game {
     for (let i = this.extraBirds.length - 1; i >= 0; i--) {
       const b = this.extraBirds[i];
       b.update();
+      this.checkPearlCollection(b);
       const exploded = PHYSICS.checkBirdCollisions(this, b);
       const speed = Math.sqrt(b.vx ** 2 + b.vy ** 2);
       if (exploded || b.isStill() || b.isOffScreen() ||
@@ -976,6 +1090,7 @@ class Game {
 
   /** 保存通关进度（星级/最高分）并上传排行榜成绩 */
   saveWinProgress() {
+    if (this.isBonus) return; // 珍珠关不计战役档（纯挑战内容）
     if (this.isDaily) {
       // 每日挑战：只记当日最佳分，不计入战役星级/排行榜总分
       const today = DAILY.todayString();
@@ -994,6 +1109,12 @@ class Game {
     const prevBest = this.progress.bestScores[this.currentLevelIndex] || 0;
     if (this.score > prevBest) {
       this.progress.bestScores[this.currentLevelIndex] = this.score;
+    }
+    // 章节全三星 → 奖励章节珍珠（结算页提示，珍珠关解锁池扩充）
+    const award = PEARLS.checkChapterAward(this.progress, this.currentLevelIndex);
+    if (award) {
+      this.progress.pearls = { ...this.progress.pearls, [award.id]: true };
+      this.newPearlAwarded = award.label;
     }
     this.saveProgress();
     this.uploadScore();
@@ -1125,8 +1246,8 @@ class Game {
         starPop: 1,                  // 当前星的弹出动画进度 0→1
       };
 
-      // 解锁下一关（每日挑战不涉及战役解锁）
-      if (!this.isDaily &&
+      // 解锁下一关（每日挑战/珍珠关不涉及战役解锁）
+      if (!this.isDaily && !this.isBonus &&
           this.currentLevelIndex + 1 >= this.progress.unlockedLevels &&
           this.currentLevelIndex + 1 < this.levels.length) {
         this.progress.unlockedLevels = this.currentLevelIndex + 2;
@@ -1137,8 +1258,8 @@ class Game {
       AUDIO.play('win');
       this.vibrate('medium');
     } else if (this.birdsRemaining <= 0) {
-      // 失败（记录卡关次数，>=2 次时结算页出现"弹道全显"广告点位；每日挑战单独计）
-      const failKey = this.isDaily ? 'daily' : this.currentLevelIndex;
+      // 失败（记录卡关次数，>=2 次时结算页出现"弹道全显"广告点位；每日/珍珠关单独计）
+      const failKey = this.isDaily ? 'daily' : this.isBonus ? 'bonus' : this.currentLevelIndex;
       this.failCounts[failKey] = (this.failCounts[failKey] || 0) + 1;
       this.state = 'LOSE';
       this.buttons = {};
@@ -1301,6 +1422,9 @@ class Game {
 
     RENDERER.drawBackground(this);
 
+    // 上一发弹道残影（垫在结构下层，作为瞄准参照）
+    RENDERER.drawLastTrail(this);
+
     // 绘制等待中的小鸟
     RENDERER.drawWaitingBirds(this);
 
@@ -1312,6 +1436,9 @@ class Game {
 
     // 猪
     for (const pig of this.pigs) pig.draw(ctx);
+
+    // 场景珍珠（未拾取的）
+    RENDERER.drawPearls(this);
 
     // 弹弓前部 + 橡皮筋
     RENDERER.drawSlingshotFront(this);

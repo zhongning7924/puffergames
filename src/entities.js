@@ -1016,6 +1016,56 @@ class Cloud {
   }
 }
 
+/**
+ * 珍珠绘制（隐藏收集系统；世界内拾取物与 UI 图标共用）。
+ * 白珠身 + 粉色珠光 + 旋转星芒，t 为帧计数（驱动星芒呼吸动画）。
+ */
+function drawPearl(ctx, x, y, r, t) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // 柔光晕
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 1.7, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(225, 245, 254, 0.22)';
+  ctx.fill();
+
+  // 珠身
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fillStyle = '#FDFFFE';
+  ctx.fill();
+  ctx.strokeStyle = '#81D4FA';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 粉色珠光（右下）
+  ctx.beginPath();
+  ctx.arc(r * 0.3, r * 0.3, r * 0.45, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(248, 187, 208, 0.5)';
+  ctx.fill();
+
+  // 高光（左上）
+  ctx.beginPath();
+  ctx.arc(-r * 0.35, -r * 0.35, r * 0.22, 0, Math.PI * 2);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fill();
+
+  // 旋转星芒（呼吸感）
+  const a = (t || 0) * 0.05;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    const ang = a + (i * Math.PI) / 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(ang) * r * 1.15, Math.sin(ang) * r * 1.15);
+    ctx.lineTo(Math.cos(ang) * r * 1.55, Math.sin(ang) * r * 1.55);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
 module.exports = {
   Bird,
   Pig,
@@ -1025,4 +1075,5 @@ module.exports = {
   Button,
   Cloud,
   drawBirdMini,
+  drawPearl,
 };

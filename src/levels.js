@@ -33,6 +33,8 @@ function getLevels() {
         { x: STRUCT_BASE_X + 90, y: GROUND_Y - 20, radius: 20 },
       ],
       blocks: [],
+      // 隐藏珍珠：高抛弧线顶点附近（教玩家"抬头看看"）
+      pearls: [{ id: 'lv0', x: STRUCT_BASE_X + 60, y: GROUND_Y - 320 }],
     },
 
     // ====== 第2关：简单木屋 ======
@@ -55,6 +57,8 @@ function getLevels() {
         // 顶梁
         { x: STRUCT_BASE_X + 10, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT, width: BLOCK_W_LONG + 18, height: BLOCK_H_SHORT, type: 'wood' },
       ],
+      // 隐藏珍珠：木屋后方（需翻越屋顶或反弹墙后的刁钻角度）
+      pearls: [{ id: 'lv1', x: STRUCT_BASE_X + 135, y: GROUND_Y - 30 }],
     },
 
     // ====== 第3关：石塔 ======
@@ -83,6 +87,8 @@ function getLevels() {
         // 顶层冰块
         { x: STRUCT_BASE_X + 35, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT - 60 - BLOCK_H_SHORT - 25, width: 54, height: 25, type: 'ice' },
       ],
+      // 隐藏珍珠：石塔正上方（高抛过顶才能碰到）
+      pearls: [{ id: 'lv2', x: STRUCT_BASE_X + 50, y: GROUND_Y - 260 }],
     },
 
     // ====== 第4关：混合堡垒 ======
@@ -149,6 +155,8 @@ function getLevels() {
         // === 装饰冰块 ===
         { x: STRUCT_BASE_X + 48, y: GROUND_Y - 160 - 35 - 20, width: 34, height: 20, type: 'ice' },
       ],
+      // 隐藏珍珠：冰桥下方、双塔之间（低平抽射角度）
+      pearls: [{ id: 'lv4', x: STRUCT_BASE_X + 20, y: GROUND_Y - 121 }],
     },
 
     // ====== 第6关：双子塔 ======
@@ -213,6 +221,8 @@ function getLevels() {
         { x: STRUCT_BASE_X + 95, y: GROUND_Y - 60, width: 30, height: 60, type: 'wood' },
         { x: STRUCT_BASE_X + 93, y: GROUND_Y - 60 - 24, width: 34, height: 24, type: 'ice' },
       ],
+      // 隐藏珍珠：画面右尽头、右柱上方（极限射程）
+      pearls: [{ id: 'lv6', x: STRUCT_BASE_X + 130, y: GROUND_Y - 120 }],
     },
 
     // ====== 第8关：冰晶宫（全冰，脆） ======
@@ -272,6 +282,8 @@ function getLevels() {
         // 爆裂果（阵前地面，引爆可清掉前排并震松石墙）
         { x: STRUCT_BASE_X - 75, y: GROUND_Y - 30, width: 30, height: 30, type: 'burst' },
       ],
+      // 隐藏珍珠：石檐正上方（越过檐上双猪的高点）
+      pearls: [{ id: 'lv8', x: STRUCT_BASE_X + 60, y: GROUND_Y - 170 }],
     },
 
     // ====== 第10关：终极要塞（综合） ======
