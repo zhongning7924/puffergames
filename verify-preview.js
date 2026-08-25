@@ -79,8 +79,8 @@ try {
   console.log('✓ 2. 点击「开始」-> 关卡选择 OK');
   pump(3);
 
-  fireWx('touchstart', 104.5, 182.5); // 第一关按钮中心
-  fireWx('touchend', 104.5, 182.5);
+  fireWx('touchstart', 111.5, 191); // 第一关按钮中心（章节化布局：新手湾首列）
+  fireWx('touchend', 111.5, 191);
   console.log('✓ 3. 选择第一关 -> READY OK');
   pump(3);
 

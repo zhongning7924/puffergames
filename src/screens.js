@@ -232,53 +232,65 @@ function drawLevelSelect(game) {
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText('选择关卡', cx, 90);
 
-  // 关卡按钮 (3列)
-  const btnSize = 65;
-  const gap = 18;
-  const cols = 3;
-  const startX = cx - ((cols * btnSize + (cols - 1) * gap) / 2) + btnSize / 2;
-  const startY = 150;
+  // 关卡按章节分组展示（新手湾/珊瑚海/深渊要塞；线性解锁规则不变，仅分组）
+  const btnSize = 62;
+  const gap = 14;
+  const headerY = 140;
+  const chapterGap = 110;
 
-  for (let i = 0; i < game.levels.length; i++) {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const x = startX + col * (btnSize + gap) - btnSize / 2;
-    const y = startY + row * (btnSize + gap);
-    const unlocked = i < game.progress.unlockedLevels;
-    const stars = game.progress.stars[i] || 0;
+  PEARLS.CHAPTERS.forEach((ch, ci) => {
+    const y0 = headerY + ci * chapterGap;
 
-    if (!game.buttons['level' + i]) {
-      game.buttons['level' + i] = new E.Button(x, y, btnSize, btnSize, String(i + 1),
-        unlocked ? C.COLORS.buttonBg : '#757575');
-    }
-    game.buttons['level' + i].draw(ctx);
+    // 章节标题 + 星数进度（★ n/满星）
+    let chStars = 0;
+    for (const i of ch.levels) chStars += game.progress.stars[i] || 0;
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText(ch.label + '   ★ ' + chStars + '/' + ch.levels.length * 3, cx, y0);
 
-    // 星级
-    if (unlocked && stars > 0) {
-      const starY = y + btnSize + 2;
-      for (let s = 0; s < 3; s++) {
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = s < stars ? C.COLORS.starGold : 'rgba(255,255,255,0.2)';
-        ctx.fillText('★', x + btnSize / 2 + (s - 1) * 14, starY);
+    // 本章节关卡按钮（章内一行排开：3 关/4 关/3 关）
+    const cols = ch.levels.length;
+    const startX = cx - (cols * btnSize + (cols - 1) * gap) / 2;
+    const btnY = y0 + 20;
+    ch.levels.forEach((i, col) => {
+      const x = startX + col * (btnSize + gap);
+      const unlocked = i < game.progress.unlockedLevels;
+      const stars = game.progress.stars[i] || 0;
+
+      if (!game.buttons['level' + i]) {
+        game.buttons['level' + i] = new E.Button(x, btnY, btnSize, btnSize, String(i + 1),
+          unlocked ? C.COLORS.buttonBg : '#757575');
       }
-    }
+      game.buttons['level' + i].draw(ctx);
 
-    // 锁图标
-    if (!unlocked) {
-      ctx.font = '20px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.fillText('🔒', x + btnSize / 2, y + btnSize / 2 + 2);
-    }
-  }
+      // 星级
+      if (unlocked && stars > 0) {
+        const starY = btnY + btnSize + 2;
+        for (let s = 0; s < 3; s++) {
+          ctx.font = '12px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = s < stars ? C.COLORS.starGold : 'rgba(255,255,255,0.2)';
+          ctx.fillText('★', x + btnSize / 2 + (s - 1) * 14, starY);
+        }
+      }
 
-  // 每日挑战入口（关卡网格下方；按钮文本随今日成绩刷新）
-  const rows = Math.ceil(game.levels.length / cols);
+      // 锁图标
+      if (!unlocked) {
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillText('🔒', x + btnSize / 2, btnY + btnSize / 2 + 2);
+      }
+    });
+  });
+
+  // 每日挑战入口（章节网格下方；按钮文本随今日成绩刷新）
   const dailyW = 200;
   const dailyH = 40;
-  const dailyY = startY + rows * (btnSize + gap) + 12;
+  const dailyY = headerY + PEARLS.CHAPTERS.length * chapterGap;
   if (!game.buttons.daily) {
     game.buttons.daily = new E.Button(cx - dailyW / 2, dailyY, dailyW, dailyH, '每日挑战', '#7E57C2');
   }

@@ -282,6 +282,19 @@ test('设置开关：切换音效立即生效并持久化', () => {
 // 7. 全状态渲染冒烟
 // =====================================================================
 
+test('章节化选关页：三章节按钮齐全，L1 按钮位于新手湾首列', () => {
+  fresh();
+  game.goToLevelSelect();
+  env.pump(5);
+  for (let i = 0; i < 10; i++) {
+    assert.ok(game.buttons['level' + i], `关卡 ${i + 1} 按钮应存在`);
+  }
+  const b = game.buttons.level0;
+  assert.strictEqual(b.x, 80.5, 'L1 按钮左缘（新手湾 3 列居中）');
+  assert.strictEqual(b.y, 160, 'L1 按钮顶部（章节头 +20）');
+  assert.strictEqual(b.width, 62);
+});
+
 test('渲染冒烟：全部界面状态各渲染数帧无异常', () => {
   fresh();
   game.goToSettings();      env.pump(3);
