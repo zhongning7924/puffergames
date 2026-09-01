@@ -112,7 +112,7 @@ git commit -m "造关师 T1：harness 补分享/启动参数/剪贴板 wx mock"
 
 **编码设计**（紧凑、可校验、版本化）：
 - 前缀 `PG1`；字符表 `B64 = A-Za-z0-9-_`（64 字符）。
-- 坐标按网格 `GRID=4` 量化后存网格坐标（`gx=Math.round(x/4)`，范围 0~93）；每个非负整数编码为 1~2 个 B64 字符（`enc(n)`：n<64 单字符，否则两位 `[32+floor(n/64), n%64]`，上限 4095）。
+- 坐标按网格 `GRID=4` 量化后存网格坐标（`gx=Math.round(x/4)`，范围 0~93）；每个非负整数编码为 1~2 个 B64 字符（`enc(n)`：n<64 单字符，否则两位 `[32+floor(n/64), n%64]`，高位字符占 32..63 共 32 档，上限 2047）。
 - 段顺序：`birds`（每豚 1 字符枚举 `n/d/b/s`）、`blocks`（type 1 字符 `w/t/i/f`(wood/sTone/ice/burst) + gx + gy + 尺寸枚举 1 字符）、`pigs`（半径枚举 1 字符 `s`=17/`l`=22 + gx + gy）、`pearls`（gx + gy）。
 - 每段以计数开头；段间无分隔（计数驱动解码）。尺寸枚举：`b`=80×26 梁、`p`=28×80 柱、`q`=28×28 块、`f`=26×26 爆裂果。
 
@@ -263,7 +263,12 @@ function decodeLevel(code) {
       pearls.push({ x: gx * GRID, y: gy * GRID });
     }
     if (i !== s.length) return null; // 尾部有多余字符 = 坏码
-    return { birds, blocks, pigs, pearls };
+    // 补展示/结算字段：挑战关（启动直达/剪贴板/挑战记录）都经此函数，
+    // 不补则 settle.computeStars 读 level.stars[0] 崩溃、HUD 标题渲染 undefined
+    const base = pigs.length * 1000 + blocks.length * 250;
+    return { birds, blocks, pigs, pearls,
+      name: '自制关', flavor: '玩家创作', trajectory: 70,
+      stars: [Math.round(base * 0.6), base, Math.round(base * 1.5)] };
   } catch (e) {
     return null;
   }
@@ -1001,7 +1006,7 @@ release 块（WIN :372 起、LOSE :394 起）各加对应释放分支。**注意
 
 另外，胜利动画跳过白名单（input.js:156 `['next','retry','menu','share','double']`）追加三个新键：`'editorBack','saveShare','challengeShare'`，否则动画期间首次点新按钮只跳动画不触发。
 
-（input.js 顶部 `const EDITOR = require('./editor.js'); const SOCIAL = require('./social.js');`；`onSaveShare` 在 Task 7 实现，本任务先在 editor.js 加 `function onSaveShare(game){}` 占位并导出。）
+（input.js 顶部 `const EDITOR = require('./editor.js'); const SOCIAL = require('./social.js');`。跨任务顺序占位：`onSaveShare` 在 Task 7 才有实现，本任务先在 editor.js 加 `function onSaveShare(game){}` 并导出；`SOCIAL.shareCustom` 同理，本任务先在 social.js 加 `function shareCustom(){}` 空函数并导出，Task 7 Step 3 填实现。）
 
 - [ ] **Step 7: 跑测试**：`node tools/e2e-tests.js 2>&1 | grep 自定义关` → 3 项 ✓；全量 0 失败。`node validate-levels.js` 不受影响。
 
@@ -1018,9 +1023,10 @@ git commit -m "造关师 T6：试玩闭环（作者/挑战两套结算按钮+输
 
 **Files:**
 - Modify: `src/social.js`（getLaunchCustom / shareCustom）
-- Modify: `src/screens.js`（主菜单【造关】【输码挑战】按钮；WIN【保存并分享】/【分享给朋友】）
-- Modify: `src/game.js`（启动时处理 query.custom；enterCode 流程；自制关列表存档）
-- Modify: `src/editor.js`（saveSlot/listSlots/分享码生成）
+- Modify: `src/screens.js`（主菜单【造关】【输码挑战】【我造的关】【挑战记录】按钮 + listView 列表页；WIN【保存并分享】/【分享给朋友】）
+- Modify: `src/game.js`（constructor 改调 handleLaunchQuery；openLevelList 委托）
+- Modify: `src/input.js`（MENU case 新按钮 + 列表页 slotEnter{i}/slotDel{i}/listBack 命中）
+- Modify: `src/editor.js`（saveCurrent/listSlots/deleteSlot/openSlot/recordPlayed/listPlayed/deletePlayed/onSaveShare/handleLaunchQuery/enterFromClipboard）
 - Test: `tools/e2e-tests.js`
 
 - [ ] **Step 1: 写失败测试**
@@ -1036,7 +1042,10 @@ test('分享：自制关 shareAppMessage 带 query.custom；启动直达可装�
   game.handleLaunchQuery(); env.pump(2);
   assert.strictEqual(game.isCustom, true, 'query.custom 应直达自定义关');
   assert.strictEqual(game.playOrigin, 'challenge');
-  assert.ok(wx.shareAppMessage || true);
+  // 解码关必须自带结算/展示字段，否则 WIN 时 computeStars 崩、HUD 标题 undefined
+  assert.ok(Array.isArray(game.customLevel.stars) && game.customLevel.stars.length === 3, '解码关带 stars 门槛');
+  assert.strictEqual(game.customLevel.name, '自制关');
+  assert.strictEqual(game.customLevel.trajectory, 70);
 });
 test('关卡码：坏码直达给错误提示不崩溃', () => {
   fresh();
@@ -1158,10 +1167,11 @@ function onSaveShare(game) {
 `handleLaunchQuery` 实现在 editor.js（Task 4 已在 game.js 挂好委托 `handleLaunchQuery() { EDITOR.handleLaunchQuery(this); }`）：
 
 ```js
-/** 启动参数分流：战役直达(query.level) / 自制关直达(query.custom)，坏码留菜单 */
+/** 启动参数分流：战役直达(query.level，保留解锁门控) / 自制关直达(query.custom)，坏码留菜单 */
 function handleLaunchQuery(game) {
   const lvl = SOCIAL.getLaunchLevel();
-  if (typeof lvl === 'number') { game.loadLevel(lvl); return; }
+  // 门控必须保留（原 game.js:74-77 逻辑）：分享卡片不能直达未解锁战役关
+  if (typeof lvl === 'number' && lvl < game.progress.unlockedLevels) { game.loadLevel(lvl); return; }
   const code = SOCIAL.getLaunchCustom();
   if (!code) return;
   const lv = CODEC.decodeLevel(code);
