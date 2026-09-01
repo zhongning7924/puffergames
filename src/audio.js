@@ -16,7 +16,7 @@
 const SOUND_FILES = {
   launch: 'sounds/launch.wav', // 弹弓发射
   hit: 'sounds/hit.wav',       // 撞击
-  pop: 'sounds/pop.wav',       // 猪被消灭
+  pop: 'sounds/pop.wav',       // 章鱼被消灭
   break: 'sounds/break.wav',   // 方块碎裂
   win: 'sounds/win.wav',       // 胜利
   lose: 'sounds/lose.wav',     // 失败

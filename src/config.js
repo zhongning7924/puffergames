@@ -6,10 +6,31 @@
 // 屏幕参数 Screen parameters
 // 先给安全默认值，避免模块加载时 jsbridge 未就绪就调用 wx API 报错。
 // 真实值由 init() 在游戏入口中调用后写入。
-let systemInfo = { screenWidth: 375, screenHeight: 667, devicePixelRatio: 2 };
+let systemInfo = { screenWidth: 375, screenHeight: 667, devicePixelRatio: 2, safeTop: 0 };
 let SCREEN_WIDTH = systemInfo.screenWidth;
 let SCREEN_HEIGHT = systemInfo.screenHeight;
 let DPR = systemInfo.devicePixelRatio || 1;
+// 顶部安全区（灵动岛/刘海高度）：HUD 内容需整体下移该值，否则真机上被遮挡
+let SAFE_TOP = 0;
+
+/**
+ * 功能开关 Feature flags
+ *
+ * leaderboard（好友排行榜）默认关闭：
+ *  - 好友榜依赖「开放数据域 + 微信关系链（getFriendCloudStorage）」，需要在小程序后台
+ *    填写「用户隐私保护指引」声明采集好友/用户数据，本项目尚未配置用户信息管理；
+ *  - 成绩上传依赖 wx.setUserCloudStorage（托管 KV），属于用户数据外传，同理需后台与合规支撑；
+ *  - 因此入口、状态页、成绩上传三处全部关闭，代码保留以便日后补齐合规后一键开启。
+ *
+ * 重新开启的完整步骤（缺一不可）：
+ *  1. 把这里改成 true；
+ *  2. game.json 恢复 "openDataContext": "opendata"；
+ *  3. project.config.json 的 packOptions.ignore 移除 opendata 条目（否则开放数据域不进包）；
+ *  4. 小程序后台「设置 → 用户隐私保护指引」勾选关系链/好友数据相关条目并通过审核。
+ */
+const FEATURES = {
+  leaderboard: false,
+};
 
 // 物理常量 Physics constants
 const GRAVITY = 0.45;           // 重力加速度
@@ -40,6 +61,7 @@ function getScreenInfo() {
         screenWidth: w.screenWidth || w.windowWidth || 375,
         screenHeight: w.screenHeight || w.windowHeight || 667,
         devicePixelRatio: w.pixelRatio || w.devicePixelRatio || 2,
+        safeTop: (w.safeArea && w.safeArea.top) || w.statusBarHeight || 0,
       };
     }
   } catch (e) {
@@ -52,12 +74,13 @@ function getScreenInfo() {
         screenWidth: s.screenWidth || s.windowWidth || 375,
         screenHeight: s.screenHeight || s.windowHeight || 667,
         devicePixelRatio: s.devicePixelRatio || 2,
+        safeTop: (s.safeArea && s.safeArea.top) || s.statusBarHeight || 0,
       };
     }
   } catch (e) {
     console.warn('[config] wx.getSystemInfoSync failed, using defaults:', e && e.message);
   }
-  return { screenWidth: 375, screenHeight: 667, devicePixelRatio: 2 };
+  return { screenWidth: 375, screenHeight: 667, devicePixelRatio: 2, safeTop: 0 };
 }
 
 /**
@@ -69,6 +92,7 @@ function init() {
   SCREEN_WIDTH = systemInfo.screenWidth;
   SCREEN_HEIGHT = systemInfo.screenHeight;
   DPR = systemInfo.devicePixelRatio;
+  SAFE_TOP = systemInfo.safeTop || 0;
   GROUND_Y = SCREEN_HEIGHT - GROUND_HEIGHT;
   SLINGSHOT_Y = GROUND_Y - 110;
 }
@@ -76,24 +100,30 @@ const MAX_DRAG = 95;            // 最大拖拽距离
 const POWER_FACTOR = 0.19;      // 力度系数
 const MIN_DRAG = 10;            // 最小有效拖拽
 
-// 小鸟 Bird
+// 河豚 Bird
 const BIRD_RADIUS = 17;
 
 // 颜色定义 Colors
+// ── 马卡龙海底主题（2026-09 可爱化改造）──────────────────────
+// 🎨 主题口味调色区：以下色值即整体「可爱度」的核心，可自由微调——
+//    想更粉 → 各色往红相偏、明度提高；想更奶 → 降低饱和。
+//    约束：pigBodyDark 不可与 pigSnoutDark(#AB47BC) 同值（吸盘尖会糊）。
 const COLORS = {
-  // 天空 Sky
-  skyTop: '#4FC3F7',
-  skyBottom: '#B3E5FC',
+  // 水体 Water（马卡龙婴儿蓝，仍保留「上浅下深」的水下透光逻辑）
+  waterTop: '#C8EDF8',            // 近水面：透亮奶蓝
+  waterMid: '#8FD4EF',
+  waterDeep: '#5FB4E0',           // 近海床：柔蓝（不再压暗画面）
+  reef: 'rgba(95, 180, 224, 0.45)',  // 远景礁石剪影
 
-  // 地面 Ground
-  grass: '#7CB342',
-  grassDark: '#558B2F',
-  dirt: '#6D4C41',
+  // 海床 Seabed（奶杏色沙；与河豚黄 #FFD54F 保持明度差，不撞主体）
+  sand: '#FFF1E0',                // 浅沙：奶杏
+  sandDark: '#F3D9BE',            // 沙脊线 / 沙纹
+  rock: '#B8C4D6',                // 岩石层：雾霾蓝灰
 
-  // 弹弓 Slingshot
-  slingWood: '#5D4037',
-  slingWoodLight: '#795548',
-  slingBand: '#3E2723',
+  // 弹弓 Slingshot（粉珊瑚枝 + 草莓粉丝带）
+  slingWood: '#F48FB1',           // 珊瑚粉（后叉/主干，深）
+  slingWoodLight: '#F8BBD0',      // 浅珊瑚粉（前叉/枝顶凸点）
+  slingBand: '#F06292',           // 海丝带粉底（白条纹靠绘制叠虚线）
 
   // 弹射者（原创海洋题材：河豚族，圆身+背刺+嘟嘴）
   birdBody: '#FFD54F',
@@ -102,32 +132,37 @@ const COLORS = {
   birdBeak: '#FF7043',     // 嘟嘴（键名保留，形象已改为鱼嘴）
   birdBeakDark: '#E64A19',
 
-  // 敌人（原创海洋题材：章鱼怪，紫粉圆头+卷触手）
-  pigBody: '#BA68C8',
-  pigBodyDark: '#7B1FA2',
-  pigSnout: '#E1BEE7',     // 吸盘/触手尖（键名保留，形象已改为章鱼）
+  // 敌人（原创海洋题材：章鱼怪，薰衣草紫——凶萌不吓人）
+  pigBody: '#CE93D8',
+  pigBodyDark: '#A569BD',   // 柔和深紫（⚠️ 不可用 #AB47BC，那是吸盘尖 pigSnoutDark 的色，撞色会糊）
+  pigSnout: '#F3E5F5',     // 吸盘/触手尖（键名保留，形象已改为章鱼）
   pigSnoutDark: '#AB47BC',
 
-  // 方块 Blocks
-  wood: '#A1887F',
-  woodDark: '#795548',
-  woodLight: '#BCAAA4',
-  stone: '#90A4AE',
-  stoneDark: '#607D8B',
-  stoneLight: '#B0BEC5',
-  ice: '#81D4FA',
-  iceDark: '#4FC3F7',
-  iceLight: '#E1F5FE',
+  // 方块 Blocks（材质靠色相区分：奶茶木 / 雾霾蓝石 / 冰晶蓝）
+  wood: '#D9C2A8',
+  woodDark: '#C4A88C',
+  woodLight: '#EFE0D0',
+  stone: '#B0C4D8',
+  stoneDark: '#8FA8C4',
+  stoneLight: '#D6E2F0',
+  ice: '#B3E5FC',
+  iceDark: '#81D4FA',
+  iceLight: '#F0FAFF',
 
   // UI
   white: '#FFFFFF',
   black: '#212121',
   textShadow: 'rgba(0,0,0,0.3)',
-  buttonBg: '#FF7043',
-  buttonBgDark: '#E64A19',
-  panelBg: 'rgba(33,33,33,0.85)',
-  starGold: '#FFD54F',
-  starDark: '#5D4037',
+  buttonBg: '#FF9E9E',      // 草莓奶霜（主按钮）
+  buttonBgDark: '#F48FB1',
+  panelBg: 'rgba(255,243,248,0.92)',  // 奶白粉面板（注：历史死键，界面实际用 screens.js 硬编码）
+  starGold: '#FFD54F',      // 既有金星/飘字在用，保持不动
+  starDark: '#8D6E63',
+
+  // 可爱元素专用（马卡龙主题新增）
+  blush: '#FF9E9E',         // 腮红（以 rgba(255,158,158,0.5) 半透明使用）
+  ribbonWhite: '#FFF5F8',   // 丝带白纹 / 蝴蝶结高光
+  sparkleGold: '#FFE082',   // 淡金：新装饰星星/光斑（勿与 starGold 混用）
 
   // 粒子 Particles
   particleRed: '#EF5350',
@@ -215,18 +250,20 @@ const BLOCK_TYPES = {
   burst: {
     health: 1,
     density: 0.8,
-    color: '#FF8A50',
-    colorDark: '#D84315',
-    colorLight: '#FFCCBC',
-    particle: '#FF7043',
+    color: '#FFAB91',    // 马卡龙珊瑚橙果身
+    colorDark: '#F08A78',
+    colorLight: '#FFE3D6',
+    particle: '#FFAB91',
   },
 };
 
 module.exports = {
   init,
+  FEATURES,
   get SCREEN_WIDTH() { return SCREEN_WIDTH; },
   get SCREEN_HEIGHT() { return SCREEN_HEIGHT; },
   get DPR() { return DPR; },
+  get SAFE_TOP() { return SAFE_TOP; },
   get GRAVITY() { return GRAVITY; },
   get AIR_FRICTION() { return AIR_FRICTION; },
   get GROUND_BOUNCE() { return GROUND_BOUNCE; },

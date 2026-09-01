@@ -54,7 +54,7 @@ function saveWinProgress(game) {
   game.uploadScore();
 }
 
-/** 激励视频点位 1：失败后 +1 只鸟继续（挽回流失，eCPM 最高点位） */
+/** 激励视频点位 1：失败后 +1 只河豚继续（挽回流失，eCPM 最高点位） */
 function watchAdRevive(game) {
   AD.show(() => {
     game.reviveUsed = true;
@@ -152,7 +152,7 @@ function skipWinAnim(game) {
   a.starPop = 1;
 }
 
-/** 胜负判定：章鱼全灭→胜利；鸟尽→失败；否则出下一只鸟 */
+/** 胜负判定：章鱼全灭→胜利；豚尽→失败；否则出下一只豚 */
 function checkWinLose(game) {
   const alivePigs = game.pigs.filter(p => p.alive && !p.dying);
 
@@ -160,7 +160,7 @@ function checkWinLose(game) {
     // 胜利
     game.state = 'WIN';
     game.buttons = {};
-    // 剩余小鸟奖励
+    // 剩余河豚奖励
     const bonus = game.birdsRemaining * 5000;
     if (bonus > 0) {
       game.score += bonus;
@@ -176,7 +176,7 @@ function checkWinLose(game) {
       baseScore: game.score - bonus, // 击杀得分（滚动目标值）
       displayedScore: 0,           // 当前显示分
       birdsTotal: game.birdsRemaining,
-      birdsShown: 0,               // 已飞入加分的鸟数
+      birdsShown: 0,               // 已飞入加分的豚数
       starsShown: 0,               // 已弹出的星数
       starPop: 1,                  // 当前星的弹出动画进度 0→1
     };
@@ -201,7 +201,7 @@ function checkWinLose(game) {
     AUDIO.play('lose');
     game.vibrate('long');
   } else {
-    // 继续 - 加载下一只鸟
+    // 继续 - 加载下一只豚
     game.spawnBird();
     game.state = 'READY';
   }

@@ -46,12 +46,16 @@ const INPUT = require('./input.js');
 const PHYSICS = require('./physics.js');
 const RENDERER = require('./renderer.js');
 const SCREENS = require('./screens.js');
+const HELP = require('./help.js');
+
+/** 关卡内状态（含结算页）：用于判断"是否从关卡退出"，作为插屏广告的触发口径 */
+const IN_LEVEL_STATES = ['READY', 'AIMING', 'FLYING', 'SETTLING', 'WIN', 'LOSE'];
 
 class Game {
   constructor() {
     this.setupCanvas();
     this.initState();
-    this.initClouds();
+    this.initBubbles();
     RENDERER.initBackgroundCache(this); // 静态背景离屏缓存（失败自动降级逐帧直绘）
     this.loadProgress();
     this.setupInput();
@@ -93,7 +97,7 @@ class Game {
     this.birdsRemaining = 0;
     this.birds = [];
     this.currentBird = null;
-    this.extraBirds = [];   // 分裂技能产生的额外飞行小鸟
+    this.extraBirds = [];   // 分裂技能产生的额外飞行河豚
     this.pendingExplosions = []; // 爆裂果链式爆炸队列（下一逻辑步处理，避免递归）
     this.pigs = [];
     this.blocks = [];
@@ -102,6 +106,7 @@ class Game {
     this.particlePool = [];  // 粒子对象池（死亡回收复用，避免 GC 卡顿）
     this.textPool = [];      // 飘字对象池
     this.shakeAmount = 0;
+    this.slingSnap = 0;       // 发射后丝带回弹计时（帧）；发射钩子置 8，每帧递减
     this.settleTimer = 0;
     this.transitionTimer = 0;
     this.stars = 0;
@@ -131,7 +136,7 @@ class Game {
 
     // 激励视频点位状态
     this.failCounts = {};        // 各关失败次数（卡关检测；每日挑战用 'daily' 键）
-    this.reviveUsed = false;     // 本次关卡是否已用"+1 鸟"复活
+    this.reviveUsed = false;     // 本次关卡是否已用"+1 豚"复活
     this.adDoubleUsed = false;   // 本次结算是否已用双倍积分
     this.trajectoryBoost = false;// 本关是否已解锁弹道全显
 
@@ -152,15 +157,29 @@ class Game {
 
     // 上一发完整弹道（ghost trail：发射下一只前保留，供瞄准修正）
     this.lastTrail = null;       // null = 无记录；[] = 正在记录本发
+
+    // 选关页滚动（关卡增多后章节列表需要纵向滚动）
+    this.levelSelectScroll = 0;      // 当前滚动偏移（像素，0 = 顶部）
+    this.levelSelectMaxScroll = 0;   // 最大可滚动距离（绘制时更新）
+    this.levelSelTouch = null;       // 滚动手势状态 { y, scroll, moved }
+    // 进入选关页后置 true，持续自动滚到前沿关卡所属章节，玩家一触摸即交还控制权
+    this.levelSelectAutoFocus = false;
+
+    // 玩法说明页滚动状态（HELP 状态，复用选关页滚动范式）
+    this.helpScroll = 0;
+    this.helpMaxScroll = 0;
+    this.helpTouch = null;
   }
 
-  initClouds() {
-    this.clouds = [];
-    for (let i = 0; i < 4; i++) {
-      this.clouds.push(new E.Cloud(
+  initBubbles() {
+    this.bubbles = [];
+    // 6 只：气泡体积比云朵小，数量太少会显得空、读不出"水下有气泡在冒"
+    for (let i = 0; i < 6; i++) {
+      this.bubbles.push(new E.Bubble(
         U.random(0, C.SCREEN_WIDTH),
-        U.random(30, C.SCREEN_HEIGHT * 0.35),
-        U.random(0.6, 1.2)
+        // 沿整个水柱分布（云朵只在上 35%，气泡应散布在视野各处）
+        U.random(C.SCREEN_HEIGHT * 0.12, C.GROUND_Y),
+        U.random(0.5, 1.3)
       ));
     }
   }
@@ -179,6 +198,7 @@ class Game {
     if (!this.progress.stars) this.progress.stars = {};
     if (!this.progress.hintShown) this.progress.hintShown = {}; // 已看过的技能教学关卡
     if (!this.progress.pearls) this.progress.pearls = {};       // 已收集的隐藏珍珠
+    if (this.progress.tutSwap === undefined) this.progress.tutSwap = false; // 已学会换豚
   }
 
   saveProgress() {
@@ -229,6 +249,8 @@ class Game {
 
   /** 上传总成绩到微信云托管 KV（好友排行榜数据源；预览环境自动降级） */
   uploadScore() {
+    // 排行榜关闭时不做任何用户数据外传（setUserCloudStorage 需隐私保护指引 + 后台支撑）
+    if (!C.FEATURES.leaderboard) return;
     try {
       if (typeof wx.setUserCloudStorage !== 'function') return;
       let totalScore = 0;
@@ -248,6 +270,11 @@ class Game {
 
   /** 进入好友排行榜（开放数据域） */
   goToLeaderboard() {
+    // 开关关闭时兜底回菜单：即便有人直接调该方法也不会进入已下线界面
+    if (!C.FEATURES.leaderboard) {
+      this.goToMenu();
+      return;
+    }
     this.state = 'LEADERBOARD';
     this.buttons = {};
     this.sharedCanvas = null;
@@ -284,22 +311,42 @@ class Game {
   setupLevel(level) { LEVELFLOW.setupLevel(this, level); }
   queuePosition(i) { return LEVELFLOW.queuePosition(i); }
   spawnBird() { LEVELFLOW.spawnBird(this); }
+  swapBird(i) { LEVELFLOW.swapBird(this, i); }
 
   // ==================== 状态转换 ====================
 
   goToMenu() {
+    const fromLevel = IN_LEVEL_STATES.indexOf(this.state) >= 0;
     this.state = 'MENU';
     this.buttons = {};
+    // 退出关卡（含结算页点「菜单」）→ 插屏广告埋点，内部有频控
+    if (fromLevel) AD.onLevelExit();
   }
 
   goToLevelSelect() {
+    const fromLevel = IN_LEVEL_STATES.indexOf(this.state) >= 0;
     this.state = 'LEVEL_SELECT';
     this.buttons = {};
+    this.levelSelectScroll = 0;
+    this.levelSelTouch = null;
+    // 自动滚到「前沿关卡」所属章节（40 关跨度大，避免每次都从第一章翻起）
+    this.levelSelectAutoFocus = true;
+    // 退出关卡回到选关页 → 插屏广告埋点，内部有频控
+    // 注意：WIN 状态点「下一关」走 loadLevel，不经过这里，连闯心流不被打断
+    if (fromLevel) AD.onLevelExit();
   }
 
   goToSettings() {
     this.state = 'SETTINGS';
     this.buttons = {};
+  }
+
+  goToHelp() {
+    this.state = 'HELP';
+    this.buttons = {};
+    this.helpScroll = 0;
+    this.helpMaxScroll = 0;
+    this.helpTouch = null;
   }
 
   startLevel(index) {
@@ -362,6 +409,7 @@ class Game {
   tryActivateAbility() { COMBAT.tryActivateAbility(this); }
   explode(x, y) { COMBAT.explode(this, x, y); }
   onPigKilled(pig) { COMBAT.onPigKilled(this, pig); }
+  onPigHurt(pig) { COMBAT.onPigHurt(this, pig); }
   checkPearlCollection(bird) { COMBAT.checkPearlCollection(this, bird); }
   collectPearl(pearl) { COMBAT.collectPearl(this, pearl); }
   onBlockDestroyed(block) { COMBAT.onBlockDestroyed(this, block); }
@@ -372,6 +420,7 @@ class Game {
     this.frameCount++;
     this.pulseTimer++;
     if (this.hitSoundCooldown > 0) this.hitSoundCooldown--;
+    if (this.slingSnap > 0) this.slingSnap--;
 
     // 处理爆裂果链式爆炸队列
     if (this.pendingExplosions.length > 0) {
@@ -379,8 +428,8 @@ class Game {
       for (const e of queue) this.explode(e.x, e.y);
     }
 
-    // 更新云朵
-    for (const cloud of this.clouds) cloud.update();
+    // 更新气泡
+    for (const bubble of this.bubbles) bubble.update();
 
     // 更新粒子（死亡个体回收进对象池，避免每帧 filter 重建数组）
     for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -439,7 +488,7 @@ class Game {
         break;
     }
 
-    // 更新所有方块和猪（即使非飞行状态也要更新动态对象）
+    // 更新所有方块和章鱼（即使非飞行状态也要更新动态对象）
     for (const block of this.blocks) {
       if (block.alive) block.update();
     }
@@ -453,14 +502,14 @@ class Game {
   }
 
   updateFlying() {
-    // 记录本发完整弹道（ghost trail；仅记主鸟——分裂鸟路径近似，够用于瞄准修正）
+    // 记录本发完整弹道（ghost trail；仅记主豚——分裂豚路径近似，够用于瞄准修正）
     if (this.currentBird && Array.isArray(this.lastTrail)) {
       this.lastTrail.push({ x: this.currentBird.x, y: this.currentBird.y });
     }
     // 飞行途中触碰场景珍珠 → 拾取
     this.checkPearlCollection(this.currentBird);
 
-    // 更新主鸟（可能因爆炸已被移除）
+    // 更新主豚（可能因爆炸已被移除）
     if (this.currentBird) {
       this.currentBird.update();
       const exploded = PHYSICS.checkBirdCollisions(this, this.currentBird);
@@ -475,7 +524,7 @@ class Game {
       }
     }
 
-    // 更新分裂出的额外小鸟
+    // 更新分裂出的额外河豚
     for (let i = this.extraBirds.length - 1; i >= 0; i--) {
       const b = this.extraBirds[i];
       b.update();
@@ -488,7 +537,7 @@ class Game {
       }
     }
 
-    // 全部飞行小鸟消失后进入结算
+    // 全部飞行河豚消失后进入结算
     if (!this.currentBird && this.extraBirds.length === 0) {
       this.state = 'SETTLING';
       this.settleTimer = 0;
@@ -533,7 +582,7 @@ class Game {
   createBlockParticles(x, y, type) { EFFECTS.createBlockParticles(this, x, y, type); }
   createImpactParticles(x, y, color) { EFFECTS.createImpactParticles(this, x, y, color); }
   createLaunchParticles(x, y) { EFFECTS.createLaunchParticles(this, x, y); }
-  spawnParticle(x, y, vx, vy, color, life, size) { EFFECTS.spawnParticle(this, x, y, vx, vy, color, life, size); }
+  spawnParticle(x, y, vx, vy, color, life, size, shape) { EFFECTS.spawnParticle(this, x, y, vx, vy, color, life, size, shape); }
   addFloatingText(x, y, text, color, size) { EFFECTS.addFloatingText(this, x, y, text, color, size); }
   screenShake(amount) { EFFECTS.screenShake(this, amount); }
   playHitSound() { EFFECTS.playHitSound(this); }
@@ -581,7 +630,7 @@ class Game {
     // 上一发弹道残影（垫在结构下层，作为瞄准参照）
     RENDERER.drawLastTrail(this);
 
-    // 绘制等待中的小鸟
+    // 绘制等待中的河豚
     RENDERER.drawWaitingBirds(this);
 
     // 弹弓后部
@@ -590,7 +639,7 @@ class Game {
     // 方块
     for (const block of this.blocks) block.draw(ctx);
 
-    // 猪
+    // 章鱼
     for (const pig of this.pigs) pig.draw(ctx);
 
     // 场景珍珠（未拾取的）
@@ -599,7 +648,7 @@ class Game {
     // 弹弓前部 + 橡皮筋
     RENDERER.drawSlingshotFront(this);
 
-    // 当前小鸟 + 分裂出的额外小鸟
+    // 当前河豚 + 分裂出的额外河豚
     if (this.currentBird) this.currentBird.draw(ctx);
     for (const b of this.extraBirds) b.draw(ctx);
 
@@ -633,6 +682,9 @@ class Game {
       case 'SETTINGS':
         SCREENS.drawSettings(this);
         break;
+      case 'HELP':
+        HELP.drawHelp(this);
+        break;
       case 'WIN':
         SCREENS.drawWinScreen(this);
         break;
@@ -640,6 +692,9 @@ class Game {
         SCREENS.drawLoseScreen(this);
         break;
     }
+
+    // Banner 显隐同步（内部按状态去重；仅选关页常驻，其余页面自动隐藏）
+    AD.syncBanner(this.state);
   }
 
   // ==================== 游戏循环 ====================

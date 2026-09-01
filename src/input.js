@@ -47,6 +47,10 @@ function onTouchStart(game, x, y) {
         game.buttons.settings.pressed = true;
         AUDIO.play('tap');
       }
+      if (game.buttons.help && game.buttons.help.contains(x, y)) {
+        game.buttons.help.pressed = true;
+        AUDIO.play('tap');
+      }
       break;
 
     case 'SETTINGS':
@@ -62,6 +66,15 @@ function onTouchStart(game, x, y) {
       }
       break;
 
+    case 'HELP':
+      // 记录手势起点（区分点击与拖动滚动）
+      game.helpTouch = { y, scroll: game.helpScroll || 0, moved: false };
+      if (game.buttons.helpBack && game.buttons.helpBack.contains(x, y)) {
+        game.buttons.helpBack.pressed = true;
+        AUDIO.play('tap');
+      }
+      break;
+
     case 'LEADERBOARD':
       if (game.buttons.back && game.buttons.back.contains(x, y)) {
         game.buttons.back.pressed = true;
@@ -70,18 +83,23 @@ function onTouchStart(game, x, y) {
       break;
 
     case 'LEVEL_SELECT':
+      // 玩家已上手：交还滚动控制权，停止自动定位（此后手动滚到哪就是哪）
+      game.levelSelectAutoFocus = false;
+      // 记录手势起点（区分点击与拖动滚动）；滚动后按钮采用「内容坐标 + 当前偏移」做命中
+      game.levelSelTouch = { y, scroll: game.levelSelectScroll || 0, moved: false };
+      const scroll = game.levelSelectScroll || 0;
       for (let i = 0; i < game.levels.length; i++) {
         const btn = game.buttons['level' + i];
-        if (btn && btn.contains(x, y) && i < game.progress.unlockedLevels) {
+        if (btn && btn.contains(x, y + scroll) && i < game.progress.unlockedLevels) {
           btn.pressed = true;
           AUDIO.play('tap');
         }
       }
-      if (game.buttons.daily && game.buttons.daily.contains(x, y)) {
+      if (game.buttons.daily && game.buttons.daily.contains(x, y + scroll)) {
         game.buttons.daily.pressed = true;
         AUDIO.play('tap');
       }
-      if (game.buttons.bonus && game.buttons.bonus.contains(x, y)) {
+      if (game.buttons.bonus && game.buttons.bonus.contains(x, y + scroll)) {
         game.buttons.bonus.pressed = true;
         AUDIO.play('tap');
       }
@@ -98,6 +116,23 @@ function onTouchStart(game, x, y) {
           game.state = 'AIMING';
           game.dragStart = { x, y };
           game.hintAlpha = 0;
+          break;
+        }
+      }
+      // 点候飞区：把该豚换到弹弓（自由规划出豚顺序，搭配材质克制）
+      if (Array.isArray(game.birds)) {
+        for (let k = 0; k < game.birds.length; k++) {
+          const b = game.birds[k];
+          if (U.distance(x, y, b.x, b.y) < b.radius + 14) {
+            game.swapBird(k);
+            AUDIO.play('tap');
+            game.vibrate('light');
+            if (!game.progress.tutSwap) {
+              game.progress.tutSwap = true;
+              game.saveProgress();
+            }
+            break;
+          }
         }
       }
       break;
@@ -107,15 +142,20 @@ function onTouchStart(game, x, y) {
       break;
 
     case 'FLYING':
-      // 空中点击：释放当前小鸟技能（每次飞行限一次）
+      // 空中点击：释放当前河豚技能（每次飞行限一次）
       game.tryActivateAbility();
       break;
 
     case 'WIN':
-      // 结算动画播放中：首次点击仅跳过动画，不触发任何按钮（防误触）
+      // 结算动画播放中：首次点击先跳过动画。
+      // 若这一下恰好落在按钮上，则跳过的同时照常触发该按钮——
+      // 旧行为是整次点击只用于跳过、直接 return，玩家会以为「点了下一关没反应」，
+      // 在剩豚奖励多的关卡（结算动画最长约 6 秒）尤其明显。
       if (game.winAnim && game.winAnim.phase !== 'done') {
         game.skipWinAnim();
-        break;
+        const onButton = ['next', 'retry', 'menu', 'share', 'double']
+          .some(k => game.buttons[k] && game.buttons[k].contains(x, y));
+        if (!onButton) break; // 点在空白处：仅跳过，防误触
       }
       if (game.buttons.next && game.buttons.next.contains(x, y)) {
         game.buttons.next.pressed = true;
@@ -162,6 +202,37 @@ function onTouchStart(game, x, y) {
 
 /** 瞄准拖拽：限制最大拉距、只允许向后拉 */
 function onTouchMove(game, x, y) {
+  if (game.state === 'LEVEL_SELECT' && game.levelSelTouch) {
+    const t = game.levelSelTouch;
+    const dy = y - t.y;
+    if (!t.moved && Math.abs(dy) > 6) {
+      // 判定为拖动滚动：取消已按压按钮，避免滚动被误判成点击
+      t.moved = true;
+      for (const k in game.buttons) {
+        if (game.buttons[k]) game.buttons[k].pressed = false;
+      }
+    }
+    if (t.moved) {
+      const max = game.levelSelectMaxScroll || 0;
+      game.levelSelectScroll = Math.max(0, Math.min(max, t.scroll - dy));
+    }
+    return;
+  }
+
+  if (game.state === 'HELP' && game.helpTouch) {
+    const t = game.helpTouch;
+    const dy = y - t.y;
+    if (!t.moved && Math.abs(dy) > 6) {
+      t.moved = true;
+      if (game.buttons.helpBack) game.buttons.helpBack.pressed = false;
+    }
+    if (t.moved) {
+      const max = game.helpMaxScroll || 0;
+      game.helpScroll = Math.max(0, Math.min(max, t.scroll - dy));
+    }
+    return;
+  }
+
   if (game.state === 'AIMING' && game.currentBird) {
     // 计算拖拽位置（限制在最大拖拽范围内）
     let dx = x - C.SLINGSHOT_X;
@@ -197,6 +268,10 @@ function onTouchEnd(game) {
         game.buttons.settings.pressed = false;
         game.goToSettings();
       }
+      if (game.buttons.help && game.buttons.help.pressed) {
+        game.buttons.help.pressed = false;
+        game.goToHelp();
+      }
       break;
 
     case 'SETTINGS':
@@ -218,6 +293,17 @@ function onTouchEnd(game) {
       }
       break;
 
+    case 'HELP':
+      if (game.helpTouch && game.helpTouch.moved) {
+        game.helpTouch = null;
+        break;
+      }
+      if (game.buttons.helpBack && game.buttons.helpBack.pressed) {
+        game.buttons.helpBack.pressed = false;
+        game.goToMenu();
+      }
+      break;
+
     case 'LEADERBOARD':
       if (game.buttons.back && game.buttons.back.pressed) {
         game.buttons.back.pressed = false;
@@ -226,6 +312,11 @@ function onTouchEnd(game) {
       break;
 
     case 'LEVEL_SELECT':
+      // 若本次手势是拖动滚动，则不触发任何按钮
+      if (game.levelSelTouch && game.levelSelTouch.moved) {
+        game.levelSelTouch = null;
+        break;
+      }
       if (game.buttons.daily && game.buttons.daily.pressed) {
         game.buttons.daily.pressed = false;
         game.startDaily();

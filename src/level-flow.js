@@ -54,7 +54,7 @@ function startBonus(game, meta) {
   setupLevel(game, game.bonusLevel);
 }
 
-/** 关卡初始化：清场回收、教学提示、生成猪/方块/珍珠/鸟队列 */
+/** 关卡初始化：清场回收、教学提示、生成章鱼/方块/珍珠/豚队列 */
 function setupLevel(game, level) {
   game.score = 0;
   game.combo = 0;
@@ -92,13 +92,15 @@ function setupLevel(game, level) {
   game.pearls = (level.pearls || [])
     .map(p => ({ ...p, collected: !!game.progress.pearls[p.id] }));
 
-  // 生成猪
-  game.pigs = level.pigs.map(p => new E.Pig(p.x, p.y, p.radius));
+  // 生成章鱼（章王：boss/hp/name；阶段援军：sleep 标记）
+  game.pigs = level.pigs.map(p => new E.Pig(p.x, p.y, p.radius,
+    { boss: p.boss, hp: p.hp, name: p.name, sleep: p.sleep }));
 
-  // 生成方块
-  game.blocks = level.blocks.map(b => new E.Block(b.x, b.y, b.width, b.height, b.type));
+  // 生成方块（章王阶段掉落物：sleep 标记，预置屏幕外，怒吼时唤醒）
+  game.blocks = level.blocks.map(b => new E.Block(b.x, b.y, b.width, b.height, b.type,
+    { sleep: b.sleep }));
 
-  // 生成小鸟队列（支持数组鸟种队列；兼容旧的数字形式 → 全小青）
+  // 生成河豚队列（支持数组豚种队列；兼容旧的数字形式 → 全小青）
   const birdTypes = Array.isArray(level.birds)
     ? level.birds
     : Array(level.birds).fill('normal');
@@ -114,8 +116,8 @@ function setupLevel(game, level) {
 
 /**
  * 候飞队列站位：3 列 × 2 排网格（前排站地面，后排站高处）。
- * 原先单排 28px 间距，5~6 只鸟时 x 越出屏幕左缘（L9 六只时 3 只不可见，
- * 玩家会误以为"用完又凭空出鸟"）。网格布局保证全部鸟始终可见。
+ * 原先单排 28px 间距，5~6 只豚时 x 越出屏幕左缘（L9 六只时 3 只不可见，
+ * 玩家会误以为"用完又凭空出豚"）。网格布局保证全部豚始终可见。
  */
 function queuePosition(i) {
   const col = i % 3;
@@ -126,7 +128,29 @@ function queuePosition(i) {
   };
 }
 
-/** 把队列下一只鸟搬上弹弓并重置飞行状态 */
+/**
+ * 换豚：READY 时把候飞队列中第 queueIndex 只豚换到弹弓上。
+ * 弹弓上的豚回队、与目标交换，玩家由此可自由规划出豚顺序——
+ * 让「豚种 × 材质克制」（dash 克木 / bomb 克石 / split 克冰）从关卡预设变为玩家决策。
+ * AIMING/FLYING 中不可换（由 state 判断拦截）。
+ */
+function swapBird(game, queueIndex) {
+  if (game.state !== 'READY' || !game.currentBird || game.birds.length === 0) return;
+  const k = Math.max(0, Math.min(queueIndex, game.birds.length - 1));
+  game.birds.unshift(game.currentBird);      // 弹弓上的豚回队首
+  const target = k + 1;                       // 选中豚在 unshift 后数组中的位置
+  const tmp = game.birds[0];
+  game.birds[0] = game.birds[target];
+  game.birds[target] = tmp;
+  spawnBird(game);                            // 队首（选中豚）搬上弹弓
+  for (let i = 0; i < game.birds.length; i++) { // 候飞队列按站位网格重排
+    const pos = queuePosition(i);
+    game.birds[i].x = pos.x;
+    game.birds[i].y = pos.y;
+  }
+}
+
+/** 把队列下一只豚搬上弹弓并重置飞行状态 */
 function spawnBird(game) {
   if (game.birds.length === 0) return;
   game.currentBird = game.birds.shift();
@@ -149,4 +173,5 @@ module.exports = {
   setupLevel,
   queuePosition,
   spawnBird,
+  swapBird,
 };

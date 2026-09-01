@@ -32,6 +32,7 @@ function installEnv(options = {}) {
   const ctx = new Proxy({}, {
     get(t, p) {
       if (p === 'createLinearGradient') return () => ({ addColorStop() {} });
+      if (p === 'createRadialGradient') return () => ({ addColorStop() {} });
       if (p === 'measureText') return () => ({ width: 10 });
       if (p === 'roundRect') return function () { return this; };
       if (p === 'canvas') return canvas;
@@ -88,6 +89,9 @@ function installEnv(options = {}) {
     onTouchCancel: (cb) => { touchHandlers.touchcancel = cb; },
   };
 
+  // 广告调用计数器（供 e2e 断言插屏频次 / Banner 显隐）
+  const ads = { interstitialShown: 0, bannerShown: 0, bannerHidden: 0 };
+
   // 激励视频 mock：show() 同步回调 onClose({isEnded:true})，即"完整看完发奖励"
   if (options.rewardAd) {
     global.wx.createRewardedVideoAd = () => {
@@ -106,6 +110,38 @@ function installEnv(options = {}) {
         load: () => Promise.resolve(),
       };
     };
+  }
+
+  // 插屏 mock：show() 计数 + 同步回调 onClose（模拟看完关闭）
+  if (options.interstitial) {
+    global.wx.createInterstitialAd = () => {
+      const closeHandlers = [];
+      return {
+        onClose: (cb) => closeHandlers.push(cb),
+        onError: () => {},
+        show: () => {
+          ads.interstitialShown++;
+          closeHandlers.slice().forEach(cb => cb({ isEnded: true }));
+          return Promise.resolve();
+        },
+        load: () => Promise.resolve(),
+      };
+    };
+  }
+
+  // 原生模板/Banner mock：show/hide 计数 + onResize 回传固定高度
+  // （现行后台只能新建「原生模板广告」，代码优先走 wx.createCustomAd）
+  if (options.banner) {
+    const makeAd = () => ({
+      style: {},
+      onError: () => {},
+      onResize: (cb) => { if (cb) cb({ width: 360, height: 106 }); },
+      show: () => { ads.bannerShown++; return Promise.resolve(); },
+      hide: () => { ads.bannerHidden++; },
+      destroy: () => {},
+    });
+    global.wx.createCustomAd = makeAd;
+    global.wx.createBannerAd = makeAd;
   }
 
   /** 模拟触摸事件（touchend/touchcancel 无坐标） */
@@ -129,7 +165,7 @@ function installEnv(options = {}) {
     try { return JSON.parse(storage.angryBirds_progress); } catch (e) { return null; }
   }
 
-  return { pump, fire, storage, resetProgress, readProgress };
+  return { pump, fire, storage, resetProgress, readProgress, ads };
 }
 
 /** 加载游戏单例（首次调用触发 new Game()，之后返回同一实例） */

@@ -9,6 +9,7 @@ const path = require('path');
 const ctx = new Proxy({}, {
   get(t, p) {
     if (p === 'createLinearGradient') return () => ({ addColorStop() {} });
+    if (p === 'createRadialGradient') return () => ({ addColorStop() {} });
     if (p === 'measureText') return () => ({ width: 10 });
     if (p === 'roundRect') return function () { return this; };
     if (p === 'canvas') return canvas;
@@ -84,13 +85,13 @@ try {
   console.log('✓ 3. 选择第一关 -> READY OK');
   pump(3);
 
-  fireWx('touchstart', 95, 562);  // 点小鸟 -> AIMING
+  fireWx('touchstart', 95, 562);  // 点河豚 -> AIMING
   fireWx('touchmove', 40, 620);
   fireWx('touchmove', 35, 625);
   fireWx('touchend', 35, 625);    // 发射 -> FLYING
   console.log('✓ 4. 拖拽发射 -> FLYING OK');
 
-  pump(150); // 小鸟飞行 + 碰撞物理帧
+  pump(150); // 河豚飞行 + 碰撞物理帧
   console.log('✓ 5. 物理帧运行 150 帧无异常（飞行/碰撞/结算逻辑接通）');
   console.log('\n🎉 浏览器预览版端到端验证全部通过');
 } catch (e) {

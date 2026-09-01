@@ -3,3 +3,14 @@
 
 # 生成物（由 build-preview.js 生成，不入库）
 preview/bundle.js
+
+# AI 会话记忆与工作日志（本机记录，不入库；文件保留在磁盘）
+.workbuddy/
+
+# 产出物目录：默认不入库，只放行最终交付件（头像原图/正式头像/发布与备案文档）。
+# 中间产物（头像迭代稿 v0~v8、UI 调图临时截图 btn-*/crop-*/menu-frame-*）体积大且可重建，不入历史。
+outputs/*
+!outputs/puffer-avatar-1024x1024.png
+!outputs/puffer-avatar-144x144.png
+!outputs/mini-program-info.md
+!outputs/audit-content-*.md

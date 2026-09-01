@@ -1,12 +1,13 @@
 /**
- * 游戏实体类 - 小鸟、猪、方块、粒子、按钮、云朵
- * Game Entities - Bird, Pig, Block, Particle, Button, Cloud
+ * 游戏实体类 - 河豚、章鱼、方块、粒子、按钮、云朵
+ * Game Entities - Bird, Pig, Block, Particle, Button, Bubble
  */
 
 const C = require('./config.js');
 const U = require('./utils.js');
+const T = require('./theme.js');
 
-// ========== 小鸟 Bird ==========
+// ========== 河豚 Bird ==========
 
 class Bird {
   constructor(x, y, type = 'normal') {
@@ -37,8 +38,8 @@ class Bird {
   /**
    * 释放技能。返回 { ability, extraBirds? }：
    *  - dash：自身沿当前方向加速；
-   *  - split：自身偏上偏转，返回 2 只偏转的新鸟（调用方负责纳入管理）；
-   *  - bomb：仅标记，爆炸效果由 game 层执行（需要访问方块/猪/粒子）。
+   *  - split：自身偏上偏转，返回 2 只偏转的新豚（调用方负责纳入管理）；
+   *  - bomb：仅标记，爆炸效果由 game 层执行（需要访问方块/章鱼/粒子）。
    */
   activateAbility() {
     if (!this.canUseAbility()) return null;
@@ -159,7 +160,7 @@ class Bird {
   draw(ctx) {
     const p = this.props;
 
-    // 拖尾（颜色随鸟种）
+    // 拖尾（颜色随豚种）
     for (let i = 0; i < this.trail.length; i++) {
       const t = this.trail[i];
       ctx.beginPath();
@@ -178,7 +179,7 @@ class Bird {
 
     const r = this.radius;
 
-    // 身体 Body（颜色随鸟种）
+    // 身体 Body（颜色随豚种）
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fillStyle = p.body;
@@ -220,6 +221,17 @@ class Bird {
       ctx.arc(eyeOffset + 1, eyeY, 2, 0, Math.PI * 2);
       ctx.fillStyle = '#212121';
       ctx.fill();
+
+      // 眼神光（主高光 + 右下副高光，二次元大眼的水光感）
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(-eyeOffset + 0.3, eyeY - 0.9, 1.15, 0, Math.PI * 2);
+      ctx.arc(eyeOffset + 0.3, eyeY - 0.9, 1.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(-eyeOffset + 1.9, eyeY + 1, 0.5, 0, Math.PI * 2);
+      ctx.arc(eyeOffset + 1.9, eyeY + 1, 0.5, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       // 眨眼线条 Blink lines
       ctx.strokeStyle = '#212121';
@@ -232,7 +244,11 @@ class Bird {
       ctx.stroke();
     }
 
-    // （原创海洋题材：河豚——无喙无怒眉，与鸟类形象彻底区分）
+    // 腮红（眼睛下方两颊，粉扑扑是可爱风的第一信号）
+    T.drawBlush(ctx, -eyeOffset - 3.5, eyeY + 6, 3);
+    T.drawBlush(ctx, eyeOffset + 3.5, eyeY + 6, 3);
+
+    // （原创海洋题材：河豚——无喙无怒眉，与豚类形象彻底区分）
 
     // 尾鳍 Tail fin（背部，随飞行方向摆动）
     ctx.beginPath();
@@ -375,16 +391,24 @@ function drawBirdMini(ctx, x, y, r, type) {
 // ========== 章鱼怪 Octopus（类名 Pig 保留，题材已迁移为海洋） ==========
 
 class Pig {
-  constructor(x, y, radius = 22) {
+  // opts: { boss: 章王, hp: 自定义血量, name: 章王名, sleep: 阶段唤醒标记(1/2) }
+  constructor(x, y, radius = 22, opts) {
+    opts = opts || {};
     this.x = x;
     this.y = y;
     this.vx = 0;
     this.vy = 0;
     this.radius = radius;
-    this.maxHealth = radius > 26 ? 3 : radius > 20 ? 2 : 1;
+    this.isBoss = !!opts.boss;
+    this.bossName = opts.name || '';
+    this.sleepMark = opts.sleep || 0;   // >0 = 休眠体，在章王第 N 阶段怒吼时唤醒
+    this.sleeping = this.sleepMark > 0;
+    const defaultHp = radius > 26 ? 3 : radius > 20 ? 2 : 1;
+    this.maxHealth = this.isBoss && opts.hp ? opts.hp : defaultHp;
     this.health = this.maxHealth;
     this.alive = true;
     this.dynamic = false;
+    this.phase = 0;                    // 章王已触发的怒吼阶段数
     this.squish = 0;
     this.stillFrames = 0;
     this.deathTimer = 0;
@@ -396,6 +420,7 @@ class Pig {
   }
 
   update() {
+    if (this.sleeping) return; // 休眠援军/掉落物：冻结在屏幕外，等章王怒吼唤醒
     if (this.dying) {
       this.deathTimer++;
       this.radius *= 1.03;
@@ -447,7 +472,7 @@ class Pig {
   }
 
   takeDamage(force) {
-    if (this.dying) return false;
+    if (this.dying || this.sleeping) return false;
     if (force > 4) {
       this.health--;
       this.hurtFlash = 8;
@@ -461,6 +486,7 @@ class Pig {
   }
 
   knockback(vx, vy) {
+    if (this.isBoss || this.sleeping) return; // 章王是巨物不被打飞；休眠体保持冻结
     this.dynamic = true;
     this.vx += vx;
     this.vy += vy;
@@ -472,6 +498,7 @@ class Pig {
   }
 
   draw(ctx) {
+    if (this.sleeping) return; // 休眠体在屏幕外，不画
     ctx.save();
     ctx.translate(this.x, this.y);
 
@@ -487,14 +514,15 @@ class Pig {
 
     const r = this.radius;
 
-    // 身体 Body
+    // 身体 Body（章王：深紫重甲色 + 更粗描边，巨物压场）
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
-    const bodyColor = this.hurtFlash > 0 ? '#FFEB3B' : C.COLORS.pigBody;
+    const bodyColor = this.hurtFlash > 0 ? '#FFEB3B'
+      : (this.isBoss ? '#8E24AA' : C.COLORS.pigBody);
     ctx.fillStyle = bodyColor;
     ctx.fill();
     ctx.strokeStyle = C.COLORS.pigBodyDark;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = this.isBoss ? 3.5 : 1.5;
     ctx.stroke();
 
     // 头顶卷触手 Curled tentacle（章鱼特征，螺旋卷 + 吸盘尖）
@@ -562,6 +590,17 @@ class Pig {
       ctx.arc(eyeOffset + 1, eyeY, r * 0.09, 0, Math.PI * 2);
       ctx.fillStyle = '#212121';
       ctx.fill();
+
+      // 眼神光（主高光 + 右下副高光）
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(-eyeOffset + 0.4, eyeY - r * 0.04, r * 0.045, 0, Math.PI * 2);
+      ctx.arc(eyeOffset + 0.4, eyeY - r * 0.04, r * 0.045, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(-eyeOffset + r * 0.13, eyeY + r * 0.06, r * 0.022, 0, Math.PI * 2);
+      ctx.arc(eyeOffset + r * 0.13, eyeY + r * 0.06, r * 0.022, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       ctx.strokeStyle = '#212121';
       ctx.lineWidth = 1.5;
@@ -573,11 +612,15 @@ class Pig {
       ctx.stroke();
     }
 
-    // 受伤裂纹 Damage cracks
+    // 腮红（坏笑也要粉扑扑：凶萌感的来源）
+    T.drawBlush(ctx, -eyeOffset - r * 0.14, eyeY + r * 0.24, r * 0.14);
+    T.drawBlush(ctx, eyeOffset + r * 0.14, eyeY + r * 0.24, r * 0.14);
+
+    // 受伤裂纹 Damage cracks（章王裂纹更粗，数量随掉血增多）
     if (this.health < this.maxHealth && !this.dying) {
       ctx.strokeStyle = C.COLORS.pigBodyDark;
-      ctx.lineWidth = 1;
-      const cracks = this.maxHealth - this.health;
+      ctx.lineWidth = this.isBoss ? 2 : 1;
+      const cracks = Math.min(this.maxHealth - this.health, this.isBoss ? 8 : 6);
       for (let i = 0; i < cracks; i++) {
         const a = (i / cracks) * Math.PI * 2 + Math.PI / 4;
         const r1 = r * 0.5;
@@ -589,6 +632,35 @@ class Pig {
       }
     }
 
+    // 章王装饰：金色王冠 + 怒眉（王的识别符号）
+    if (this.isBoss && !this.dying) {
+      const crownBase = -r - 3;
+      ctx.fillStyle = '#FFD54F';
+      ctx.strokeStyle = '#5D4037';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.52, crownBase);
+      ctx.lineTo(-r * 0.52, crownBase - r * 0.42);
+      ctx.lineTo(-r * 0.26, crownBase - r * 0.16);
+      ctx.lineTo(0, crownBase - r * 0.52);
+      ctx.lineTo(r * 0.26, crownBase - r * 0.16);
+      ctx.lineTo(r * 0.52, crownBase - r * 0.42);
+      ctx.lineTo(r * 0.52, crownBase);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // 怒眉
+      ctx.strokeStyle = '#4A148C';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.48, -r * 0.46);
+      ctx.lineTo(-r * 0.16, -r * 0.34);
+      ctx.moveTo(r * 0.48, -r * 0.46);
+      ctx.lineTo(r * 0.16, -r * 0.34);
+      ctx.stroke();
+    }
+
     ctx.restore();
   }
 }
@@ -596,7 +668,9 @@ class Pig {
 // ========== 方块 Block ==========
 
 class Block {
-  constructor(x, y, width, height, type = 'wood') {
+  // opts: { sleep: 阶段唤醒标记(1/2)，>0 表示休眠的章王阶段掉落物，预置屏幕外 }
+  constructor(x, y, width, height, type = 'wood', opts) {
+    opts = opts || {};
     this.x = x;
     this.y = y;
     this.width = width;
@@ -609,6 +683,8 @@ class Block {
     this.vy = 0;
     this.dynamic = false;
     this.alive = true;
+    this.sleepMark = opts.sleep || 0;
+    this.sleeping = this.sleepMark > 0;
     this.rotation = 0;
     this.angularVelocity = 0;
     this.stillFrames = 0;
@@ -617,6 +693,7 @@ class Block {
   }
 
   update() {
+    if (this.sleeping) return; // 休眠掉落物：不受重力，等章王怒吼唤醒
     if (this.shake > 0) this.shake *= 0.9;
 
     if (!this.dynamic) return;
@@ -667,7 +744,7 @@ class Block {
   }
 
   takeDamage(force) {
-    if (!this.alive) return false;
+    if (!this.alive || this.sleeping) return false;
     if (force > 3) {
       this.health -= Math.floor(force / 4);
       this.shake = 0.5;
@@ -687,6 +764,7 @@ class Block {
   }
 
   knockback(vx, vy, pointX, pointY) {
+    if (this.sleeping) return; // 休眠体唤醒前不受冲击
     this.dynamic = true;
     this.vx += vx;
     this.vy += vy;
@@ -702,7 +780,7 @@ class Block {
   // 由 utils.js 的 circleOBB / obbObb（SAT）按真实朝向计算。
 
   draw(ctx) {
-    if (!this.alive) return;
+    if (!this.alive || this.sleeping) return;
 
     ctx.save();
 
@@ -753,13 +831,13 @@ class Block {
       return;
     }
 
-    // 主体
+    // 主体（圆角：马卡龙软糖感；碰撞尺寸不变，视觉圆角半径 4）
     ctx.fillStyle = p.color;
     ctx.beginPath();
-    ctx.rect(-w / 2, -h / 2, w, h);
+    U.roundRectPath(ctx, -w / 2, -h / 2, w, h, 4);
     ctx.fill();
 
-    // 边框
+    // 边框（柔色描边，沿用主体圆角路径）
     ctx.strokeStyle = p.colorDark;
     ctx.lineWidth = 2;
     ctx.stroke();
@@ -821,11 +899,12 @@ class Block {
       }
     }
 
-    // 高光 Highlight
+    // 高光 Highlight（顶部圆角光头条，跟随主体圆角）
     ctx.fillStyle = p.colorLight;
     ctx.globalAlpha = 0.3;
-    ctx.fillRect(-w / 2 + 2, -h / 2 + 2, w - 4, 2);
-    ctx.fillRect(-w / 2 + 2, -h / 2 + 2, 2, h - 4);
+    ctx.beginPath();
+    U.roundRectPath(ctx, -w / 2 + 2, -h / 2 + 2, w - 4, 3, 1.5);
+    ctx.fill();
     ctx.globalAlpha = 1;
 
     ctx.restore();
@@ -835,12 +914,13 @@ class Block {
 // ========== 粒子 Particle ==========
 
 class Particle {
-  constructor(x, y, vx, vy, color, life, size) {
-    this.reset(x, y, vx, vy, color, life, size);
+  // shape: 'square'（默认旋转方块）| 'star'（四角星，庆祝/闪光用）
+  constructor(x, y, vx, vy, color, life, size, shape) {
+    this.reset(x, y, vx, vy, color, life, size, shape);
   }
 
-  /** 对象池复用：重置全部状态（gravity 为常量，旋转随机化） */
-  reset(x, y, vx, vy, color, life, size) {
+  /** 对象池复用：重置全部状态（gravity 为常量，旋转随机化；shape 必须显式重置，否则复用粒子会带着旧形状） */
+  reset(x, y, vx, vy, color, life, size, shape) {
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -849,6 +929,7 @@ class Particle {
     this.life = life;
     this.maxLife = life;
     this.size = size;
+    this.shape = shape || 'square';
     this.gravity = 0.15;
     this.rotation = U.random(0, Math.PI * 2);
     this.rotSpeed = U.random(-0.2, 0.2);
@@ -873,9 +954,13 @@ class Particle {
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = this.color;
     const s = this.size * alpha;
-    ctx.fillRect(-s / 2, -s / 2, s, s);
+    if (this.shape === 'star') {
+      T.drawStar(ctx, 0, 0, s, this.color);
+    } else {
+      ctx.fillStyle = this.color;
+      ctx.fillRect(-s / 2, -s / 2, s, s);
+    }
     ctx.restore();
   }
 }
@@ -926,7 +1011,7 @@ class FloatingText {
 // ========== 按钮 Button ==========
 
 class Button {
-  constructor(x, y, width, height, text, color) {
+  constructor(x, y, width, height, text, color, opts) {
     this.x = x;
     this.y = y;
     this.width = width;
@@ -935,6 +1020,46 @@ class Button {
     this.color = color || C.COLORS.buttonBg;
     this.pressed = false;
     this.scale = 1;
+    this.sketch = !!(opts && opts.sketch);
+    this.locked = !!(opts && opts.locked);
+    this.radius = (opts && opts.radius) || 12;
+    this.fontSize = (opts && opts.fontSize) || Math.max(14, Math.floor(this.height * 0.36));
+    this.strokeWidth = (opts && opts.strokeWidth) || 0;
+    // 马卡龙主题：按钮无硬描边，果冻质感靠柔投影 + 渐变 + 高光；outlineColor 仅作文字柔影基色
+    this.outlineColor = (opts && opts.outlineColor) || '#6D4C57';
+    this.shadowOffset = (opts && opts.shadowOffset) || 3;
+    this.textOutline = (opts && opts.textOutline) !== false;
+  }
+
+  _hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    const bigint = parseInt(h, 16);
+    return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+  }
+
+  _rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(v => {
+      const clamped = Math.max(0, Math.min(255, Math.round(v)));
+      return clamped.toString(16).padStart(2, '0');
+    }).join('');
+  }
+
+  _lightenColor(hex, percent) {
+    const { r, g, b } = this._hexToRgb(hex);
+    const amt = Math.round(2.55 * percent);
+    return this._rgbToHex(r + amt, g + amt, b + amt);
+  }
+
+  _darkenColor(hex, percent) {
+    const { r, g, b } = this._hexToRgb(hex);
+    const amt = Math.round(2.55 * percent);
+    return this._rgbToHex(r - amt, g - amt, b - amt);
+  }
+
+  // 底色是否偏浅（感知亮度 luma）：浅马卡龙底配深粉棕字，饱和深底配白字
+  _isLight(hex) {
+    const { r, g, b } = this._hexToRgb(hex);
+    return 0.299 * r + 0.587 * g + 0.114 * b > 170;
   }
 
   contains(px, py) {
@@ -942,7 +1067,8 @@ class Button {
   }
 
   update() {
-    this.scale += ((this.pressed ? 0.95 : 1) - this.scale) * 0.2;
+    const target = this.pressed ? 0.93 : 1;
+    this.scale += (target - this.scale) * 0.22;
   }
 
   draw(ctx) {
@@ -950,66 +1076,159 @@ class Button {
     const cx = this.x + this.width / 2;
     const cy = this.y + this.height / 2;
     ctx.translate(cx, cy);
-    ctx.scale(this.scale, this.scale);
+    const s = this.scale;
+    ctx.scale(s, s);
 
-    // 阴影
-    ctx.fillStyle = 'rgba(0,0,0,0.2)';
-    ctx.beginPath();
-    U.roundRectPath(ctx, -this.width / 2 + 2, -this.height / 2 + 3, this.width, this.height, 12);
-    ctx.fill();
+    const hw = this.width / 2;
+    const hh = this.height / 2;
+    const r = this.radius;
 
-    // 按钮主体
-    ctx.fillStyle = this.color;
-    ctx.beginPath();
-    U.roundRectPath(ctx, -this.width / 2, -this.height / 2, this.width, this.height, 12);
-    ctx.fill();
+    if (this.sketch) {
+      // === 马卡龙果冻按钮：柔投影 + 渐变主体 + 弧形高光，无硬描边 ===
+      const locked = this.locked;
+      const baseColor = locked ? '#B0BEC5' : this.color;
+      const sh = this.shadowOffset;
 
-    // 高光
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.beginPath();
-    U.roundRectPath(ctx, -this.width / 2 + 3, -this.height / 2 + 3, this.width - 6, this.height / 2 - 3, 10);
-    ctx.fill();
+      // 1. 柔和偏移投影（双层粉棕调，按钮靠投影从背景浮起）
+      ctx.fillStyle = 'rgba(141,90,110,0.16)';
+      ctx.beginPath();
+      U.roundRectPath(ctx, -hw + sh + 1, -hh + sh + 1,
+        this.width, this.height, r);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(141,90,110,0.26)';
+      ctx.beginPath();
+      U.roundRectPath(ctx, -hw + sh, -hh + sh,
+        this.width, this.height, r);
+      ctx.fill();
 
-    // 文字
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 18px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(this.text, 0, 1);
+      // 2. 主体渐变（从亮到暗，增加立体感）
+      const bodyGrad = ctx.createLinearGradient(0, -hh, 0, hh);
+      if (locked) {
+        bodyGrad.addColorStop(0, '#CFD8DC');
+        bodyGrad.addColorStop(1, '#90A4AE');
+      } else {
+        bodyGrad.addColorStop(0, this._lightenColor(this.color, 20));
+        bodyGrad.addColorStop(1, this._darkenColor(this.color, 15));
+      }
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      U.roundRectPath(ctx, -hw, -hh, this.width, this.height, r);
+      ctx.fill();
+
+      // 3. 顶部高光（弧形渐变，更自然）
+      const hiGrad = ctx.createRadialGradient(0, -hh + 4, 2, 0, -hh + 4, this.width * 0.7);
+      hiGrad.addColorStop(0, 'rgba(255,255,255,0.7)');
+      hiGrad.addColorStop(0.5, 'rgba(255,255,255,0.25)');
+      hiGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hiGrad;
+      ctx.beginPath();
+      U.roundRectPath(ctx, -hw + 2, -hh + 2, this.width - 4, this.height * 0.55, r - 2);
+      ctx.fill();
+
+      // 4. 底部阴影（轻微暗化底部边缘）
+      const botGrad = ctx.createLinearGradient(0, hh - this.height * 0.35, 0, hh);
+      botGrad.addColorStop(0, 'rgba(0,0,0,0)');
+      botGrad.addColorStop(1, 'rgba(0,0,0,0.15)');
+      ctx.fillStyle = botGrad;
+      ctx.beginPath();
+      U.roundRectPath(ctx, -hw + 2, hh - this.height * 0.35, this.width - 4, this.height * 0.35 - 2, r - 2);
+      ctx.fill();
+
+      // 5. 文字（按底色明暗自动选色 + 柔影：浅底深粉棕字 / 深底白字，替代硬描边）
+      ctx.font = `bold ${this.fontSize}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const ty = (this.height * 0.06);
+      const onLight = !locked && this._isLight(baseColor);
+      if (this.textOutline) {
+        ctx.shadowColor = onLight ? 'rgba(255,255,255,0.55)' : 'rgba(109,76,87,0.45)';
+        ctx.shadowBlur = 2;
+        ctx.shadowOffsetY = 1;
+      }
+      ctx.fillStyle = locked ? 'rgba(255,255,255,0.6)'
+        : (onLight ? '#6D4C57' : '#FFFFFF');
+      ctx.fillText(this.text, 0, ty);
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+    } else {
+      // === 原普通样式 ===
+      ctx.fillStyle = 'rgba(141,90,110,0.15)';
+      ctx.beginPath();
+      U.roundRectPath(ctx, -hw + 2, -hh + 3, this.width, this.height, r);
+      ctx.fill();
+
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      U.roundRectPath(ctx, -hw, -hh, this.width, this.height, r);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.beginPath();
+      U.roundRectPath(ctx, -hw + 3, -hh + 3, this.width - 6, this.height / 2 - 3, r - 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 18px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.text, 0, 1);
+    }
 
     ctx.restore();
   }
 }
 
-// ========== 云朵 Cloud ==========
+// ========== 气泡 Bubble ==========
 
-class Cloud {
+/**
+ * 海洋主题化的「云朵」。
+ *
+ * 决定性的差异不是造型而是运动方向：云向左横飘，气泡向上浮并左右摆动。
+ * 只改配色不改方向，眼睛仍会读成"天上有云"；方向一改，水下感立刻成立。
+ * 重生位置也相应从「右侧屏幕外」改为「海床附近」。
+ */
+class Bubble {
   constructor(x, y, scale) {
     this.x = x;
+    this.baseX = x;                             // 摆动围绕的基准 x
     this.y = y;
     this.scale = scale;
-    this.speed = 0.15 * scale;
+    this.speed = 0.35 * scale;                  // 上浮速度（比原云朵横飘快，气泡更轻快）
+    this.wobblePhase = U.random(0, Math.PI * 2);
+    this.wobbleAmp = U.random(4, 11);           // 左右摆动幅度
   }
 
   update() {
-    this.x += this.speed;
-    if (this.x > C.SCREEN_WIDTH + 80) {
-      this.x = -80;
-      this.y = U.random(30, C.SCREEN_HEIGHT * 0.35);
+    this.y -= this.speed;
+    this.wobblePhase += 0.03;
+    this.x = this.baseX + Math.sin(this.wobblePhase) * this.wobbleAmp;
+
+    // 浮出画面顶端后，从海床附近重新冒出
+    if (this.y < -20) {
+      this.y = C.GROUND_Y - U.random(0, 25);
+      this.baseX = U.random(0, C.SCREEN_WIDTH);
     }
   }
 
   draw(ctx) {
+    const r = 9 * this.scale;
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.scale(this.scale, this.scale);
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
 
+    // 泡体：刻意半透明，能透出背后的水色，才像"充气的泡"而不是"白点"
     ctx.beginPath();
-    ctx.arc(0, 0, 18, 0, Math.PI * 2);
-    ctx.arc(20, -5, 22, 0, Math.PI * 2);
-    ctx.arc(42, 0, 18, 0, Math.PI * 2);
-    ctx.arc(20, 8, 16, 0, Math.PI * 2);
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // 左上高光：气泡的标志性反光，缺了它会被看成普通圆圈
+    ctx.beginPath();
+    ctx.arc(-r * 0.32, -r * 0.32, r * 0.22, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.fill();
 
     ctx.restore();
@@ -1024,31 +1243,19 @@ function drawPearl(ctx, x, y, r, t) {
   ctx.save();
   ctx.translate(x, y);
 
-  // 柔光晕
+  // 柔光晕（淡粉，与珠身粉描边同系）
   ctx.beginPath();
   ctx.arc(0, 0, r * 1.7, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(225, 245, 254, 0.22)';
+  ctx.fillStyle = 'rgba(255, 224, 235, 0.28)';
   ctx.fill();
 
-  // 珠身
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, Math.PI * 2);
-  ctx.fillStyle = '#FDFFFE';
-  ctx.fill();
-  ctx.strokeStyle = '#81D4FA';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
+  // 珠身（委托 theme 共享画法：白珠 + 淡粉描边 + 左上高光；与弹弓挂饰珍珠同一支笔）
+  T.drawPearlBead(ctx, 0, 0, r);
 
-  // 粉色珠光（右下）
+  // 粉色珠光（右下，场景珍珠特有的一层，压在珠身上）
   ctx.beginPath();
   ctx.arc(r * 0.3, r * 0.3, r * 0.45, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(248, 187, 208, 0.5)';
-  ctx.fill();
-
-  // 高光（左上）
-  ctx.beginPath();
-  ctx.arc(-r * 0.35, -r * 0.35, r * 0.22, 0, Math.PI * 2);
-  ctx.fillStyle = '#FFFFFF';
   ctx.fill();
 
   // 旋转星芒（呼吸感）
@@ -1073,7 +1280,7 @@ module.exports = {
   Particle,
   FloatingText,
   Button,
-  Cloud,
+  Bubble,
   drawBirdMini,
   drawPearl,
 };

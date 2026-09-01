@@ -1,5 +1,5 @@
 /**
- * 物理碰撞模块 - 小鸟/方块/猪之间的碰撞检测与响应
+ * 物理碰撞模块 - 河豚/方块/章鱼之间的碰撞检测与响应
  * Physics - collision detection & response (bird / block / pig).
  *
  * 从 game.js 拆出（纯搬移，不改行为）。
@@ -10,16 +10,16 @@ const C = require('./config.js');
 const U = require('./utils.js');
 
 /**
- * 飞行小鸟的碰撞检测（对传入的鸟）。
- * 返回 true 表示岩轰触发爆炸、小鸟消散（调用方负责移除）。
+ * 飞行河豚的碰撞检测（对传入的豚）。
+ * 返回 true 表示岩轰触发爆炸、河豚消散（调用方负责移除）。
  */
 function checkBirdCollisions(game, bird) {
   if (!bird) return false;
   const isArmedBomb = bird.type === 'bomb' && !bird.abilityUsed;
 
-  // 小鸟 vs 猪
+  // 河豚 vs 章鱼
   for (const pig of game.pigs) {
-    if (!pig.alive || pig.dying) continue;
+    if (!pig.alive || pig.dying || pig.sleeping) continue;
     const col = U.circleCircle(bird, pig);
     if (col.collided) {
       // 岩轰首次撞击 → 直接爆炸
@@ -44,26 +44,29 @@ function checkBirdCollisions(game, bird) {
         bird.vy -= (1 + C.GROUND_BOUNCE) * dot * col.normal.y;
       }
 
-      // 猪受伤
+      // 章鱼受伤
       const killed = pig.takeDamage(impactForce);
       if (killed) {
         game.onPigKilled(pig);
-      } else if (impactForce > 4) {
-        game.createImpactParticles(bird.x, bird.y, C.COLORS.particlePurple);
-        game.screenShake(2);
-        game.playHitSound();
+      } else {
+        game.onPigHurt(pig);
+        if (impactForce > 4) {
+          game.createImpactParticles(bird.x, bird.y, C.COLORS.particlePurple);
+          game.screenShake(2);
+          game.playHitSound();
+        }
       }
 
-      // 猪被击退
+      // 章鱼被击退
       pig.knockback(col.normal.x * impactForce * 0.3, col.normal.y * impactForce * 0.3);
       bird.squish = Math.min(impactForce * 0.03, 0.25);
       break;
     }
   }
 
-  // 小鸟 vs 方块
+  // 河豚 vs 方块
   for (const block of game.blocks) {
-    if (!block.alive) continue;
+    if (!block.alive || block.sleeping) continue;
     const col = U.circleOBB(bird, block);
     if (col.collided) {
       // 岩轰首次撞击 → 直接爆炸
@@ -88,7 +91,7 @@ function checkBirdCollisions(game, bird) {
         bird.vy -= (1 + C.GROUND_BOUNCE) * dot * col.normal.y;
       }
 
-      // 方块受伤（应用鸟种 × 材质克制矩阵）
+      // 方块受伤（应用豚种 × 材质克制矩阵）
       const mult = (bird.props.damageVs && bird.props.damageVs[block.type]) || 1;
       const destroyed = block.takeDamage(impactForce * mult);
       if (destroyed) {
@@ -118,16 +121,16 @@ function checkBirdCollisions(game, bird) {
   return false;
 }
 
-/** 动态方块 vs 猪 / 其他方块的碰撞（结算阶段调用） */
+/** 动态方块 vs 章鱼 / 其他方块的碰撞（结算阶段调用） */
 function checkDynamicCollisions(game) {
-  // 动态方块 vs 猪
+  // 动态方块 vs 章鱼
   for (const block of game.blocks) {
     if (!block.alive || !block.dynamic) continue;
     const blockSpeed = Math.sqrt(block.vx ** 2 + block.vy ** 2);
     if (blockSpeed < 1) continue;
 
     for (const pig of game.pigs) {
-      if (!pig.alive || pig.dying) continue;
+      if (!pig.alive || pig.dying || pig.sleeping) continue;
       const pigCircle = { x: pig.x, y: pig.y, radius: pig.radius };
       const col = U.circleOBB(pigCircle, block);
       if (col.collided) {
@@ -135,6 +138,8 @@ function checkDynamicCollisions(game) {
         const killed = pig.takeDamage(impactForce);
         if (killed) {
           game.onPigKilled(pig);
+        } else {
+          game.onPigHurt(pig);
         }
         pig.knockback(block.vx * 0.3, block.vy * 0.3);
         block.vx *= 0.7;
@@ -146,10 +151,10 @@ function checkDynamicCollisions(game) {
   // 动态方块 vs 其他方块（每对只检查一次，至少一个动态才检测）
   for (let i = 0; i < game.blocks.length; i++) {
     const a = game.blocks[i];
-    if (!a.alive) continue;
+    if (!a.alive || a.sleeping) continue;
     for (let j = i + 1; j < game.blocks.length; j++) {
       const b = game.blocks[j];
-      if (!b.alive) continue;
+      if (!b.alive || b.sleeping) continue;
       if (!a.dynamic && !b.dynamic) continue;
       const col = U.obbObb(a, b);
       if (col.collided) {

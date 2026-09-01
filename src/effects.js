@@ -60,7 +60,7 @@ function createBlockParticles(game, x, y, type) {
   }
 }
 
-/** 撞击火花（小鸟撞猪/方块未摧毁时的小反馈） */
+/** 撞击火花（河豚撞章鱼/方块未摧毁时的小反馈） */
 function createImpactParticles(game, x, y, color) {
   for (let i = 0; i < 5; i++) {
     const angle = U.random(0, Math.PI * 2);
@@ -76,7 +76,7 @@ function createImpactParticles(game, x, y, color) {
   }
 }
 
-/** 发射尾焰（向后下扇形喷散） */
+/** 发射尾焰（向后下扇形喷散）+ 珊瑚弹弓的庆祝小星星，并触发丝带回弹计时 */
 function createLaunchParticles(game, x, y) {
   for (let i = 0; i < 8; i++) {
     const angle = U.random(Math.PI * 0.7, Math.PI * 1.3);
@@ -90,16 +90,32 @@ function createLaunchParticles(game, x, y) {
       U.random(2, 5)
     );
   }
+  // 弹弓口「啪」地撒出 4 颗淡金四角星
+  for (let i = 0; i < 4; i++) {
+    const angle = U.random(-Math.PI * 0.9, -Math.PI * 0.1);
+    const speed = U.random(1, 3);
+    game.spawnParticle(
+      C.SLINGSHOT_X, C.SLINGSHOT_Y - 12,
+      Math.cos(angle) * speed,
+      Math.sin(angle) * speed - 1,
+      C.COLORS.sparkleGold,
+      U.randomInt(20, 32),
+      U.random(3, 5),
+      'star'
+    );
+  }
+  // 丝带回弹计时（drawSlingshotFront 读取，逐帧递减在 game.update）
+  game.slingSnap = 8;
 }
 
-/** 粒子发射（优先从对象池复用，池空才 new） */
-function spawnParticle(game, x, y, vx, vy, color, life, size) {
+/** 粒子发射（优先从对象池复用，池空才 new）；shape 透传 'square' | 'star' */
+function spawnParticle(game, x, y, vx, vy, color, life, size, shape) {
   const p = game.particlePool.pop();
   if (p) {
-    p.reset(x, y, vx, vy, color, life, size);
+    p.reset(x, y, vx, vy, color, life, size, shape);
     game.particles.push(p);
   } else {
-    game.particles.push(new E.Particle(x, y, vx, vy, color, life, size));
+    game.particles.push(new E.Particle(x, y, vx, vy, color, life, size, shape));
   }
 }
 

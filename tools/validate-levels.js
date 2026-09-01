@@ -6,12 +6,12 @@
  * 退出码：0 = 全部通过；1 = 存在违规（可接入 CI / 提交前检查）。
  *
  * 校验范围：
- *  1. 手工关卡（levels.js）：猪-猪/方块-方块互叠、越界、珍珠可达性；
+ *  1. 手工关卡（levels.js）：章鱼-章鱼/方块-方块互叠、越界、珍珠可达性；
  *  2. 生成关卡（每日挑战 + 全部珍珠关）：同上（守护生成器回归）；
- *  3. 难度指标表（信息输出，不作失败判定）：材料硬度/鸟猪比/弹道/三星门槛占比。
+ *  3. 难度指标表（信息输出，不作失败判定）：材料硬度/豚-章鱼比/弹道/三星门槛占比。
  *
- * 注意：猪与方块的"贴靠/嵌墙"为既有设计（猪藏结构后受保护），只校验猪-猪
- * 互叠与越界，不校验猪-方块交叠。
+ * 注意：章鱼与方块的"贴靠/嵌墙"为既有设计（章鱼藏结构后受保护），只校验章鱼-章鱼
+ * 互叠与越界，不校验章鱼-方块交叠。
  */
 
 'use strict';
@@ -25,7 +25,7 @@ const PEARLS = require('../src/pearls.js');
 const SW = C.SCREEN_WIDTH;
 const GY = C.GROUND_Y;
 const PEARL_R = 9;          // 珍珠碰撞半径（与 game.checkPearlCollection 一致）
-const BIRD_DISP_R = 17 * 0.85; // 候飞队列鸟显示半径（越屏检查用）
+const BIRD_DISP_R = 17 * 0.85; // 候飞队列豚显示半径（越屏检查用）
 
 let failures = 0;
 function fail(msg) {
@@ -40,31 +40,59 @@ function circleRectDist(px, py, r) {
   return Math.hypot(px - cx, py - cy);
 }
 
+/** 章王怒吼阶段数：公式须与 combat.js onPigHurt 保持一致 */
+function bossPhases(hp) {
+  return hp >= 11 ? 3 : hp >= 8 ? 2 : hp >= 6 ? 1 : 0;
+}
+
 /** 单个关卡的几何校验（label 用于报错定位） */
 function checkGeometry(label, level) {
   const pigs = level.pigs || [];
   const blocks = level.blocks || [];
   const pearls = level.pearls || [];
 
-  // 猪-猪互叠
+  // 章王（Boss）语义：每关至多 1 只，须具名且 hp≥5、radius≥26（巨物）
+  const bosses = pigs.filter(p => p.boss);
+  if (bosses.length > 1) fail(`${label} 存在 ${bosses.length} 只章王（每关至多 1 只）`);
+  bosses.forEach((p) => {
+    if (!p.name) fail(`${label} 章王缺少 name 字段`);
+    if (!(p.hp >= 5)) fail(`${label} 章王 hp 非法（需 ≥5）：${p.hp}`);
+    if (p.radius < 26) fail(`${label} 章王 radius 过小（巨物需 ≥26）：${p.radius}`);
+  });
+  const phases = bosses.length ? bossPhases(bosses[0].hp) : 0;
+
+  // sleep 阶段物：必须预置屏外（y<-100，否则开局隐形无敌）；阶段号不得超过
+  // 章王怒吼阶段数（睡眠章鱼计入通关判定，永不可唤醒 = 死局）；无章王则无人唤醒
+  const checkSleep = (kind, i, e) => {
+    if (!e.sleep) return;
+    if (!bosses.length) fail(`${label} 休眠${kind}${i} 所在关卡没有章王（无人唤醒）`);
+    if (e.y > -100) fail(`${label} 休眠${kind}${i} 必须预置屏外（y<-100），实际 y=${e.y}`);
+    if (e.sleep > phases) {
+      fail(`${label} 休眠${kind}${i} 的 sleep=${e.sleep} 超过章王阶段数 ${phases}（永不可唤醒 → 死局）`);
+    }
+  };
+
+  // 章鱼-章鱼互叠
   pigs.forEach((a, i) => {
+    checkSleep('章鱼', i, a);
     pigs.forEach((b, j) => {
       if (j <= i) return;
       const d = Math.hypot(b.x - a.x, b.y - a.y);
       if (d < a.radius + b.radius - 0.01) {
-        fail(`${label} 猪${i}与猪${j}互叠（距离 ${d.toFixed(1)} < ${a.radius + b.radius}）`);
+        fail(`${label} 章鱼${i}与章鱼${j}互叠（距离 ${d.toFixed(1)} < ${a.radius + b.radius}）`);
       }
     });
   });
 
-  // 猪越界（屏幕左右缘 / 沉入地面）
+  // 章鱼越界（屏幕左右缘 / 沉入地面）
   pigs.forEach((p, i) => {
-    if (p.x - p.radius < 0 || p.x + p.radius > SW) fail(`${label} 猪${i}水平越界 x=${p.x}`);
-    if (p.y + p.radius > GY + 0.01) fail(`${label} 猪${i}沉入地面 y=${p.y}`);
+    if (p.x - p.radius < 0 || p.x + p.radius > SW) fail(`${label} 章鱼${i}水平越界 x=${p.x}`);
+    if (p.y + p.radius > GY + 0.01) fail(`${label} 章鱼${i}沉入地面 y=${p.y}`);
   });
 
   // 方块-方块互叠
   blocks.forEach((a, i) => {
+    checkSleep('方块', i, a);
     blocks.forEach((b, j) => {
       if (j <= i) return;
       const overlap = a.x < b.x + b.width - 0.01 && b.x < a.x + a.width - 0.01 &&
@@ -79,7 +107,7 @@ function checkGeometry(label, level) {
     if (b.y + b.height > GY + 0.01) fail(`${label} 方块${i}(${b.type})沉入地面 y=${b.y}`);
   });
 
-  // 珍珠：越界 / 嵌入方块（不可达）/ 贴猪（会被误拾）
+  // 珍珠：越界 / 嵌入方块（不可达）/ 贴章鱼（会被误拾）
   pearls.forEach((p, i) => {
     if (p.x - PEARL_R < 0 || p.x + PEARL_R > SW || p.y - PEARL_R < 0) {
       fail(`${label} 珍珠${i}(${p.id})越界 x=${p.x} y=${p.y}`);
@@ -91,16 +119,16 @@ function checkGeometry(label, level) {
     });
     pigs.forEach((q, j) => {
       if (Math.hypot(p.x - q.x, p.y - q.y) < PEARL_R + q.radius) {
-        fail(`${label} 珍珠${i}(${p.id})贴着猪${j}，开局即误拾`);
+        fail(`${label} 珍珠${i}(${p.id})贴着章鱼${j}，开局即误拾`);
       }
     });
   });
 
-  // 鸟队列站位（越屏回归：单排 28px 间距曾导致 5-6 只鸟出屏）
+  // 豚队列站位（越屏回归：单排 28px 间距曾导致 5-6 只豚出屏）
   const birdCount = Array.isArray(level.birds) ? level.birds.length : level.birds;
   for (let i = 0; i < birdCount - 1; i++) { // 弹弓上那只不算
     const x = C.SLINGSHOT_X - 35 - (i % 3) * 21;
-    if (x - BIRD_DISP_R < 0) fail(`${label} 候飞鸟 #${i} 越出左缘 x=${x}`);
+    if (x - BIRD_DISP_R < 0) fail(`${label} 候飞豚 #${i} 越出左缘 x=${x}`);
   }
 }
 
@@ -116,11 +144,11 @@ function printMetrics(label, level) {
     ? blocks.reduce((s, b) => s + HP[b.type] * DENS[b.type], 0) / blocks.length
     : 0;
   const n = pigs.length;
-  // 理论满分：N 猪全连击 N(N+1)/2×1000 + 方块×500 + 剩鸟(鸟数-1)×5000
+  // 理论满分：N 章鱼全连击 N(N+1)/2×1000 + 方块×500 + 剩豚(豚数-1)×5000
   const max = n * (n + 1) / 2 * 1000 + blocks.length * 500 + (birds - 1) * 5000;
   const r3 = Math.round(level.stars[2] / max * 100);
   console.log(
-    `  ${label}  硬度=${hard.toFixed(1)}  鸟/猪=${(birds / Math.max(1, n)).toFixed(2)}  ` +
+    `  ${label}  硬度=${hard.toFixed(1)}  豚/章鱼=${(birds / Math.max(1, n)).toFixed(2)}  ` +
     `弹道=${level.trajectory}  3星门槛=${level.stars[2]}（占满分 ${r3}%）`
   );
 }
@@ -128,7 +156,13 @@ function printMetrics(label, level) {
 // ===== 1. 手工关卡 =====
 console.log('== 手工关卡几何校验 ==');
 const levels = getLevels();
-levels.forEach((lv, i) => checkGeometry(`L${i + 1}`, lv));
+const BOSS_LEVELS = [7, 15, 23, 31, 39]; // 章末 Boss 关（idx）
+levels.forEach((lv, i) => {
+  checkGeometry(`L${i + 1}`, lv);
+  const hasBoss = (lv.pigs || []).some(p => p.boss);
+  if (BOSS_LEVELS.includes(i) && !hasBoss) fail(`L${i + 1} 是章末关但缺少章王（boss:true）`);
+  if (!BOSS_LEVELS.includes(i) && hasBoss) fail(`L${i + 1} 非章末关却配置了章王`);
+});
 
 console.log('\n== 难度指标（手工关卡） ==');
 levels.forEach((lv, i) => printMetrics(`L${i + 1}`, lv));

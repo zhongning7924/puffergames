@@ -105,7 +105,7 @@ const SOUNDS = {
     noiseBurst({ duration: 0.04, gain: 0.22 })
   ),
 
-  // 猪被消灭: 俏皮的上滑 "啵"
+  // 章鱼被消灭: 俏皮的上滑 "啵"
   pop: () => concatSegments([
     tone({ startFreq: 350, endFreq: 880, duration: 0.09, type: 'sine', gain: 0.42, attack: 0.003, release: 0.04 }),
     tone({ startFreq: 880, endFreq: 600, duration: 0.06, type: 'sine', gain: 0.28, attack: 0.002, release: 0.04 }),

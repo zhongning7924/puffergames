@@ -4,8 +4,8 @@
  *
  * 设计:
  *  - 种子 = 日期字符串哈希 + mulberry32 PRNG，全体玩家当日同题（可比拼）；
- *  - 从第 3~10 关中选一关做基底：方块结构沿用，猪位置/大小抖动，
- *    鸟队列从四种鸟中随机抽取，弹道预览长度随机；
+ *  - 从第 3 关起（跳过前两关教学关）选一关做基底：方块结构沿用，章鱼位置/大小抖动，
+ *    豚队列从四种豚中随机抽取，弹道预览长度随机；
  *  - 不用 Math.random，保证确定性。
  */
 
@@ -55,9 +55,11 @@ function generateLevel(dateStr, baseLevels) {
   const baseIdx = 2 + Math.floor(rng() * Math.max(1, baseLevels.length - 2));
   const base = baseLevels[Math.min(baseIdx, baseLevels.length - 1)];
 
-  // 猪：大小变化 ±3，位置抖动；候选位置撞方块则先用基底原位
-  const blocks = base.blocks.map((b) => ({ ...b }));
-  const basePigs = base.pigs;
+  // 章鱼：大小变化 ±3，位置抖动；候选位置撞方块则先用基底原位
+  // 章末 Boss 关的 sleep 阶段物（屏外预置的落石/援军）不属于结构素材，过滤掉，
+  // 否则沉睡实体会泄漏进生成关：睡眠章鱼无敌且计入通关判定 → 死局
+  const blocks = base.blocks.filter((b) => !b.sleep).map((b) => ({ ...b }));
+  const basePigs = base.pigs.filter((p) => !p.sleep && !p.boss);
   const pigs = basePigs.map((p) => {
     const radius = Math.max(13, Math.min(24, p.radius + Math.floor(rng() * 7) - 3));
     const cand = {
@@ -73,13 +75,13 @@ function generateLevel(dateStr, baseLevels) {
     return cand;
   });
 
-  // 迭代修复：分离互叠 → 夹取边界 → 撞方块的猪"锁定"退回基底原位。
-  // 锁定猪不再移动；基底布局本身合法（互不重叠、不撞方块），每轮至多
-  // 新增一头锁定猪，必然收敛。
+  // 迭代修复：分离互叠 → 夹取边界 → 撞方块的章鱼"锁定"退回基底原位。
+  // 锁定章鱼不再移动；基底布局本身合法（互不重叠、不撞方块），每轮至多
+  // 新增一头锁定章鱼，必然收敛。
   const locked = new Array(pigs.length).fill(false);
   for (let iter = 0; iter < 30; iter++) {
     let stable = true;
-    // 猪两两防重叠（锁定猪不动，对方承受全部推力）
+    // 章鱼两两防重叠（锁定章鱼不动，对方承受全部推力）
     for (let i = 0; i < pigs.length; i++) {
       for (let j = i + 1; j < pigs.length; j++) {
         const a = pigs[i];
@@ -132,7 +134,7 @@ function generateLevel(dateStr, baseLevels) {
     }
   }
 
-  // 鸟队列：沿用基底数量，随机抽鸟种
+  // 豚队列：沿用基底数量，随机抽豚种
   const birdCount = Array.isArray(base.birds) ? base.birds.length : base.birds;
   const birds = [];
   for (let i = 0; i < birdCount; i++) {

@@ -1,5 +1,5 @@
 {
-  "appid": "wxdc50cf2cc9dcad2b",
+  "appid": "wx23e405ee0493ef8d",
   "projectname": "puffer-go",
   "setting": {
     "es6": true,
@@ -30,7 +30,17 @@
   "libVersion": "3.3.4",
   "simulatorPluginLibVersion": {},
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      { "type": "folder", "value": "outputs" },
+      { "type": "folder", "value": "preview" },
+      { "type": "folder", "value": "tools" },
+      { "type": "folder", "value": "docs" },
+      { "type": "folder", "value": "opendata" },
+      { "type": "file", "value": "build-preview.js" },
+      { "type": "file", "value": "verify-preview.js" },
+      { "type": "file", "value": "overview.md" },
+      { "type": "folder", "value": ".workbuddy" }
+    ],
     "include": []
   },
   "isGameTourist": false,
