@@ -15,7 +15,7 @@
 
 ## 2. 核心设计原则
 
-1. **编辑器产出 = 手写关卡同构的纯数据对象**（形状同 `levels.js`：`{birds, trajectory, stars, pigs[], blocks[], pearls[]}`），直接喂现有 `setupLevel(game, level)`，试玩零新游戏逻辑。运行时动态关卡已有先例：每日挑战（`game.dailyLevel` + `isDaily`，`game.js:301` 分流）。
+1. **编辑器产出 = 手写关卡同构的纯数据对象**（形状同 `levels.js`：`{name, flavor, birds, trajectory, stars, pigs[], blocks[], pearls[]}`），直接喂现有 `setupLevel(game, level)`，**关卡装载/物理/战斗零新逻辑**。运行时动态关卡已有先例：每日挑战（`game.dailyLevel` + `isDaily`，`game.js:301` 分流）。注意：结算页按钮、广告点位、珍珠收集等**外围流程需要 isCustom 门控分支**（见 §4/§7），这些是分支抑制而非新玩法。
 2. **隔离开发**：编辑器全部代码在独立新文件，现有文件只做最小路由接线（状态转发 + 菜单按钮），不污染既有模块。
 3. **能赢才能考别人**：关卡必须自己试玩打通（`proven=true`）才允许保存/分享，天然过滤无解关卡。
 4. **移动端优先**：点选物料 → 画布点放（不从栏位拖拽，避免手指遮挡）；拇指热区在底部。
@@ -46,12 +46,14 @@
 
 | 文件 | 改动 |
 |---|---|
-| `src/game.js` | 状态机加 `EDITOR`；`update/render/触摸` 在 EDITOR 态转发 editor 模块；加 `customLevel/isCustom` 字段与 `enterEditor()/playCustom(level)`；`getCurrentLevel()` 加 custom 分流（仿 `game.js:301`） |
+| `src/game.js` | 状态机加 `EDITOR`；`update/render/触摸` 在 EDITOR 态转发 editor 模块；加 `customLevel/isCustom/editorDraft/playOrigin` 字段与 `enterEditor()/playCustom(level, origin)`；`getCurrentLevel()` 加 custom 分流（仿 `game.js:301`）；**`nextLevel()`（:358）/`retryLevel()`（:369）加 isCustom 分支**（挑战流：重打同一 customLevel；作者流：回编辑器，见 §7）；**`goToMenu()/goToLevelSelect()` 的 `AD.onLevelExit()` 插屏调用（:323/:336）在自定义关/编辑器过渡时绕开** |
 | `src/input.js` | 加 `EDITOR` case，触摸事件转发 `editor.onTouch*` |
-| `src/screens.js` | 主菜单加【造关】【输码挑战】两按钮；自定义关 WIN/LOSE 页加【返回编辑】按钮（回调路由 editor） |
-| `src/level-flow.js` / `src/settle.js` | `isCustom` 分流：不写战役进度、不解锁、不上传排行榜、不弹任何广告点位（仿现有 isDaily/isBonus 分支） |
-| `src/social.js` | `getLaunchOptionsSync` 识别 `query.custom` → 解码后进自定义关；分享标题区分自制关 |
-| `tools/validate-levels.js` | 把几何校验抽成纯函数 `validateLevel(level) → {ok, issues:[{kind,x,y,msg}]}` 导出；脚本 CLI 行为不变 |
+| `src/screens.js` | 主菜单加【造关】【输码挑战】两按钮；WIN/LOSE 页按 `playOrigin` 渲染两套按钮（见 §7）；**`isLastLevel` 判断（:1054）加 isCustom**（自定义关不显示「下一关」）；**三个广告按钮（复活 :1117 / 双倍 :1032 / 弹道全显 :1126）加 `!isCustom` 门控**——现状仅 `AD.available()` 门控，isDaily/isBonus 并不抑制广告，不能"仿照" |
+| `src/settle.js` | isCustom 分流：不写战役进度、不解锁、不上传排行榜；胜负后按 playOrigin 走对应按钮流（见 §7） |
+| `src/combat.js` | **`collectPearl`（:192-209）加 isCustom 分支**：自定义关珍珠触碰 → +2000 分 + 飘字（走现有 floatingText/音效），**不写 `progress.pearls`、不调 saveProgress**（现状无条件写图鉴存档，自定义珍珠无 id 会污染存档） |
+| `src/social.js` | `getLaunchOptionsSync` 识别 `query.custom` → 解码后进自定义关（playOrigin='challenge'）；分享标题区分自制关 |
+| `tools/validate-levels.js` | 把几何校验抽成纯函数 `validateLevel(level) → {ok, issues:[{kind,x,y,msg}]}` 导出，**复用现有全部检查**（章鱼/方块互叠越界、沉地、珍珠贴章鱼、珍珠嵌入方块不可达、候飞豚越屏），再新增计数上限与弹弓禁区检查；脚本 CLI 行为不变 |
+| `tools/test-harness.js` | wx mock 补 `getLaunchOptionsSync`/`getClipboardData`/`shareAppMessage`/`showShareMenu`（现状 social.available() 在 harness 中为 false，分享/直达两条 e2e 的前置基础设施） |
 
 ## 5. UI 布局（竖屏 375px 宽）
 
@@ -83,10 +85,10 @@
 
 | tab | 物料 | 放置行为 |
 |---|---|---|
-| 方块 | 木/石/冰 × 梁(80×26)、柱(28×80)、块(28×28) + 爆裂果(r14 圆) | 画布点放 |
+| 方块 | 木/石/冰 × 梁(80×26)、柱(28×80)、块(28×28) + 爆裂果（block 记录 26×26、type:'burst'，渲染为圆果，codec 按 block 枚举） | 画布点放 |
 | 敌人 | 小章鱼 r17、大章鱼 r22 | 画布点放，自动落地面/方块顶面 |
 | 河豚 | 嘟嘟/梭梭/砰砰/三丸子 | **不占画布**：点一下候飞队列加一只（上限 6）；点候飞区的豚移除 |
-| 道具 | 奖励珍珠（上限 2，碰到 +2000 分，不入图鉴）、橡皮（删除模式：点物体即删） | 珍珠放画布 |
+| 道具 | 奖励珍珠（上限 2，自定义关内触碰 +2000 分、不入图鉴不写存档，见 §7）、橡皮（删除模式：点物体即删） | 珍珠放画布 |
 
 ### 数量与禁区
 
@@ -95,23 +97,24 @@
 
 ## 6. 关卡数据与实时校验
 
-编辑过程中关卡就是一个内存 level 对象，每次增删后调 `validateLevel(level)`（从 `tools/validate-levels.js` 抽出的纯函数，脚本与编辑器共用）：
+编辑过程中关卡就是一个内存 level 对象，每次增删/移动后调 `validateLevel(level)`（从 `tools/validate-levels.js` 抽出的纯函数，脚本与编辑器共用）：
 
-- 章鱼-章鱼互叠、章鱼水平越界/沉地；
-- 方块-方块互叠、方块越界；
-- 珍珠贴章鱼（开局即误拾）；
-- 章鱼 ≥ 1 只；河豚 1~6 只；
-- 弹弓禁区无物体；
+- 复用现有全部检查：章鱼-章鱼互叠/水平越界/沉地、方块-方块互叠/越界、珍珠贴章鱼（开局即误拾）、珍珠嵌入方块（不可达）、候飞豚越屏；
+- 新增编辑器检查：章鱼 ≥ 1 只；河豚 1~6 只；方块 ≤ 40；弹弓禁区（x < 屏宽×0.33）无物体；
 - issue 带 `{kind, x, y, msg}`，供编辑器定位高亮。
 
-试玩前自动补字段：`trajectory: 70`（满弹道，创作友好）；`stars` 用每日关现成公式：满分 = 章鱼×1000 + 方块×250，门槛 = 满分 × [0.6, 1.0, 1.5] 取整。
+试玩前自动补字段：`name: '自制关'`、`flavor: '玩家创作'`（HUD 标题读 `level.name/flavor`，`renderer.js:476`，缺字段会渲染 undefined）；`trajectory: 70`（满弹道，创作友好）；`stars` 用每日关现成公式：满分 = 章鱼×1000 + 方块×250，门槛 = 满分 × [0.6, 1.0, 1.5] 取整。
 
 ## 7. 试玩闭环
 
-- 【▶试玩】→ `game.customLevel = level`、`isCustom = true` → 现有 `setupLevel()` 装载 → READY，同一套物理/渲染/结算。
-- 自定义关内：不写战役存档、不解锁、无广告点位（复活/双倍/弹道全显/插屏均不触发）。
-- WIN/LOSE 页按钮：【返回编辑】（回 EDITOR，level 对象内存原样保留，含未通关状态）；**仅 WIN 时**追加【保存并分享】。
-- 试玩打通 → `proven = true`（内存标记）；返回编辑后若再改动结构（增删方块/章鱼/河豚），`proven` 重置为 false（改过的关需重新证明）。
+- 【▶试玩】→ `game.customLevel = level`、`isCustom = true`、`playOrigin = 'author'`（编辑器进入）或 `'challenge'`（好友卡片/输码/存档关进入，此时 `editorDraft` 为空）→ 现有 `setupLevel()` 装载 → READY，同一套物理/渲染/结算。
+- 自定义关内：不写战役存档、不解锁、不上传排行榜。**广告点位全部不出现**（复活/双倍/弹道全显按钮加 `!isCustom` 门控；返回编辑/重打等过渡绕开 `AD.onLevelExit()` 插屏——注意现状广告仅由 `AD.available()` 门控，isDaily/isBonus 并不抑制，这是新增门控）。
+- 珍珠：自定义关内触碰珍珠 → +2000 分 + 飘字，不写图鉴、不 saveProgress（`combat.collectPearl` 加 isCustom 分支）。
+- **结算页按钮按入口分两套**：
+  - 作者流（playOrigin='author'）：WIN →【返回编辑】【保存并分享】；LOSE →【返回编辑】【再试一次】（重打本关）。
+  - 挑战流（playOrigin='challenge'）：WIN →【再来一次】【分享给朋友】（转发同一关卡码，二次传播）【返回菜单】；LOSE →【再来一次】【返回菜单】。挑战流不提供"保存到我造的关"（他人作品不进自己的创作列表）；v1 不做 remix 改写他人关卡。
+- `nextLevel()`/`retryLevel()` 加 isCustom 分支：自定义关无"下一关"（WIN 页不显示该按钮）；重打 = 重新 `setupLevel(customLevel)`，不得落入 `loadLevel(战役下标)`。
+- **proven 规则**：作者流试玩打通 → `proven = true`。返回编辑后，**任何结构变异**（增/删/移动方块·章鱼·珍珠，以及河豚队列增删/换种）都将 `proven` 重置为 false——仅移动位置同样改变可通关性，必须重新证明。纯视图操作（选中、切换 tab、滚动物料栏）不重置。
 
 ## 8. 关卡码与分享
 
@@ -132,14 +135,16 @@
 
 回归门不变：`node tools/validate-levels.js` → `node tools/e2e-tests.js` → `node build-preview.js && node verify-preview.js`，全绿才算完成。
 
-新增测试：
+新增测试（0 号为前置基础设施）：
+0. **test-harness 扩 mock**：`getLaunchOptionsSync`（可注入 query）/`getClipboardData`/`shareAppMessage`/`showShareMenu`，使 `social.available()` 在 harness 中为 true。
 1. **codec 纯函数**：随机 level 往返（encode→decode 深相等）；坏码/截断码/非法枚举拒绝；超上限配置拒绝。
-2. **validateLevel 纯函数**：每种 issue 构造样例（互叠/越界/沉地/贴珍珠/无章鱼/无河豚/禁区有物）。
+2. **validateLevel 纯函数**：每种 issue 构造样例（互叠/越界/沉地/贴珍珠/珍珠嵌入方块/无章鱼/无河豚/超上限/禁区有物）。
 3. **e2e（用 test-harness 的 fire/pump 无头驱动）**：
-   - 放置 3 物 → 校验绿 → 试玩 → 自动发射打通简单关 → WIN → proven=true → 返回编辑物体仍在；
-   - 未通关时【保存并分享】不出现；proven 后改动结构 → proven 重置；
-   - 分享 query.custom 直达能装载且字段完整；坏码给错误提示；
-   - 自定义关内不写战役进度、不弹广告。
+   - 放置 3 物 → 校验绿 → 试玩 → 自动发射打通简单关 → WIN（作者流按钮：返回编辑/保存并分享）→ 返回编辑物体仍在；
+   - 未通关时【保存并分享】不出现；proven 后**移动**一只章鱼（或换豚种）→ proven 重置；
+   - 挑战流（query.custom 直达）：能装载且字段完整、WIN 按钮为再来一次/分享/返回菜单、**无「下一关」且 nextLevel 不落入战役关**；坏码给错误提示；
+   - 自定义关内：不写战役进度、三个广告按钮均不出现、重打不触发插屏频控；
+   - 自定义关内拾珍珠：+2000 分、`progress.pearls` 无新增 key、无 saveProgress 写入。
 
 ## 11. v1.1+ 预留（不实现）
 
