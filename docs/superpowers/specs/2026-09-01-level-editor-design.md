@@ -50,6 +50,7 @@
 | `src/input.js` | 加 `EDITOR` case，触摸事件转发 `editor.onTouch*` |
 | `src/screens.js` | 主菜单加【造关】【输码挑战】两按钮；WIN/LOSE 页按 `playOrigin` 渲染两套按钮（见 §7）；**`isLastLevel` 判断（:1054）加 isCustom**（自定义关不显示「下一关」）；**三个广告按钮（复活 :1117 / 双倍 :1032 / 弹道全显 :1126）加 `!isCustom` 门控**——现状仅 `AD.available()` 门控，isDaily/isBonus 并不抑制广告，不能"仿照" |
 | `src/settle.js` | isCustom 分流：不写战役进度、不解锁、不上传排行榜；胜负后按 playOrigin 走对应按钮流（见 §7） |
+| `src/level-flow.js` | `setupLevel` 本身零改动（吃 level 对象）；但 **`loadLevel/startDaily/startBonus` 三个入口要显式 `isCustom=false; playOrigin=null`**（仿现有 isDaily/isBonus 互斥复位，:18/:29/:48），防止自定义关返回后标志残留、污染战役模式（不写存档/广告消失/按钮错套） |
 | `src/combat.js` | **`collectPearl`（:192-209）加 isCustom 分支**：自定义关珍珠触碰 → +2000 分 + 飘字（走现有 floatingText/音效），**不写 `progress.pearls`、不调 saveProgress**（现状无条件写图鉴存档，自定义珍珠无 id 会污染存档） |
 | `src/social.js` | `getLaunchOptionsSync` 识别 `query.custom` → 解码后进自定义关（playOrigin='challenge'）；分享标题区分自制关 |
 | `tools/validate-levels.js` | 把几何校验抽成纯函数 `validateLevel(level) → {ok, issues:[{kind,x,y,msg}]}` 导出，**复用现有全部检查**（章鱼/方块互叠越界、沉地、珍珠贴章鱼、珍珠嵌入方块不可达、候飞豚越屏），再新增计数上限与弹弓禁区检查；脚本 CLI 行为不变 |
