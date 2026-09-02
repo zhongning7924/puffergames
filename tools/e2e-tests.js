@@ -20,6 +20,7 @@ const AD = require('../src/ad.js');
 const E = require('../src/entities.js');
 const SOCIAL = require('../src/social.js');
 const CODEC = require('../src/level-codec.js');
+const VALIDATE = require('../src/level-validate.js');
 
 // ===== 极简测试运行器 =====
 const tests = [];
@@ -816,6 +817,46 @@ test('codec：满配置往返成功且码长 <700', () => {
   const code = CODEC.encodeLevel(full);
   assert.ok(code.length < 700, `满配置码长 ${code.length} 应 <700`);
   assert.ok(CODEC.decodeLevel(code), '满配置往返不为 null');
+});
+
+// =====================================================================
+// 造关师 T3：level-validate 纯校验函数
+// =====================================================================
+
+const GY = 577; // C.GROUND_Y = 667-90；站立坐标：柱 y=GY-80=497，章鱼 y=GY-17=560
+
+const goodLevel = () => ({
+  birds: ['normal','normal'],
+  blocks: [{x:200,y:497,width:28,height:80,type:'wood'}],   // 柱底=GY
+  pigs: [{x:240,y:560,radius:17}],                          // 底=GY
+  pearls: [],
+});
+
+test('validate：合法关卡 ok 无 issue（编辑器模式）', () => {
+  const r = VALIDATE.validateLevel(goodLevel(), {editor:true});
+  assert.strictEqual(r.ok, true, JSON.stringify(r.issues));
+});
+
+test('validate：官方关不带 editor 选项时不误报禁区/计数', () => {
+  const lv = goodLevel();
+  lv.pigs[0].x = 128; // 靠近禁区但官方关允许
+  const r = VALIDATE.validateLevel(lv); // 无 editor 选项
+  assert.ok(!r.issues.some(i=>i.kind==='no-build-zone'), '官方关不查禁区');
+  assert.ok(!r.issues.some(i=>i.kind==='no-pig' || i.kind==='bird-count'), '官方关不查计数');
+});
+
+test('validate：各类违规各产出 issue（编辑器模式）', () => {
+  const V = (lv) => VALIDATE.validateLevel(lv, {editor:true});
+  let lv = goodLevel(); lv.pigs.push({x:240,y:560,radius:17}); // 章鱼互叠
+  assert.ok(V(lv).issues.some(i=>i.kind==='pig-overlap'));
+  lv = goodLevel(); lv.pigs = [];                                   // 无章鱼
+  assert.ok(V(lv).issues.some(i=>i.kind==='no-pig'));
+  lv = goodLevel(); lv.birds = [];                                  // 无河豚
+  assert.ok(V(lv).issues.some(i=>i.kind==='bird-count'));
+  lv = goodLevel(); lv.blocks.push({x:10,y:497,width:28,height:80,type:'wood'}); // 禁区
+  assert.ok(V(lv).issues.some(i=>i.kind==='no-build-zone'));
+  lv = goodLevel(); lv.blocks = Array(41).fill(0).map((_,k)=>({x:140+(k%8)*29,y:300+Math.floor(k/8)*30,width:28,height:28,type:'wood'}));
+  assert.ok(V(lv).issues.some(i=>i.kind==='block-limit'));
 });
 
 run();
