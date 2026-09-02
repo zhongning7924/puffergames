@@ -804,6 +804,11 @@ test('codec：超上限配置拒绝编码', () => {
   assert.throws(() => CODEC.encodeLevel(many), /超限|too many/i);
 });
 
+test('codec：未知河豚类型/章鱼半径编码抛错', () => {
+  assert.throws(() => CODEC.encodeLevel({birds:['norml'],blocks:[],pigs:[{x:200,y:560,radius:17}],pearls:[]}), /未知河豚类型/);
+  assert.throws(() => CODEC.encodeLevel({birds:['normal'],blocks:[],pigs:[{x:200,y:560,radius:99}],pearls:[]}), /未知章鱼半径/);
+});
+
 test('codec：满配置往返成功且码长 <700', () => {
   const full = { birds: Array(6).fill('normal'),
     blocks: Array(40).fill(0).map((_,k)=>({x:140+(k%8)*29, y:300+Math.floor(k/8)*30, width:28, height:28, type:'wood'})),

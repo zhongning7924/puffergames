@@ -1,6 +1,7 @@
 /**
  * 关卡码编解码 - 自制关卡 ↔ 紧凑字符串（微信分享 query 用）。
  * 纯函数，无 wx/游戏依赖。格式：PG1 + 计数驱动的变长段（见 plan/spec）。
+ * decodeLevel 返回值附带 name/flavor/trajectory/stars 展示字段（挑战关直装载用），codec 不是纯数据往返。
  */
 'use strict';
 const GRID = 4;
@@ -41,7 +42,12 @@ function encodeLevel(level) {
     throw new Error('关卡内容超限（blocks≤40/pigs≤10/birds≤6/pearls≤2）');
   }
   let out = PREFIX;
-  out += enc(birds.length) + birds.map(b => BIRD_CHARS[b]).join('');
+  out += enc(birds.length);
+  for (const b of birds) {
+    const bc = BIRD_CHARS[b];
+    if (!bc) throw new Error('codec 未知河豚类型: ' + b);
+    out += bc;
+  }
   out += enc(blocks.length);
   for (const b of blocks) {
     out += BLOCK_CHARS[b.type] + enc(Math.round(b.x / GRID)) + enc(Math.round(b.y / GRID))
@@ -49,7 +55,9 @@ function encodeLevel(level) {
   }
   out += enc(pigs.length);
   for (const p of pigs) {
-    out += (PIG_CHARS[p.radius] || 's') + enc(Math.round(p.x / GRID)) + enc(Math.round(p.y / GRID));
+    const pc = PIG_CHARS[p.radius];
+    if (!pc) throw new Error('codec 未知章鱼半径: ' + p.radius);
+    out += pc + enc(Math.round(p.x / GRID)) + enc(Math.round(p.y / GRID));
   }
   out += enc(pearls.length);
   for (const p of pearls) out += enc(Math.round(p.x / GRID)) + enc(Math.round(p.y / GRID));
