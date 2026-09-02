@@ -18,6 +18,7 @@ const game = loadGame();
 const C = require('../src/config.js');
 const AD = require('../src/ad.js');
 const E = require('../src/entities.js');
+const SOCIAL = require('../src/social.js');
 
 // ===== 极简测试运行器 =====
 const tests = [];
@@ -133,6 +134,13 @@ test('AIMING 中点击候飞区不换豚（瞄准拖拽不被打断）', () => {
   assert.strictEqual(game.currentBird.type, typeBefore, 'AIMING 中不换豚');
   env.fire('touchend');
   env.pump(300);
+});
+
+test('harness：分享/启动/剪贴板 mock 齐备，social.available() 为 true', () => {
+  assert.strictEqual(SOCIAL.available(), true, 'showShareMenu mock 后应可分享');
+  assert.strictEqual(typeof wx.getLaunchOptionsSync, 'function');
+  assert.strictEqual(typeof wx.getClipboardData, 'function');
+  assert.strictEqual(typeof wx.shareAppMessage, 'function');
 });
 
 // =====================================================================

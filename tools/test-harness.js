@@ -87,10 +87,17 @@ function installEnv(options = {}) {
     onTouchMove: (cb) => { touchHandlers.touchmove = cb; },
     onTouchEnd: (cb) => { touchHandlers.touchend = cb; },
     onTouchCancel: (cb) => { touchHandlers.touchcancel = cb; },
+    // —— 编辑器/分享相关 mock（e2e 用）——
+    showShareMenu: () => {},
+    onShareAppMessage: () => {},
+    shareAppMessage: (opts) => { ads.lastShare = opts; },
+    getLaunchOptionsSync: () => ({ query: ads.launchQuery || {} }),
+    getClipboardData: (opts) => { if (opts && opts.success) opts.success({ data: ads.clipboard || '' }); },
+    setClipboardData: (opts) => { ads.clipboard = (opts && opts.data) || ''; if (opts && opts.success) opts.success(); },
   };
 
   // 广告调用计数器（供 e2e 断言插屏频次 / Banner 显隐）
-  const ads = { interstitialShown: 0, bannerShown: 0, bannerHidden: 0 };
+  const ads = { interstitialShown: 0, bannerShown: 0, bannerHidden: 0, lastShare: null, launchQuery: null, clipboard: '' };
 
   // 激励视频 mock：show() 同步回调 onClose({isEnded:true})，即"完整看完发奖励"
   if (options.rewardAd) {

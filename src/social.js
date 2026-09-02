@@ -80,4 +80,4 @@ function getLaunchLevel() {
   return null;
 }
 
-module.exports = { init, shareResult, getLaunchLevel };
+module.exports = { available, init, shareResult, getLaunchLevel };
