@@ -19,6 +19,7 @@ const C = require('../src/config.js');
 const AD = require('../src/ad.js');
 const E = require('../src/entities.js');
 const SOCIAL = require('../src/social.js');
+const CODEC = require('../src/level-codec.js');
 
 // ===== 极简测试运行器 =====
 const tests = [];
@@ -765,6 +766,51 @@ test('玩法说明页：主菜单入口可见、可进入、可滚动、可返�
   env.fire('touchend');
   env.pump(3);
   assert.strictEqual(game.state, 'MENU', '返回应回到主菜单');
+});
+
+test('codec：合法关卡往返深相等（量化到 4px）', () => {
+  const lv = {
+    birds: ['normal','dash','bomb','split'],
+    blocks: [
+      {x:200,y:500,width:80,height:26,type:'wood'},
+      {x:160,y:540,width:28,height:80,type:'stone'},
+      {x:240,y:580,width:26,height:26,type:'burst'},
+    ],
+    pigs: [{x:240,y:600,radius:17},{x:300,y:600,radius:22}],
+    pearls: [{x:260,y:300}],
+  };
+  const code = CODEC.encodeLevel(lv);
+  assert.ok(code.startsWith('PG1'), '前缀 PG1');
+  assert.ok(code.length < 700, `关卡码过长: ${code.length}`);
+  const back = CODEC.decodeLevel(code);
+  assert.ok(back, '解码应成功');
+  assert.deepStrictEqual(back.birds, lv.birds);
+  assert.deepStrictEqual(back.blocks.map(b=>[b.x,b.y,b.width,b.height,b.type]),
+    lv.blocks.map(b=>[b.x,b.y,b.width,b.height,b.type]));
+  assert.deepStrictEqual(back.pigs.map(p=>[p.x,p.radius]), [[240,17],[300,22]]);
+  assert.strictEqual(back.pearls.length, 1);
+});
+
+test('codec：坏码/截断码/非法枚举拒绝为 null', () => {
+  assert.strictEqual(CODEC.decodeLevel('XXXX'), null);
+  assert.strictEqual(CODEC.decodeLevel('PG1'), null); // 体太短
+  const good = CODEC.encodeLevel({birds:['normal'],blocks:[],pigs:[{x:200,y:600,radius:17}],pearls:[]});
+  assert.strictEqual(CODEC.decodeLevel(good.slice(0, good.length-2)), null); // 截断
+  assert.strictEqual(CODEC.decodeLevel(good.replace(/[ndbs]/, 'z')), null); // 非法豚种
+});
+
+test('codec：超上限配置拒绝编码', () => {
+  const many = { birds: Array(7).fill('normal'), blocks: [], pigs: [{x:200,y:600,radius:17}], pearls: [] };
+  assert.throws(() => CODEC.encodeLevel(many), /超限|too many/i);
+});
+
+test('codec：满配置往返成功且码长 <700', () => {
+  const full = { birds: Array(6).fill('normal'),
+    blocks: Array(40).fill(0).map((_,k)=>({x:140+(k%8)*29, y:300+Math.floor(k/8)*30, width:28, height:28, type:'wood'})),
+    pigs: [{x:240,y:560,radius:17}], pearls: [] };
+  const code = CODEC.encodeLevel(full);
+  assert.ok(code.length < 700, `满配置码长 ${code.length} 应 <700`);
+  assert.ok(CODEC.decodeLevel(code), '满配置往返不为 null');
 });
 
 run();
