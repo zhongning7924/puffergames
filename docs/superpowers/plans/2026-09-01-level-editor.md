@@ -112,7 +112,7 @@ git commit -m "造关师 T1：harness 补分享/启动参数/剪贴板 wx mock"
 
 **编码设计**（紧凑、可校验、版本化）：
 - 前缀 `PG1`；字符表 `B64 = A-Za-z0-9-_`（64 字符）。
-- 坐标按网格 `GRID=4` 量化后存网格坐标（`gx=Math.round(x/4)`，范围 0~93）；每个非负整数编码为 1~2 个 B64 字符（`enc(n)`：n<64 单字符，否则两位 `[32+floor(n/64), n%64]`，高位字符占 32..63 共 32 档，上限 2047）。
+- 坐标按网格 `GRID=4` 量化后存网格坐标（`gx=Math.round(x/4)`，范围 0~93）；每个非负整数编码为 1~2 个 B64 字符（**32 进制**：n<32 单字符 B64[n]；否则两位 `[32+floor(n/32), n%32]`，高位标记占索引 32..63 与单字符值域 0..31 不重叠，上限 1023）。
 - 段顺序：`birds`（每豚 1 字符枚举 `n/d/b/s`）、`blocks`（type 1 字符 `w/t/i/f`(wood/sTone/ice/burst) + gx + gy + 尺寸枚举 1 字符）、`pigs`（半径枚举 1 字符 `s`=17/`l`=22 + gx + gy）、`pearls`（gx + gy）。
 - 每段以计数开头；段间无分隔（计数驱动解码）。尺寸枚举：`b`=80×26 梁、`p`=28×80 柱、`q`=28×28 块、`f`=26×26 爆裂果。
 
@@ -183,17 +183,19 @@ const SIZE_KEY = (w, h, type) =>
 const PIG_CHARS = { 17: 's', 22: 'l' };
 const PIG_RADII = { s: 17, l: 22 };
 
-function enc(n) { // 非负整数 → 1~2 字符（两位高位字符占 32..63 共 32 档，上限 2047；网格坐标最大 ~167，够用）
-  if (n < 0 || n > 2047) throw new Error('codec 数值越界');
-  return n < 64 ? B64[n] : B64[32 + (n >> 6)] + B64[n & 63];
+// 32 进制变长：单字符值 0..31（B64 索引 0..31）；双字符高位标记占索引 32..63，
+// 与单字符值域不重叠（关键：否则 n∈[32,63] 的单字符会被误判为高位 → 整流错位）。上限 1023。
+function enc(n) {
+  if (n < 0 || n > 1023) throw new Error('codec 数值越界');
+  return n < 32 ? B64[n] : B64[32 + (n >> 5)] + B64[n & 31];
 }
 function dec(s, i) { // 返回 [value, nextIndex]；非法返回 null
   const c0 = B64.indexOf(s[i]);
   if (c0 < 0) return null;
   if (c0 < 32) return [c0, i + 1];
   const c1 = B64.indexOf(s[i + 1]);
-  if (c1 < 0) return null;
-  return [((c0 - 32) << 6) + c1, i + 2];
+  if (c1 < 0 || c1 >= 32) return null; // 低位必须 0..31
+  return [((c0 - 32) << 5) + c1, i + 2];
 }
 
 function encodeLevel(level) {
