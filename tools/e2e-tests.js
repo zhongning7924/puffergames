@@ -21,6 +21,7 @@ const E = require('../src/entities.js');
 const SOCIAL = require('../src/social.js');
 const CODEC = require('../src/level-codec.js');
 const VALIDATE = require('../src/level-validate.js');
+const EDITOR = require('../src/editor.js');
 
 // ===== 极简测试运行器 =====
 const tests = [];
@@ -857,6 +858,77 @@ test('validate：各类违规各产出 issue（编辑器模式）', () => {
   assert.ok(V(lv).issues.some(i=>i.kind==='no-build-zone'));
   lv = goodLevel(); lv.blocks = Array(41).fill(0).map((_,k)=>({x:140+(k%8)*29,y:300+Math.floor(k/8)*30,width:28,height:28,type:'wood'}));
   assert.ok(V(lv).issues.some(i=>i.kind==='block-limit'));
+});
+
+// =====================================================================
+// 造关师 T4：EDITOR 状态骨架（进出/试玩装载/三入口复位）
+// =====================================================================
+
+test('编辑器：enterEditor 进 EDITOR 态并初始化空草稿', () => {
+  fresh();
+  game.enterEditor();
+  env.pump(2);
+  assert.strictEqual(game.state, 'EDITOR');
+  assert.ok(game.editor && game.editor.draft, '草稿已初始化');
+  assert.deepStrictEqual(game.editor.draft.blocks, []);
+  assert.deepStrictEqual(game.editor.draft.pigs, []);
+  assert.deepStrictEqual(game.editor.draft.pearls, []);
+  assert.deepStrictEqual(game.editor.draft.birds, ['normal']);
+});
+
+test('编辑器：editorExit 回 MENU；playCustom 后 loadLevel 复位 isCustom', () => {
+  game.enterEditor();
+  env.pump(1);
+  game.editorExit();
+  assert.strictEqual(game.state, 'MENU');
+
+  game.playCustom(
+    { birds: ['normal'], blocks: [], pigs: [{ x: 240, y: 560, radius: 17 }], pearls: [] },
+    'challenge',
+    'PG1TEST'
+  );
+  assert.strictEqual(game.isCustom, true);
+  assert.strictEqual(game.playOrigin, 'challenge');
+  assert.strictEqual(game.customCode, 'PG1TEST');
+  assert.strictEqual(game.state, 'READY');
+  assert.strictEqual(game.getCurrentLevel(), game.customLevel);
+
+  game.loadLevel(0);
+  assert.strictEqual(game.isCustom, false);
+  assert.strictEqual(game.playOrigin, null);
+  assert.strictEqual(game.getCurrentLevel(), game.levels[0]);
+});
+
+test('编辑器：startDaily/startBonus 同样复位自制关上下文', () => {
+  game.playCustom(
+    { birds: ['normal'], blocks: [], pigs: [{ x: 240, y: 560, radius: 17 }], pearls: [] },
+    'author'
+  );
+  assert.strictEqual(game.isCustom, true);
+  game.startDaily();
+  assert.strictEqual(game.isCustom, false);
+  assert.strictEqual(game.playOrigin, null);
+  assert.strictEqual(game.isDaily, true);
+});
+
+test('编辑器：deriveLevel 产出可被 setupLevel 装载的关卡（实体实例→纯数据）', () => {
+  const draft = EDITOR.instantiateDraft({
+    birds: ['normal', 'dash'],
+    blocks: [{ x: 200, y: 497, width: 28, height: 80, type: 'wood' }],
+    pigs: [{ x: 240, y: 560, radius: 17 }],
+    pearls: [{ x: 300, y: 400 }],
+  });
+  assert.strictEqual(typeof draft.pigs[0].draw, 'function', '草稿存实体实例，渲染可直接 draw');
+  const level = EDITOR.deriveLevel(draft);
+  assert.deepStrictEqual(level.birds, ['normal', 'dash']);
+  assert.strictEqual(level.blocks[0].type, 'wood');
+  assert.strictEqual(level.pearls[0].reward, true);
+  assert.ok(Array.isArray(level.stars) && level.stars.length === 3, 'stars 已补，防结算 computeStars 崩');
+  // 装载冒烟：不抛异常即通过
+  game.playCustom(level, 'author');
+  assert.strictEqual(game.state, 'READY');
+  assert.strictEqual(game.pigs.length, 1);
+  assert.strictEqual(game.blocks.length, 1);
 });
 
 run();

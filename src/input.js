@@ -11,6 +11,7 @@ const C = require('./config.js');
 const U = require('./utils.js');
 const AUDIO = require('./audio.js');
 const SOCIAL = require('./social.js');
+const EDITOR = require('./editor.js');
 
 /** 触摸按下：按状态机分发（菜单/设置/排行榜/选关选中按钮；READY→AIMING；FLYING→技能） */
 function onTouchStart(game, x, y) {
@@ -18,6 +19,9 @@ function onTouchStart(game, x, y) {
   AUDIO.startBGM(); // 首次用户手势启动循环 BGM（幂等）
 
   switch (game.state) {
+    case 'EDITOR':
+      EDITOR.onTouchStart(game, x, y);
+      break;
     case 'MENU':
       // 隐藏珍珠彩蛋：快速双击主菜单吉祥物（河豚）收集"彩蛋珍珠"
       const mascotX = C.SCREEN_WIDTH / 2;
@@ -202,6 +206,11 @@ function onTouchStart(game, x, y) {
 
 /** 瞄准拖拽：限制最大拉距、只允许向后拉 */
 function onTouchMove(game, x, y) {
+  if (game.state === 'EDITOR') {
+    EDITOR.onTouchMove(game, x, y);
+    return;
+  }
+
   if (game.state === 'LEVEL_SELECT' && game.levelSelTouch) {
     const t = game.levelSelTouch;
     const dy = y - t.y;
@@ -255,6 +264,11 @@ function onTouchMove(game, x, y) {
 /** 触摸抬起：重放按下的按钮；瞄准中则按拉距决定发射或回位 */
 function onTouchEnd(game) {
   switch (game.state) {
+    case 'EDITOR':
+      // 触摸抬起事件不带坐标，编辑器用 start/move 缓存的 touchX/touchY
+      EDITOR.onTouchEnd(game);
+      break;
+
     case 'MENU':
       if (game.buttons.play && game.buttons.play.pressed) {
         game.buttons.play.pressed = false;

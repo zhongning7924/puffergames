@@ -47,6 +47,8 @@ const PHYSICS = require('./physics.js');
 const RENDERER = require('./renderer.js');
 const SCREENS = require('./screens.js');
 const HELP = require('./help.js');
+const EDITOR = require('./editor.js');
+const EDITOR_R = require('./editor-render.js');
 
 /** 关卡内状态（含结算页）：用于判断"是否从关卡退出"，作为插屏广告的触发口径 */
 const IN_LEVEL_STATES = ['READY', 'AIMING', 'FLYING', 'SETTLING', 'WIN', 'LOSE'];
@@ -133,6 +135,16 @@ class Game {
     // 每日挑战状态
     this.isDaily = false;        // 当前是否在进行每日挑战
     this.dailyLevel = null;      // 当日挑战关卡数据（日期种子生成）
+
+    // 造关师（自制关卡）状态
+    this.isCustom = false;       // 当前是否在进行自制关（试玩/挑战）
+    this.playOrigin = null;      // 'author'（编辑器试玩）| 'challenge'（卡片/输码/列表）
+    this.customLevel = null;     // 自制关关卡数据
+    this.customCode = null;      // 挑战流的关卡码（二次分享/成绩记录用）
+    this.editor = null;          // 编辑器状态对象（草稿/物料栏/选中/拖动…）
+    this.listView = null;        // 主菜单列表视图：'mine' | 'played' | null
+    this.launchError = '';       // 启动直达坏码提示
+    this.clipboardError = '';    // 输码挑战失败提示
 
     // 激励视频点位状态
     this.failCounts = {};        // 各关失败次数（卡关检测；每日挑战用 'daily' 键）
@@ -296,8 +308,9 @@ class Game {
 
   // ==================== 关卡管理 ====================
 
-  /** 当前进行中的关卡数据（每日挑战/珍珠关时为对应生成关卡） */
+  /** 当前进行中的关卡数据（自制关/每日挑战/珍珠关时为对应关卡） */
   getCurrentLevel() {
+    if (this.isCustom) return this.customLevel;
     if (this.isDaily) return this.dailyLevel;
     if (this.isBonus) return this.bonusLevel;
     return this.levels[this.currentLevelIndex];
@@ -312,6 +325,14 @@ class Game {
   queuePosition(i) { return LEVELFLOW.queuePosition(i); }
   spawnBird() { LEVELFLOW.spawnBird(this); }
   swapBird(i) { LEVELFLOW.swapBird(this, i); }
+
+  // 造关师（editor.js 薄委托；逻辑隔离在编辑器模块）
+  enterEditor() { EDITOR.enterEditor(this); }
+  editorExit() { EDITOR.editorExit(this); }
+  playCustom(level, origin, code) { EDITOR.playCustom(this, level, origin, code); }
+  backToEditor() { EDITOR.backToEditor(this); }
+  openLevelList(kind) { this.listView = kind; }
+  handleLaunchQuery() { EDITOR.handleLaunchQuery(this); }
 
   // ==================== 状态转换 ====================
 
@@ -476,6 +497,9 @@ class Game {
 
     // 状态相关更新
     switch (this.state) {
+      case 'EDITOR':
+        EDITOR.update(this);
+        break;
       case 'READY':
         break;
       case 'AIMING':
@@ -670,6 +694,9 @@ class Game {
 
     // 状态覆盖层
     switch (this.state) {
+      case 'EDITOR':
+        EDITOR_R.drawEditor(this);
+        break;
       case 'MENU':
         SCREENS.drawMenu(this);
         break;

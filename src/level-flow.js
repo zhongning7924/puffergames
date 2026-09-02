@@ -20,6 +20,10 @@ function loadLevel(game, index) {
   game.isBonus = false;
   game.bonusLevel = null;
   game.bonusMeta = null;
+  // 自制关试玩/挑战返回战役：复位自定义关上下文（与 isDaily/isBonus 复位对称）
+  game.isCustom = false;
+  game.playOrigin = null;
+  game.customLevel = null;
   game.currentLevelIndex = index;
   setupLevel(game, level);
 }
@@ -30,6 +34,9 @@ function startDaily(game) {
   game.isBonus = false;
   game.bonusLevel = null;
   game.bonusMeta = null;
+  game.isCustom = false;
+  game.playOrigin = null;
+  game.customLevel = null;
   game.currentLevelIndex = -1;
   game.dailyLevel = DAILY.generateLevel(DAILY.todayString(), game.levels);
   setupLevel(game, game.dailyLevel);
@@ -49,6 +56,9 @@ function startBonus(game, meta) {
   game.dailyLevel = null;
   game.isBonus = true;
   game.bonusMeta = meta;
+  game.isCustom = false;
+  game.playOrigin = null;
+  game.customLevel = null;
   game.currentLevelIndex = -1;
   game.bonusLevel = PEARLS.generateBonusLevel(meta, game.levels);
   setupLevel(game, game.bonusLevel);
