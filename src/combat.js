@@ -191,6 +191,24 @@ function checkPearlCollection(game, bird) {
 /** 珍珠拾取结算（入库存档 + 珠光粒子 + 飘字提示） */
 function collectPearl(game, pearl) {
   pearl.collected = true;
+  if (game.isCustom) {
+    // 自制奖励珍珠：+2000 分 + 粒子/飘字/音效，不写图鉴、不存档（无章节奖励语义）
+    game.score += 2000;
+    game.addFloatingText(pearl.x, pearl.y - 22, '珍珠 +2000', '#E1F5FE', 18);
+    for (let i = 0; i < 10; i++) {
+      const angle = U.random(0, Math.PI * 2);
+      const speed = U.random(1, 3.5);
+      game.spawnParticle(
+        pearl.x, pearl.y,
+        Math.cos(angle) * speed, Math.sin(angle) * speed - 1,
+        i % 2 === 0 ? '#E1F5FE' : '#F8BBD0',
+        U.randomInt(20, 35), U.random(2, 4)
+      );
+    }
+    AUDIO.play('ding');
+    game.vibrate('light');
+    return;
+  }
   game.progress.pearls = { ...game.progress.pearls, [pearl.id]: true };
   game.saveProgress();
   game.addFloatingText(pearl.x, pearl.y - 22, '发现珍珠！', '#E1F5FE', 18);

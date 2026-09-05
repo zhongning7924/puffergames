@@ -1027,10 +1027,15 @@ function drawWinScreen(game) {
   }
 
   // 操作区首行：分享战绩 + 双倍积分（广告点位，不可用时分享按钮独占整行）
+  // 自制关：战役分享/双倍均不出现；挑战流在此位置放「分享给朋友」
   const shareY = panelY + panelH - 112;
   const sketchOpts = { sketch: true, strokeWidth: 3, shadowOffset: 4, radius: 14 };
-  const showDouble = AD.available() && !game.adDoubleUsed;
-  if (showDouble) {
+  const showDouble = AD.available() && !game.adDoubleUsed && !game.isCustom;
+  if (game.isCustom) {
+    if (game.playOrigin === 'challenge' && !game.buttons.challengeShare) {
+      game.buttons.challengeShare = new E.Button(cx - 90, shareY, 180, 40, '分享给朋友', '#07C160', sketchOpts);
+    }
+  } else if (showDouble) {
     if (!game.buttons.share) {
       game.buttons.share = new E.Button(cx - 128, shareY, 124, 40, '分享战绩', '#07C160', sketchOpts);
     }
@@ -1050,10 +1055,29 @@ function drawWinScreen(game) {
   // 按钮（仅创建一次，避免每帧重建丢失按下状态）
   const btnH = 38;
   const btnY = panelY + panelH - 60;
-  // 每日挑战/珍珠关没有"下一关"（nextLevel 会回选关页，这里直接不显示该按钮）
-  const isLastLevel = game.isDaily || game.isBonus || game.currentLevelIndex >= game.levels.length - 1;
+  // 每日挑战/珍珠关/自制关没有"下一关"（custom 时 currentLevelIndex=-1 恒使旧表达式为 false，必须显式纳入）
+  const isLastLevel = game.isDaily || game.isBonus || game.isCustom ||
+    game.currentLevelIndex >= game.levels.length - 1;
 
-  if (!isLastLevel) {
+  if (game.isCustom && game.playOrigin === 'author') {
+    // 作者流 WIN：返回编辑 + 保存并分享（proven 门控视觉；回调侧 T7 再卡一次）
+    if (!game.buttons.editorBack) {
+      game.buttons.editorBack = new E.Button(cx - 100, btnY, 92, btnH, '返回编辑', UI.gray, sketchOpts);
+    }
+    if (!game.buttons.saveShare) {
+      game.buttons.saveShare = new E.Button(cx + 8, btnY, 112, btnH, '保存并分享', '#07C160', sketchOpts);
+    }
+    game.buttons.saveShare.locked = !(game.editor && game.editor.proven);
+  } else if (game.isCustom) {
+    // 挑战流 WIN：再来一次 + 返回菜单（首行另有「分享给朋友」）
+    delete game.buttons.next;
+    if (!game.buttons.retry) {
+      game.buttons.retry = new E.Button(cx - 84, btnY, 80, btnH, '再来一次', UI.orange, sketchOpts);
+    }
+    if (!game.buttons.menu) {
+      game.buttons.menu = new E.Button(cx + 4, btnY, 80, btnH, '返回菜单', UI.gray, sketchOpts);
+    }
+  } else if (!isLastLevel) {
     if (!game.buttons.next) {
       game.buttons.next = new E.Button(cx - 125, btnY, 85, btnH, '下一关', UI.mint, sketchOpts);
     }
@@ -1073,7 +1097,7 @@ function drawWinScreen(game) {
     }
   }
 
-  for (const key of ['next', 'retry', 'menu']) {
+  for (const key of ['next', 'retry', 'menu', 'editorBack', 'saveShare', 'challengeShare']) {
     if (game.buttons[key]) game.buttons[key].draw(ctx);
   }
 }
@@ -1112,9 +1136,9 @@ function drawLoseScreen(game) {
   drawStrokedText(ctx, String(game.score), cx, panelY + 163, 'bold 26px Arial',
     UI.ink, 'rgba(255,255,255,0.8)', 3);
 
-  // 激励视频点位（仅广告可用时显示；奖励发放后按钮移除）
+  // 激励视频点位（仅广告可用时显示；奖励发放后按钮移除；自制关无广告点位）
   const sketchOpts = { sketch: true, strokeWidth: 3, shadowOffset: 4, radius: 14 };
-  if (AD.available()) {
+  if (AD.available() && !game.isCustom) {
     let adBtnY = panelY + 185;
     if (!game.reviveUsed) {
       if (!game.buttons.revive) {
@@ -1137,15 +1161,29 @@ function drawLoseScreen(game) {
   const btnH = 38;
   const btnY = panelY + panelH - 55;
   delete game.buttons.next;
-  if (!game.buttons.retry) {
-    game.buttons.retry = new E.Button(cx - btnW - 8, btnY, btnW, btnH, '重玩', UI.orange, sketchOpts);
-  }
-  if (!game.buttons.menu) {
-    game.buttons.menu = new E.Button(cx + 8, btnY, btnW, btnH, '菜单', UI.gray, sketchOpts);
+  if (game.isCustom && game.playOrigin === 'author') {
+    // 作者流试玩失败：返回编辑 + 再试一次（不回菜单，草稿在编辑器里）
+    delete game.buttons.menu;
+    if (!game.buttons.editorBack) {
+      game.buttons.editorBack = new E.Button(cx - btnW - 8, btnY, btnW, btnH, '返回编辑', UI.gray, sketchOpts);
+    }
+    if (!game.buttons.retry) {
+      game.buttons.retry = new E.Button(cx + 8, btnY, btnW, btnH, '再试一次', UI.orange, sketchOpts);
+    }
+  } else {
+    if (!game.buttons.retry) {
+      game.buttons.retry = new E.Button(cx - btnW - 8, btnY, btnW, btnH,
+        game.isCustom ? '再试一次' : '重玩', UI.orange, sketchOpts);
+    }
+    if (!game.buttons.menu) {
+      game.buttons.menu = new E.Button(cx + 8, btnY, btnW, btnH,
+        game.isCustom ? '返回菜单' : '菜单', UI.gray, sketchOpts);
+    }
   }
 
-  game.buttons.retry.draw(ctx);
-  game.buttons.menu.draw(ctx);
+  for (const key of ['retry', 'menu', 'editorBack']) {
+    if (game.buttons[key]) game.buttons[key].draw(ctx);
+  }
 }
 
 module.exports = {

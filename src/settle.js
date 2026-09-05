@@ -24,6 +24,7 @@ function computeStars(game) {
 
 /** 保存通关进度（星级/最高分）并上传排行榜成绩 */
 function saveWinProgress(game) {
+  if (game.isCustom) return; // 自制关不写战役档/排行榜（作者试玩与好友挑战均无战役进度语义）
   if (game.isBonus) return; // 珍珠关不计战役档（纯挑战内容）
   if (game.isDaily) {
     // 每日挑战：只记当日最佳分，不计入战役星级/排行榜总分
@@ -181,13 +182,17 @@ function checkWinLose(game) {
       starPop: 1,                  // 当前星的弹出动画进度 0→1
     };
 
-    // 解锁下一关（每日挑战/珍珠关不涉及战役解锁）
-    if (!game.isDaily && !game.isBonus &&
+    // 解锁下一关（每日挑战/珍珠关/自制关不涉及战役解锁）
+    if (!game.isDaily && !game.isBonus && !game.isCustom &&
         game.currentLevelIndex + 1 >= game.progress.unlockedLevels &&
         game.currentLevelIndex + 1 < game.levels.length) {
       game.progress.unlockedLevels = game.currentLevelIndex + 2;
     }
-    // 保存最佳星级与最高分并上传排行榜
+    // 作者流试玩打通 → 草稿获得"已通关"证明（分享门）；挑战流成绩记录由 T7 存档模块挂钩
+    if (game.isCustom && game.playOrigin === 'author' && game.editor) {
+      game.editor.proven = true;
+    }
+    // 保存最佳星级与最高分并上传排行榜（自制关内部直接 return）
     game.saveWinProgress();
 
     AUDIO.play('win');

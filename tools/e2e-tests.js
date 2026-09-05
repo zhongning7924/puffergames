@@ -1079,4 +1079,92 @@ test('编辑器：EDITOR 态渲染冒烟（实体/选中/预览/红圈/四 tab/�
   assert.strictEqual(game.state, 'EDITOR');
 });
 
+// =====================================================================
+// 造关师 T6：试玩闭环（作者/挑战两套结算按钮、广告门控、奖励珍珠 +2000）
+// =====================================================================
+
+test('自定义关：试玩打通→作者流按钮；返回编辑草稿仍在；不写战役进度', () => {
+  fresh();
+  game.editor = null;
+  game.enterEditor(); env.pump(1);
+  EDITOR.placeAt(game, 240, GY - 17, EDITOR.findPalette('pig-s'));
+  game.editor.draft.birds = ['bomb', 'bomb', 'bomb']; // 够用
+  EDITOR.tryPlay(game); env.pump(2);
+  assert.strictEqual(game.state, 'READY');
+  assert.strictEqual(game.isCustom, true);
+  assert.strictEqual(game.playOrigin, 'author');
+  // 自动打通：炸弹近射 + 空中引爆，连续发射直到 WIN/LOSE
+  let guard = 0;
+  while ((game.state === 'READY' || game.state === 'AIMING' || game.state === 'FLYING' || game.state === 'SETTLING') && guard++ < 25) {
+    if (game.state === 'READY' && game.currentBird) {
+      const bx = game.currentBird.x, by = game.currentBird.y;
+      env.fire('touchstart', bx, by);
+      env.fire('touchmove', bx - 30, by - 60);
+      env.fire('touchend');
+      env.pump(20);
+      if (game.state === 'FLYING') { env.fire('touchstart', 200, 300); env.pump(60); } // 空中炸
+    }
+    env.pump(120);
+  }
+  assert.strictEqual(game.state, 'WIN', '应能打通简单关（终态：' + game.state + '）');
+  assert.ok(game.buttons.editorBack, '作者流 WIN 有「返回编辑」按钮');
+  assert.ok(!game.buttons.next && !game.buttons.share && !game.buttons.double, '作者流无战役按钮');
+  const progBefore = JSON.stringify(env.readProgress());
+  game.backToEditor(); env.pump(1);
+  assert.strictEqual(game.state, 'EDITOR');
+  assert.strictEqual(game.editor.draft.pigs.length, 1, '返回编辑草稿保留');
+  assert.strictEqual(game.editor.proven, true, '打通后 proven=true');
+  assert.strictEqual(JSON.stringify(env.readProgress()), progBefore, '自定义关不写战役进度');
+});
+
+test('自定义关：广告按钮不出现；retry 不落入战役关', () => {
+  fresh();
+  game.playCustom({
+    name: '自制关', flavor: '玩家创作', birds: ['normal'],
+    blocks: [], pigs: [{ x: 350, y: 560, radius: 17 }], pearls: [],
+    stars: [500, 1000, 1500], trajectory: 70,
+  }, 'challenge');
+  env.pump(2);
+  shootOnce(); // 弱弹射够不到 x=350 的章鱼，弹尽判负
+  assert.strictEqual(game.state, 'LOSE', '一只 normal 打空应判负');
+  assert.ok(!game.buttons.revive, '复活广告按钮不应出现');
+  assert.ok(!game.buttons.boost, '弹道广告按钮不应出现');
+  assert.ok(!game.buttons.next, '无下一关按钮');
+  game.retryLevel(); env.pump(2);
+  assert.strictEqual(game.isCustom, true, '重打仍是自定义关');
+  assert.strictEqual(game.state, 'READY');
+});
+
+test('自定义关：作者流试玩失败→返回编辑按钮可用，无广告/菜单按钮（防死路）', () => {
+  fresh();
+  game.editor = null;
+  game.enterEditor(); env.pump(1);
+  EDITOR.placeAt(game, 350, GY - 17, EDITOR.findPalette('pig-s')); // 1 只 normal 弱射够不到
+  EDITOR.tryPlay(game); env.pump(2);
+  assert.strictEqual(game.playOrigin, 'author');
+  shootOnce();
+  assert.strictEqual(game.state, 'LOSE');
+  assert.ok(game.buttons.editorBack, '作者流 LOSE 必须有「返回编辑」');
+  assert.ok(!game.buttons.menu, '作者流 LOSE 不建菜单按钮');
+  assert.ok(!game.buttons.revive && !game.buttons.boost, '无广告按钮');
+  game.backToEditor(); env.pump(1);
+  assert.strictEqual(game.state, 'EDITOR');
+  assert.strictEqual(game.editor.draft.pigs.length, 1, '草稿保留');
+});
+
+test('自定义关：拾珍珠 +2000 分、不写图鉴', () => {
+  fresh();
+  game.playCustom({
+    name: '自制关', flavor: '玩家创作', birds: ['normal'], blocks: [],
+    pigs: [{ x: 300, y: 560, radius: 17 }],
+    pearls: [{ x: 200, y: 400, reward: true }],
+    stars: [500, 1000, 1500], trajectory: 70,
+  }, 'challenge');
+  env.pump(2);
+  const before = Object.keys(game.progress.pearls).length;
+  game.collectPearl(game.pearls[0]);
+  assert.ok(game.score >= 2000, '自定义珍珠 +2000（实际 ' + game.score + '）');
+  assert.strictEqual(Object.keys(game.progress.pearls).length, before, '不写图鉴');
+});
+
 run();

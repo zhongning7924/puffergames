@@ -157,7 +157,8 @@ function onTouchStart(game, x, y) {
       // 在剩豚奖励多的关卡（结算动画最长约 6 秒）尤其明显。
       if (game.winAnim && game.winAnim.phase !== 'done') {
         game.skipWinAnim();
-        const onButton = ['next', 'retry', 'menu', 'share', 'double']
+        const onButton = ['next', 'retry', 'menu', 'share', 'double',
+          'editorBack', 'saveShare', 'challengeShare']
           .some(k => game.buttons[k] && game.buttons[k].contains(x, y));
         if (!onButton) break; // 点在空白处：仅跳过，防误触
       }
@@ -181,6 +182,19 @@ function onTouchStart(game, x, y) {
         game.buttons.double.pressed = true;
         AUDIO.play('tap');
       }
+      // 自制关结算按钮（作者流 editorBack/saveShare；挑战流 challengeShare）
+      if (game.buttons.editorBack && game.buttons.editorBack.contains(x, y)) {
+        game.buttons.editorBack.pressed = true;
+        AUDIO.play('tap');
+      }
+      if (game.buttons.saveShare && game.buttons.saveShare.contains(x, y)) {
+        game.buttons.saveShare.pressed = true;
+        AUDIO.play('tap');
+      }
+      if (game.buttons.challengeShare && game.buttons.challengeShare.contains(x, y)) {
+        game.buttons.challengeShare.pressed = true;
+        AUDIO.play('tap');
+      }
       break;
 
     case 'LOSE':
@@ -190,6 +204,11 @@ function onTouchStart(game, x, y) {
       }
       if (game.buttons.menu && game.buttons.menu.contains(x, y)) {
         game.buttons.menu.pressed = true;
+        AUDIO.play('tap');
+      }
+      // 作者流 LOSE 页也有「返回编辑」（接不到就成死路）
+      if (game.buttons.editorBack && game.buttons.editorBack.contains(x, y)) {
+        game.buttons.editorBack.pressed = true;
         AUDIO.play('tap');
       }
       if (game.buttons.revive && game.buttons.revive.contains(x, y)) {
@@ -403,6 +422,18 @@ function onTouchEnd(game) {
         game.buttons.double.pressed = false;
         game.watchAdDoubleScore();
       }
+      if (game.buttons.editorBack && game.buttons.editorBack.pressed) {
+        game.buttons.editorBack.pressed = false;
+        game.backToEditor();
+      }
+      if (game.buttons.saveShare && game.buttons.saveShare.pressed) {
+        game.buttons.saveShare.pressed = false;
+        EDITOR.onSaveShare(game);
+      }
+      if (game.buttons.challengeShare && game.buttons.challengeShare.pressed) {
+        game.buttons.challengeShare.pressed = false;
+        SOCIAL.shareCustom(game.customCode, game.stars);
+      }
       break;
 
     case 'LOSE':
@@ -421,6 +452,10 @@ function onTouchEnd(game) {
       if (game.buttons.boost && game.buttons.boost.pressed) {
         game.buttons.boost.pressed = false;
         game.watchAdTrajectoryBoost();
+      }
+      if (game.buttons.editorBack && game.buttons.editorBack.pressed) {
+        game.buttons.editorBack.pressed = false;
+        game.backToEditor();
       }
       break;
   }

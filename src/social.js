@@ -80,4 +80,12 @@ function getLaunchLevel() {
   return null;
 }
 
-module.exports = { available, init, shareResult, getLaunchLevel };
+/**
+ * 分享自制关卡片（挑战流二次分享 / 作者保存并分享）。
+ * T6 占位：T7 填充（path 带 levelcode query，标题含成绩/创作署名）。
+ */
+function shareCustom(code, stars) {
+  // T7 实现：wx.shareAppMessage({ title, path: 'game.js?levelcode=' + code })
+}
+
+module.exports = { available, init, shareResult, getLaunchLevel, shareCustom };

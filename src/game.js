@@ -340,8 +340,9 @@ class Game {
     const fromLevel = IN_LEVEL_STATES.indexOf(this.state) >= 0;
     this.state = 'MENU';
     this.buttons = {};
-    // 退出关卡（含结算页点「菜单」）→ 插屏广告埋点，内部有频控
-    if (fromLevel) AD.onLevelExit();
+    // 退出关卡（含结算页点「菜单」）→ 插屏广告埋点，内部有频控；
+    // 自制关挑战返回不打广告（UGC 心流，且广告点位本就按战役关设计）
+    if (fromLevel && !this.isCustom) AD.onLevelExit();
   }
 
   goToLevelSelect() {
@@ -354,7 +355,7 @@ class Game {
     this.levelSelectAutoFocus = true;
     // 退出关卡回到选关页 → 插屏广告埋点，内部有频控
     // 注意：WIN 状态点「下一关」走 loadLevel，不经过这里，连闯心流不被打断
-    if (fromLevel) AD.onLevelExit();
+    if (fromLevel && !this.isCustom) AD.onLevelExit();
   }
 
   goToSettings() {
@@ -377,6 +378,12 @@ class Game {
   }
 
   nextLevel() {
+    if (this.isCustom) {
+      // 自制关无"下一关"：作者流回编辑器，挑战流回菜单
+      if (this.playOrigin === 'author') this.backToEditor();
+      else this.goToMenu();
+      return;
+    }
     if (this.isDaily || this.isBonus) {
       // 每日挑战/珍珠关无"下一关"，回到选关页
       this.goToLevelSelect();
@@ -388,6 +395,12 @@ class Game {
   }
 
   retryLevel() {
+    if (this.isCustom) {
+      // 自制关重打：同一份关卡数据重新装载（作者流草稿不变，挑战流码不变）
+      LEVELFLOW.setupLevel(this, this.customLevel);
+      this.state = 'READY';
+      return;
+    }
     if (this.isDaily) {
       this.startDaily(); // 重新生成当日关卡（同种子，内容一致）
     } else if (this.isBonus) {
