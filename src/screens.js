@@ -14,6 +14,7 @@ const T = require('./theme.js');
 const AD = require('./ad.js');
 const DAILY = require('./daily.js');
 const PEARLS = require('./pearls.js');
+const EDITOR = require('./editor.js');
 
 // 马卡龙界面实例色（高饱和旧色 → 低饱和粉彩色；微信绿 #07C160 为合规色不在此列）
 const UI = {
@@ -136,6 +137,9 @@ function drawMenu(game) {
   const ctx = game.ctx;
   const cx = C.SCREEN_WIDTH / 2;
 
+  // 造关师页面（中心页/我造的关/挑战记录）：复用 MENU 态 + listView 字段，不新增状态机
+  if (game.listView) { drawLevelList(game); return; }
+
   // 深海蓝调压暗（保留水下世界的可读性）
   drawOceanDim(game, 0.45);
 
@@ -251,8 +255,16 @@ function drawMenu(game) {
   game.buttons.help.y = helpY; // 跟随设置同步，避免开关切换后留错位
   game.buttons.help.draw(ctx);
 
+  // 造关师入口（UGC 中心：造关/输码挑战/我造的关/挑战记录）
+  const makerY = helpY + 54;
+  if (!game.buttons.goMaker) {
+    game.buttons.goMaker = new E.Button(btnX, makerY, btnW, 42, '🎨 造关师', '#07C160', sketchOpts);
+  }
+  game.buttons.goMaker.y = makerY;
+  game.buttons.goMaker.draw(ctx);
+
   // 底部两行（星数/珍珠）跟随按钮组下移，保持与新加按钮的间距一致
-  const tailBase = helpY + 58;
+  const tailBase = makerY + 64;
 
   // 最佳成绩
   let totalStars = 0;
@@ -274,6 +286,113 @@ function drawMenu(game) {
     ctx.fillStyle = '#FFF5F8';
     ctx.fillText(pearlCount + ' / ' + PEARLS.TOTAL, cx + 8, pearlY + 1);
   }
+}
+
+/**
+ * 造关师页面（MENU 态 + game.listView）：
+ *  - 'ugcHome'：造关师中心（造关/输码挑战/我造的关/挑战记录 四入口）
+ *  - 'mine'：我造的关（本地存档槽位，进入/删除）
+ *  - 'played'：挑战记录（好友关卡成绩，进入/删除）
+ * 行按钮只创建不重建（保留按下态）；槽位删除后多余按钮回收。
+ */
+function drawLevelList(game) {
+  const ctx = game.ctx;
+  const cx = C.SCREEN_WIDTH / 2;
+  drawOceanDim(game, 0.62);
+  const sketchOpts = { sketch: true, strokeWidth: 3, shadowOffset: 3, radius: 12 };
+
+  // 输码/启动错误提示（msgTimer 驱动，~4 秒）
+  if (game.msgTimer > 0 && (game.clipboardError || game.launchError)) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, game.msgTimer / 60);
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FF8A80';
+    ctx.fillText(game.clipboardError || game.launchError, cx, 130);
+    ctx.restore();
+  }
+
+  if (game.listView === 'ugcHome') {
+    drawStrokedText(ctx, '造关师', cx, 110, 'bold 30px Arial', '#FFD54F', 'rgba(0,0,0,0.5)', 3);
+    const items = [
+      ['goEditor', '🔨 造一关', UI.mint],
+      ['goCode', '📋 输码挑战', UI.lavender],
+      ['goMine', '📦 我造的关', UI.blue],
+      ['goPlayed', '🏆 挑战记录', UI.orange],
+    ];
+    items.forEach(([key, label, color], i) => {
+      const y = 170 + i * 72;
+      if (!game.buttons[key]) {
+        game.buttons[key] = new E.Button(cx - 90, y, 180, 52, label, color, sketchOpts);
+      }
+      game.buttons[key].y = y;
+      game.buttons[key].draw(ctx);
+    });
+    if (!game.buttons.listBack) {
+      game.buttons.listBack = new E.Button(cx - 70, C.SCREEN_HEIGHT - 86, 140, 42, '返回菜单', UI.gray, sketchOpts);
+    }
+    game.buttons.listBack.draw(ctx);
+    return;
+  }
+
+  // —— 列表页（mine / played）——
+  const isMine = game.listView === 'mine';
+  drawStrokedText(ctx, isMine ? '我造的关' : '挑战记录', cx, 90, 'bold 26px Arial', '#FFD54F', 'rgba(0,0,0,0.5)', 3);
+  // 中心页入口按钮在列表页不显示
+  for (const k of ['goEditor', 'goCode', 'goMine', 'goPlayed']) delete game.buttons[k];
+
+  const rows = isMine ? EDITOR.listSlots(game) : EDITOR.listPlayed(game);
+  const top = 130, rowH = 52;
+  if (!rows.length) {
+    ctx.font = '15px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillText(isMine ? '还没有保存的自制关' : '还没有挑战记录', cx, 292);
+    ctx.fillText(isMine ? '去「造一关」做一个吧！' : '输码或点好友分享卡片来挑战', cx, 316);
+  }
+  rows.forEach((r, i) => {
+    const y = top + i * rowH;
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillRect(16, y, C.SCREEN_WIDTH - 32, 44);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'left';
+    const label = isMine ? r.name : ('挑战关卡 · ' + formatMMDD(r.playedAt));
+    ctx.fillText(label, 30, y + 28);
+    ctx.textAlign = 'right';
+    if (isMine) {
+      ctx.fillStyle = r.proven ? '#7FDDE8' : 'rgba(255,255,255,0.5)';
+      ctx.fillText(r.proven ? '已通关' : '未通关', C.SCREEN_WIDTH - 150, y + 28);
+    } else {
+      ctx.fillStyle = C.COLORS.starGold;
+      ctx.fillText('★ ' + (r.bestStars || 0), C.SCREEN_WIDTH - 150, y + 28);
+    }
+    const keyE = 'slotEnter' + i, keyD = 'slotDel' + i;
+    if (!game.buttons[keyE]) {
+      game.buttons[keyE] = new E.Button(C.SCREEN_WIDTH - 132, y + 6, 64, 32, '进入', UI.mint, { fontSize: 13, radius: 8 });
+    }
+    if (!game.buttons[keyD]) {
+      game.buttons[keyD] = new E.Button(C.SCREEN_WIDTH - 62, y + 6, 46, 32, '删除', UI.coral, { fontSize: 13, radius: 8 });
+    }
+    game.buttons[keyE].y = y + 6;
+    game.buttons[keyD].y = y + 6;
+    game.buttons[keyE].draw(ctx);
+    game.buttons[keyD].draw(ctx);
+  });
+  // 回收多余行按钮（槽位删除后）
+  for (let i = rows.length; i < 12; i++) {
+    delete game.buttons['slotEnter' + i];
+    delete game.buttons['slotDel' + i];
+  }
+  if (!game.buttons.listBack) {
+    game.buttons.listBack = new E.Button(cx - 70, C.SCREEN_HEIGHT - 80, 140, 42, '返回', UI.gray, sketchOpts);
+  }
+  game.buttons.listBack.draw(ctx);
+}
+
+function formatMMDD(ts) {
+  const d = new Date(ts || Date.now());
+  return String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
 /**

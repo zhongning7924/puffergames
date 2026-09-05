@@ -72,11 +72,9 @@ class Game {
         ? { title: `我在「冲吧！小河豚」收集了 ${totalStars} 颗星，来挑战我吧！`, query: '' }
         : { title: '「冲吧！小河豚」—— 一弹入魂的物理弹射小游戏', query: '' };
     });
-    // 通过分享卡片进入 → 直达对应关卡（已解锁才跳转）
-    const launchLevel = SOCIAL.getLaunchLevel();
-    if (launchLevel !== null && launchLevel < this.progress.unlockedLevels) {
-      this.loadLevel(launchLevel);
-    }
+    // 通过分享卡片进入 → 直达关卡：战役关(query.level，已解锁门控)/自制关(query.custom)
+    // 分流逻辑在 editor.handleLaunchQuery（坏码留菜单 + launchError 提示）
+    this.handleLaunchQuery();
     this.gameLoop();
   }
 
@@ -145,6 +143,7 @@ class Game {
     this.listView = null;        // 主菜单列表视图：'mine' | 'played' | null
     this.launchError = '';       // 启动直达坏码提示
     this.clipboardError = '';    // 输码挑战失败提示
+    this.msgTimer = 0;           // 菜单错误提示剩余帧（逐帧递减）
 
     // 激励视频点位状态
     this.failCounts = {};        // 各关失败次数（卡关检测；每日挑战用 'daily' 键）
@@ -338,6 +337,8 @@ class Game {
 
   goToMenu() {
     const fromLevel = IN_LEVEL_STATES.indexOf(this.state) >= 0;
+    // 挑战流返回菜单：清自制关上下文（作者流走 backToEditor 不经此）
+    if (this.isCustom) { this.isCustom = false; this.playOrigin = null; this.customLevel = null; }
     this.state = 'MENU';
     this.buttons = {};
     // 退出关卡（含结算页点「菜单」）→ 插屏广告埋点，内部有频控；
@@ -455,6 +456,7 @@ class Game {
     this.pulseTimer++;
     if (this.hitSoundCooldown > 0) this.hitSoundCooldown--;
     if (this.slingSnap > 0) this.slingSnap--;
+    if (this.msgTimer > 0) this.msgTimer--;
 
     // 处理爆裂果链式爆炸队列
     if (this.pendingExplosions.length > 0) {

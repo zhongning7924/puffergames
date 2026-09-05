@@ -81,11 +81,36 @@ function getLaunchLevel() {
 }
 
 /**
- * 分享自制关卡片（挑战流二次分享 / 作者保存并分享）。
- * T6 占位：T7 填充（path 带 levelcode query，标题含成绩/创作署名）。
+ * 主动分享自制关卡卡片（query 带关卡码，好友点击直达挑战）。
+ * @param {string} code 关卡码（PG1 前缀）
+ * @param {number} [stars] 挑战成绩（挑战流二次分享时带上；作者首次分享为空）
  */
 function shareCustom(code, stars) {
-  // T7 实现：wx.shareAppMessage({ title, path: 'game.js?levelcode=' + code })
+  if (!available() || typeof wx.shareAppMessage !== 'function') return;
+  try {
+    wx.shareAppMessage({
+      title: stars
+        ? `我造的关被拿下 ${stars} 星，你能超过吗？`
+        : '我造了一关「冲吧！小河豚」，你能打通吗？',
+      query: 'custom=' + encodeURIComponent(code),
+    });
+  } catch (e) {
+    // 忽略
+  }
 }
 
-module.exports = { available, init, shareResult, getLaunchLevel, shareCustom };
+/**
+ * 读取启动 query 中的自制关卡码（分享卡片点击进入）。
+ * @returns {string|null} 关卡码原文，无则 null
+ */
+function getLaunchCustom() {
+  try {
+    if (typeof wx === 'undefined' || typeof wx.getLaunchOptionsSync !== 'function') return null;
+    const q = wx.getLaunchOptionsSync().query || {};
+    return q.custom ? decodeURIComponent(q.custom) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+module.exports = { available, init, shareResult, getLaunchLevel, shareCustom, getLaunchCustom };

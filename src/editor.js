@@ -157,6 +157,10 @@ function playCustom(game, level, origin, code) {
   game.customCode = code || null;
   game.isCustom = true;
   game.playOrigin = origin || 'challenge';
+  game.listView = null;
+  game.launchError = '';
+  game.clipboardError = '';
+  game.msgTimer = 0;
   game.currentLevelIndex = -1;
   LEVEL_FLOW.setupLevel(game, level);
   game.state = 'READY';
@@ -448,20 +452,140 @@ function update(game) {
   }
 }
 
-// ==================== T6/T7 占位 ====================
+// ==================== 本地存档（我造的关 / 挑战记录） ====================
 
-// T7 填充（screens/input 接线先于实现，避免 undefined）
-function onSaveShare(game) { /* T7 */ }
+const SLOT_KEY = 'pufferGo_editor_levels';
+const PLAYED_KEY = 'pufferGo_played_levels';
+const MAX_SLOTS = 12; // v1 本地槽位上限（单码 <700 字符，存储压力极小）
 
-function saveCurrent(game) { return null; }
-function listSlots(game) { return []; }
-function deleteSlot(game, i) { /* T7 */ }
-function openSlot(game, i) { /* T7 */ }
-function recordPlayed(game, code, stars) { /* T7 */ }
-function listPlayed(game) { return []; }
-function deletePlayed(game, i) { /* T7 */ }
-function handleLaunchQuery(game) { /* T7 */ }
-function enterFromClipboard(game) { /* T7 */ }
+function readStore(key) {
+  try { return wx.getStorageSync(key) || []; } catch (e) { return []; }
+}
+function writeStore(key, list) {
+  try { wx.setStorageSync(key, list); } catch (e) { /* 存储满/不可用：静默 */ }
+}
+
+/** 保存当前草稿到「我造的关」（须 proven；返回槽位对象，未通关返回 null） */
+function saveCurrent(game) {
+  const d = game.editor;
+  if (!d || !d.proven) return null;
+  const slots = listSlots(game);
+  if (slots.length >= MAX_SLOTS) return null;
+  const code = CODEC.encodeLevel(deriveLevel(d.draft));
+  const now = new Date();
+  const name = `自制·${String(now.getMonth() + 1).padStart(2, '0')}-` +
+    `${String(now.getDate()).padStart(2, '0')} #${slots.length + 1}`;
+  const slot = { name, code, proven: true, createdAt: Date.now() };
+  slots.push(slot);
+  writeStore(SLOT_KEY, slots);
+  d.lastCode = code;
+  return slot;
+}
+
+function listSlots(game) { return readStore(SLOT_KEY); }
+
+function deleteSlot(game, i) {
+  const slots = listSlots(game);
+  slots.splice(i, 1);
+  writeStore(SLOT_KEY, slots);
+}
+
+/** 重开槽位：解码 → 实体实例化草稿 → 进编辑器（proven 随槽位恢复） */
+function openSlot(game, i) {
+  const slots = listSlots(game);
+  if (!slots[i]) return;
+  const lv = CODEC.decodeLevel(slots[i].code);
+  if (!lv) return;
+  // 关键：草稿必须实体实例化，否则 editor-render 调 ent.draw 崩
+  game.editor = {
+    draft: instantiateDraft(lv),
+    tab: 'blocks', palette: null, eraser: false,
+    selected: null, drag: null, barDrag: null, scrollX: 0,
+    proven: !!slots[i].proven, issues: [], showIssues: false,
+    touchX: 0, touchY: 0, rejectFlash: 0,
+  };
+  enterEditor(game); // 复用状态设置（草稿已存在，不会被重置）
+  revalidate(game);
+}
+
+/** 挑战流成绩记录：同码 bestStars 取最高 */
+function recordPlayed(game, code, stars) {
+  if (!code) return;
+  const list = listPlayed(game);
+  const found = list.find(r => r.code === code);
+  if (found) {
+    found.bestStars = Math.max(found.bestStars || 0, stars);
+    found.playedAt = Date.now();
+  } else {
+    if (list.length >= MAX_SLOTS) list.shift(); // 超上限丢最旧
+    list.push({ code, bestStars: stars, playedAt: Date.now() });
+  }
+  writeStore(PLAYED_KEY, list);
+}
+
+function listPlayed(game) { return readStore(PLAYED_KEY); }
+
+function deletePlayed(game, i) {
+  const list = listPlayed(game);
+  list.splice(i, 1);
+  writeStore(PLAYED_KEY, list);
+}
+
+/** 挑战记录开档：解码 → 挑战流装载 */
+function openPlayed(game, i) {
+  const list = listPlayed(game);
+  if (!list[i]) return;
+  const lv = CODEC.decodeLevel(list[i].code);
+  if (lv) game.playCustom(lv, 'challenge', list[i].code);
+}
+
+// ==================== 分享 / 启动直达 / 剪贴板 ====================
+
+/** WIN【保存并分享】按钮回调（作者流）：先存档再拉分享卡片 */
+function onSaveShare(game) {
+  const slot = saveCurrent(game);
+  const code = (slot && slot.code) || (game.editor && game.editor.lastCode);
+  if (code) SOCIAL.shareCustom(code, game.stars);
+}
+
+/** 启动参数分流：战役直达(query.level，保留解锁门控) / 自制关直达(query.custom)，坏码留菜单 */
+function handleLaunchQuery(game) {
+  const lvl = SOCIAL.getLaunchLevel();
+  // 门控必须保留（原构造函数逻辑）：分享卡片不能直达未解锁战役关
+  if (typeof lvl === 'number' && lvl < game.progress.unlockedLevels) {
+    game.loadLevel(lvl);
+    return;
+  }
+  const code = SOCIAL.getLaunchCustom();
+  if (!code) return;
+  const lv = CODEC.decodeLevel(code);
+  if (lv) {
+    game.playCustom(lv, 'challenge', code); // 第 3 参透传关卡码：二次分享 + recordPlayed 都靠它
+  } else {
+    game.state = 'MENU';
+    game.isCustom = false;
+    game.playOrigin = null;
+    game.launchError = '关卡码损坏，无法装载';
+    game.msgTimer = 240;
+  }
+}
+
+/** 菜单【输码挑战】：读剪贴板 → 解码 → 挑战；失败置 clipboardError 供菜单飘字 */
+function enterFromClipboard(game) {
+  try {
+    wx.getClipboardData({
+      success: (res) => {
+        const code = (res.data || '').trim();
+        const lv = CODEC.decodeLevel(code);
+        if (lv) game.playCustom(lv, 'challenge', code);
+        else { game.clipboardError = '剪贴板里没有有效关卡码'; game.msgTimer = 240; }
+      },
+    });
+  } catch (e) {
+    game.clipboardError = '剪贴板不可用';
+    game.msgTimer = 240;
+  }
+}
 
 module.exports = {
   enterEditor, editorExit, playCustom, backToEditor, newDraft,
@@ -469,7 +593,7 @@ module.exports = {
   placeAt, removeAt, addBird, removeBirdAt,
   findPalette, hitTest, tryPlay,
   saveCurrent, listSlots, deleteSlot, openSlot,
-  recordPlayed, listPlayed, deletePlayed,
+  recordPlayed, listPlayed, deletePlayed, openPlayed,
   onSaveShare, handleLaunchQuery, enterFromClipboard,
   onTouchStart, onTouchMove, onTouchEnd, update,
   queueBirdPos,

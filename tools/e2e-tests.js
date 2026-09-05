@@ -1167,4 +1167,161 @@ test('自定义关：拾珍珠 +2000 分、不写图鉴', () => {
   assert.strictEqual(Object.keys(game.progress.pearls).length, before, '不写图鉴');
 });
 
+// =====================================================================
+// 造关师 T7：关卡码分享/启动直达/剪贴板/本地存档/菜单入口
+// =====================================================================
+
+test('分享：自制关 shareAppMessage 带 query.custom；启动直达可装载', () => {
+  fresh();
+  const lv = { birds: ['normal'], blocks: [], pigs: [{ x: 240, y: 560, radius: 17 }], pearls: [] };
+  const code = CODEC.encodeLevel(lv);
+  // 主动分享：query 带 custom 关卡码
+  SOCIAL.shareCustom(code, 3);
+  assert.ok(env.ads.lastShare && /custom=/.test(env.ads.lastShare.query || ''), '分享卡片 query 带关卡码');
+  // 模拟从分享卡片启动
+  env.ads.launchQuery = { custom: code };
+  game.handleLaunchQuery(); env.pump(2);
+  assert.strictEqual(game.isCustom, true, 'query.custom 应直达自定义关');
+  assert.strictEqual(game.playOrigin, 'challenge');
+  assert.strictEqual(game.customCode, code, '关卡码透传（二次分享/成绩记录用）');
+  // 解码关必须自带结算/展示字段，否则 WIN 时 computeStars 崩、HUD 标题 undefined
+  assert.ok(Array.isArray(game.customLevel.stars) && game.customLevel.stars.length === 3, '解码关带 stars 门槛');
+  assert.strictEqual(game.customLevel.name, '自制关');
+  assert.strictEqual(game.customLevel.trajectory, 70);
+});
+
+test('关卡码：坏码直达给错误提示不崩溃；战役直达门控保留', () => {
+  fresh();
+  env.ads.launchQuery = { custom: 'PG1!!!bad' };
+  game.handleLaunchQuery(); env.pump(1);
+  assert.strictEqual(game.isCustom, false, '坏码不进入自定义关');
+  assert.strictEqual(game.state, 'MENU');
+  // 战役直达门控：未解锁关不许直达
+  env.ads.launchQuery = { level: '99' };
+  game.handleLaunchQuery();
+  assert.strictEqual(game.state, 'MENU', '未解锁战役关不直达');
+});
+
+test('存档：打通的自制关可保存到「我造的关」并重开（重开后可渲染/再编辑）', () => {
+  fresh();
+  game.editor = null;
+  game.enterEditor(); env.pump(1);
+  EDITOR.placeAt(game, 240, EDITOR_GY - 17, EDITOR.findPalette('pig-s'));
+  game.editor.proven = false;
+  assert.strictEqual(EDITOR.saveCurrent(game), null, '未通关不许保存');
+  game.editor.proven = true;
+  const slot = EDITOR.saveCurrent(game);
+  assert.ok(slot && slot.code, 'proven 后可保存');
+  assert.strictEqual(EDITOR.listSlots(game).length, 1);
+  // 重开：草稿须为实体实例（有 draw 方法），否则 editor-render 崩
+  EDITOR.openSlot(game, 0);
+  assert.strictEqual(game.state, 'EDITOR');
+  assert.strictEqual(game.editor.draft.pigs.length, 1);
+  assert.strictEqual(typeof game.editor.draft.pigs[0].draw, 'function', '重开草稿须为实体实例');
+  assert.strictEqual(game.editor.proven, true, '存档 proven 状态随槽位恢复');
+  env.pump(3); // 驱动渲染帧不崩
+  // 删除槽位
+  EDITOR.deleteSlot(game, 0);
+  assert.strictEqual(EDITOR.listSlots(game).length, 0);
+});
+
+test('挑战记录：挑战流打通后写入 pufferGo_played_levels（bestStars 取最高）', () => {
+  fresh();
+  const code = CODEC.encodeLevel({ birds: ['normal'], blocks: [], pigs: [{ x: 240, y: 560, radius: 17 }], pearls: [] });
+  EDITOR.recordPlayed(game, code, 2);
+  EDITOR.recordPlayed(game, code, 1); // 低星不覆盖
+  const played = EDITOR.listPlayed(game);
+  assert.strictEqual(played.length, 1);
+  assert.strictEqual(played[0].bestStars, 2);
+  EDITOR.deletePlayed(game, 0);
+  assert.strictEqual(EDITOR.listPlayed(game).length, 0);
+});
+
+test('自定义关：挑战流通关自动写入挑战记录（settle 挂钩 recordPlayed）', () => {
+  fresh();
+  const code = CODEC.encodeLevel({
+    birds: ['bomb', 'bomb', 'bomb'], blocks: [],
+    pigs: [{ x: 240, y: 560, radius: 17 }], pearls: [],
+  });
+  game.playCustom(CODEC.decodeLevel(code), 'challenge', code);
+  env.pump(2);
+  let guard = 0;
+  while ((game.state === 'READY' || game.state === 'AIMING' || game.state === 'FLYING' || game.state === 'SETTLING') && guard++ < 25) {
+    if (game.state === 'READY' && game.currentBird) {
+      const bx = game.currentBird.x, by = game.currentBird.y;
+      env.fire('touchstart', bx, by);
+      env.fire('touchmove', bx - 30, by - 60);
+      env.fire('touchend');
+      env.pump(20);
+      if (game.state === 'FLYING') { env.fire('touchstart', 200, 300); env.pump(60); }
+    }
+    env.pump(120);
+  }
+  assert.strictEqual(game.state, 'WIN');
+  const played = EDITOR.listPlayed(game);
+  assert.strictEqual(played.length, 1, '挑战通关写入记录');
+  assert.strictEqual(played[0].code, code);
+  assert.ok(played[0].bestStars >= 1);
+});
+
+test('菜单：造关师入口 → 中心页四按钮；输码挑战走剪贴板', () => {
+  fresh();
+  game.goToMenu(); env.pump(2);
+  assert.ok(game.buttons.goMaker, '主菜单有【造关师】入口');
+  // 进中心页
+  game.openLevelList('ugcHome'); env.pump(2);
+  assert.strictEqual(game.listView, 'ugcHome');
+  assert.ok(game.buttons.goEditor, '【造一关】按钮');
+  assert.ok(game.buttons.goCode, '【输码挑战】按钮');
+  assert.ok(game.buttons.goMine, '【我造的关】按钮');
+  assert.ok(game.buttons.goPlayed, '【挑战记录】按钮');
+  assert.ok(game.buttons.listBack, '中心页有返回');
+  // 剪贴板里是有效码 → 直接进入挑战
+  const code = CODEC.encodeLevel({ birds: ['normal'], blocks: [], pigs: [{ x: 260, y: 560, radius: 17 }], pearls: [] });
+  env.ads.clipboard = code;
+  EDITOR.enterFromClipboard(game);
+  env.pump(2);
+  assert.strictEqual(game.isCustom, true, '剪贴板有效码 → 直达挑战');
+  // 剪贴板坏码 → 错误提示，不崩
+  game.goToMenu();
+  env.ads.clipboard = 'not a code';
+  game.openLevelList('ugcHome'); env.pump(1);
+  EDITOR.enterFromClipboard(game);
+  env.pump(2);
+  assert.strictEqual(game.isCustom, false);
+  assert.ok(game.clipboardError, '坏码置错误提示');
+  assert.ok(game.msgTimer > 0, '错误提示有计时');
+});
+
+test('菜单：列表视图（我造的关/挑战记录）可进入、可开档、可返回', () => {
+  fresh();
+  game.goToMenu(); env.pump(2);
+  // 空列表也能进
+  game.openLevelList('mine'); env.pump(2);
+  assert.strictEqual(game.listView, 'mine');
+  assert.ok(game.buttons.listBack, '列表页有返回按钮');
+  // 造一条挑战记录再看列表
+  const code = CODEC.encodeLevel({ birds: ['normal'], blocks: [], pigs: [{ x: 280, y: 560, radius: 17 }], pearls: [] });
+  EDITOR.recordPlayed(game, code, 3);
+  game.openLevelList('played'); env.pump(2);
+  assert.ok(game.buttons.slotEnter0, '挑战记录第 1 行有进入按钮');
+  assert.ok(game.buttons.slotDel0, '挑战记录第 1 行有删除按钮');
+  // 进入挑战
+  EDITOR.openPlayed(game, 0);
+  env.pump(2);
+  assert.strictEqual(game.isCustom, true, '挑战记录开档 → 挑战关');
+  // 触摸链路：中心页 → 我造的关 → 返回（验证 listBack 两级回退）
+  game.goToMenu();
+  game.openLevelList('ugcHome'); env.pump(1);
+  env.fire('touchstart', 187, 170 + 2 * 72 + 26); env.fire('touchend'); // goMine（第 3 项）
+  assert.strictEqual(game.listView, 'mine');
+  env.pump(2); // 渲染帧重建 mine 页按钮
+  env.fire('touchstart', 187, 667 - 80 + 21); env.fire('touchend');      // listBack → ugcHome
+  assert.strictEqual(game.listView, 'ugcHome', '列表页返回中心页');
+  env.pump(2); // 渲染帧重建 ugcHome 页按钮
+  env.fire('touchstart', 187, 667 - 86 + 21); env.fire('touchend');      // listBack → 主菜单
+  assert.strictEqual(game.listView, null, '中心页返回主菜单');
+  assert.strictEqual(game.state, 'MENU');
+});
+
 run();

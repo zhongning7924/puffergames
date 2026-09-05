@@ -12,6 +12,7 @@ const AD = require('./ad.js');
 const DAILY = require('./daily.js');
 const PEARLS = require('./pearls.js');
 const AUDIO = require('./audio.js');
+const EDITOR = require('./editor.js');
 
 /** 按当前得分重算星级 */
 function computeStars(game) {
@@ -188,9 +189,13 @@ function checkWinLose(game) {
         game.currentLevelIndex + 1 < game.levels.length) {
       game.progress.unlockedLevels = game.currentLevelIndex + 2;
     }
-    // 作者流试玩打通 → 草稿获得"已通关"证明（分享门）；挑战流成绩记录由 T7 存档模块挂钩
+    // 作者流试玩打通 → 草稿获得"已通关"证明（分享门）；
+    // 挑战流打通 → 记录到「挑战记录」（同码 bestStars 取最高）
     if (game.isCustom && game.playOrigin === 'author' && game.editor) {
       game.editor.proven = true;
+    }
+    if (game.isCustom && game.playOrigin === 'challenge' && game.customCode) {
+      EDITOR.recordPlayed(game, game.customCode, game.stars);
     }
     // 保存最佳星级与最高分并上传排行榜（自制关内部直接 return）
     game.saveWinProgress();

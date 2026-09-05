@@ -55,6 +55,27 @@ function onTouchStart(game, x, y) {
         game.buttons.help.pressed = true;
         AUDIO.play('tap');
       }
+      // 造关师：主菜单入口 + 中心页/列表页按钮
+      if (game.buttons.goMaker && game.buttons.goMaker.contains(x, y)) {
+        game.buttons.goMaker.pressed = true;
+        AUDIO.play('tap');
+      }
+      if (game.listView) {
+        for (const k of ['listBack', 'goEditor', 'goCode', 'goMine', 'goPlayed']) {
+          if (game.buttons[k] && game.buttons[k].contains(x, y)) {
+            game.buttons[k].pressed = true;
+            AUDIO.play('tap');
+          }
+        }
+        for (let i = 0; i < 12; i++) {
+          for (const k of ['slotEnter' + i, 'slotDel' + i]) {
+            if (game.buttons[k] && game.buttons[k].contains(x, y)) {
+              game.buttons[k].pressed = true;
+              AUDIO.play('tap');
+            }
+          }
+        }
+      }
       break;
 
     case 'SETTINGS':
@@ -304,6 +325,49 @@ function onTouchEnd(game) {
       if (game.buttons.help && game.buttons.help.pressed) {
         game.buttons.help.pressed = false;
         game.goToHelp();
+      }
+      // 造关师入口与列表页
+      if (game.buttons.goMaker && game.buttons.goMaker.pressed) {
+        game.buttons.goMaker.pressed = false;
+        game.openLevelList('ugcHome');
+      }
+      if (game.listView) {
+        if (game.buttons.listBack && game.buttons.listBack.pressed) {
+          game.buttons.listBack.pressed = false;
+          // 中心页返回主菜单；列表页返回中心页；切页清按钮防残留命中
+          game.listView = game.listView === 'ugcHome' ? null : 'ugcHome';
+          game.buttons = {};
+        }
+        if (game.buttons.goEditor && game.buttons.goEditor.pressed) {
+          game.buttons.goEditor.pressed = false;
+          game.enterEditor();
+        }
+        if (game.buttons.goCode && game.buttons.goCode.pressed) {
+          game.buttons.goCode.pressed = false;
+          EDITOR.enterFromClipboard(game);
+        }
+        if (game.buttons.goMine && game.buttons.goMine.pressed) {
+          game.buttons.goMine.pressed = false;
+          game.openLevelList('mine');
+        }
+        if (game.buttons.goPlayed && game.buttons.goPlayed.pressed) {
+          game.buttons.goPlayed.pressed = false;
+          game.openLevelList('played');
+        }
+        for (let i = 0; i < 12; i++) {
+          const ent = game.buttons['slotEnter' + i];
+          if (ent && ent.pressed) {
+            ent.pressed = false;
+            if (game.listView === 'mine') EDITOR.openSlot(game, i);
+            else if (game.listView === 'played') EDITOR.openPlayed(game, i);
+          }
+          const del = game.buttons['slotDel' + i];
+          if (del && del.pressed) {
+            del.pressed = false;
+            if (game.listView === 'mine') EDITOR.deleteSlot(game, i);
+            else if (game.listView === 'played') EDITOR.deletePlayed(game, i);
+          }
+        }
       }
       break;
 
