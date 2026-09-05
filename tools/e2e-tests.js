@@ -931,4 +931,152 @@ test('编辑器：deriveLevel 产出可被 setupLevel 装载的关卡（实体�
   assert.strictEqual(game.blocks.length, 1);
 });
 
+// =====================================================================
+// 造关师 T5：编辑器核心交互（物料/放置/选中/拖动/删除/校验/proven）
+// =====================================================================
+
+const EDITOR_GY = C.GROUND_Y; // 577 = 667-90
+
+/** 进全新编辑器（game.editor=null 强制新草稿，模拟首次进入；backToEditor 才保留草稿） */
+function enterFreshEditor() {
+  fresh();
+  game.editor = null;
+  game.enterEditor();
+  env.pump(1);
+  return game.editor;
+}
+// 底栏布局常量（与 editor.js 保持一致）：H=667，BAR_H=84，TAB_H=28，CHIP=64
+const BAR_TOP = 667 - 84;          // 583
+const TAB_Y = BAR_TOP + 14;        // tab 行中心 597
+const CHIP_Y = BAR_TOP + 28 + 28;  // 物料行中心 639
+const tabX = (i) => 47 + i * 94;   // 4 tab 均分（宽 ~94）
+const chipX = (j) => 40 + j * 72;  // chip 宽 64 + 间距 8，左起 8
+
+test('编辑器：放置方块/章鱼→草稿增项、校验随动；删空回 no-pig', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 240, EDITOR_GY - 40, EDITOR.findPalette('wood-p'));   // 木柱
+  EDITOR.placeAt(game, 280, EDITOR_GY - 17, EDITOR.findPalette('pig-s'));    // 小章鱼
+  assert.strictEqual(E2.draft.blocks.length, 1);
+  assert.strictEqual(E2.draft.pigs.length, 1);
+  assert.strictEqual(E2.issues.every(i => i.kind !== 'no-pig'), true);
+  EDITOR.removeAt(game, 280, EDITOR_GY - 17);
+  assert.strictEqual(E2.draft.pigs.length, 0);
+  assert.ok(E2.issues.some(i => i.kind === 'no-pig'));
+});
+
+test('编辑器：河豚物料增删队列（1~6）；结构变动重置 proven', () => {
+  enterFreshEditor();
+  EDITOR.addBird(game, 'dash'); EDITOR.addBird(game, 'bomb');
+  assert.deepStrictEqual(game.editor.draft.birds, ['normal', 'dash', 'bomb']);
+  game.editor.proven = true;
+  EDITOR.addBird(game, 'split');
+  assert.strictEqual(game.editor.proven, false, '结构变动须重置 proven');
+  for (let i = 0; i < 5; i++) EDITOR.addBird(game, 'normal');
+  assert.ok(game.editor.draft.birds.length <= 6, '河豚上限 6');
+  // 至少保留 1 只
+  for (let i = 0; i < 10; i++) EDITOR.removeBirdAt(game, 0);
+  assert.strictEqual(game.editor.draft.birds.length, 1);
+});
+
+test('编辑器：禁区放置被拒绝（方块左缘/章鱼左缘）', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 120, EDITOR_GY - 40, EDITOR.findPalette('wood-p')); // 左缘 < 禁区线 123.75
+  assert.strictEqual(E2.draft.blocks.length, 0, '禁区放置应拒绝');
+  EDITOR.placeAt(game, 130, EDITOR_GY - 17, EDITOR.findPalette('pig-l'));   // r=22 左缘入禁区
+  assert.strictEqual(E2.draft.pigs.length, 0, '章鱼左缘入禁区应拒绝');
+});
+
+test('编辑器：触摸拖动实体移位，松手重置 proven 并重新校验', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 240, EDITOR_GY - 40, EDITOR.findPalette('wood-p'));
+  const x0 = E2.draft.blocks[0].x;
+  E2.proven = true;
+  env.fire('touchstart', 242, 540);  // 按住柱身
+  env.fire('touchmove', 340, 540);   // 右拖
+  env.fire('touchend');
+  assert.ok(E2.draft.blocks[0].x > x0 + 40, `柱应随拖动右移（${x0} → ${E2.draft.blocks[0].x}）`);
+  assert.strictEqual(E2.proven, false, '拖动移位 = 结构变异');
+  assert.strictEqual(E2.drag, null, '松手后 drag 清除');
+});
+
+test('编辑器：tryPlay 空草稿拒绝；合法布局进入作者试玩', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.tryPlay(game);
+  assert.strictEqual(game.state, 'EDITOR', '有 issue 时不许试玩');
+  EDITOR.placeAt(game, 240, EDITOR_GY - 40, EDITOR.findPalette('wood-p'));
+  EDITOR.placeAt(game, 280, EDITOR_GY - 17, EDITOR.findPalette('pig-s'));
+  assert.strictEqual(E2.issues.length, 0, '布局应合法：' + E2.issues.map(i => i.msg).join(';'));
+  EDITOR.tryPlay(game);
+  assert.strictEqual(game.state, 'READY', '合法布局进入试玩');
+  assert.strictEqual(game.playOrigin, 'author');
+  assert.strictEqual(game.isCustom, true);
+});
+
+test('编辑器：底栏切 tab + 选物料；bird 物料直接入队；橡皮模式点实体删除', () => {
+  const E2 = enterFreshEditor();
+  // 方块 tab（默认）选木梁
+  env.fire('touchstart', chipX(0), CHIP_Y);
+  env.fire('touchend');
+  assert.strictEqual(E2.palette && E2.palette.id, 'wood-b');
+  assert.strictEqual(E2.eraser, false);
+  // 切到敌人 tab，选小章鱼
+  env.fire('touchstart', tabX(1), TAB_Y); env.fire('touchend');
+  assert.strictEqual(E2.tab, 'enemies');
+  env.fire('touchstart', chipX(0), CHIP_Y); env.fire('touchend');
+  assert.strictEqual(E2.palette && E2.palette.kind, 'pig');
+  // 用选中的章鱼物料在世界区放置
+  env.fire('touchstart', 300, EDITOR_GY - 17); env.fire('touchend');
+  assert.strictEqual(E2.draft.pigs.length, 1);
+  // 河豚 tab：点河豚物料直接入队（不进入放置模式）
+  env.fire('touchstart', tabX(2), TAB_Y); env.fire('touchend');
+  env.fire('touchstart', chipX(1), CHIP_Y); env.fire('touchend'); // dash
+  assert.deepStrictEqual(E2.draft.birds, ['normal', 'dash']);
+  assert.strictEqual(E2.palette, null, '河豚物料不挂 palette');
+  // 道具 tab：橡皮
+  env.fire('touchstart', tabX(3), TAB_Y); env.fire('touchend');
+  env.fire('touchstart', chipX(1), CHIP_Y); env.fire('touchend'); // eraser
+  assert.strictEqual(E2.eraser, true);
+  // 橡皮模式点章鱼 → 删除
+  env.fire('touchstart', 300, EDITOR_GY - 17); env.fire('touchend');
+  assert.strictEqual(E2.draft.pigs.length, 0, '橡皮点击删除实体');
+});
+
+test('编辑器：顶栏按钮创建；点退出回 MENU；点空白取消选中', () => {
+  const E2 = enterFreshEditor();
+  assert.ok(game.buttons.editorExit, '顶栏退出按钮已创建');
+  assert.ok(game.buttons.editorPlay, '顶栏试玩按钮已创建');
+  EDITOR.placeAt(game, 240, EDITOR_GY - 40, EDITOR.findPalette('wood-p'));
+  env.fire('touchstart', 242, 540); env.fire('touchend'); // 选中柱
+  assert.ok(E2.selected, '实体已选中');
+  env.fire('touchstart', 400, 400); env.fire('touchend'); // 点空白
+  assert.strictEqual(E2.selected, null, '点空白取消选中');
+  // 顶栏退出
+  env.fire('touchstart', 40, 22); env.fire('touchend');
+  assert.strictEqual(game.state, 'MENU');
+});
+
+test('编辑器：EDITOR 态渲染冒烟（实体/选中/预览/红圈/四 tab/橡皮，多帧无异常）', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 240, EDITOR_GY - 40, EDITOR.findPalette('wood-p'));
+  EDITOR.placeAt(game, 280, EDITOR_GY - 17, EDITOR.findPalette('pig-s'));
+  EDITOR.placeAt(game, 330, 400, EDITOR.findPalette('pearl'));
+  E2.issues.push({ kind: 'x', x: 240, y: 500, msg: '假问题触发红圈' }); // 红圈路径
+  // 选中 + 预览 + 拖动各走一帧
+  env.fire('touchstart', 242, 540); env.fire('touchmove', 300, 500); env.pump(2); env.fire('touchend');
+  E2.palette = EDITOR.findPalette('wood-b');
+  env.fire('touchstart', 360, 300); env.pump(2); // touchY 在世界区 → snap 预览
+  env.fire('touchend');
+  // 四个 tab 逐一切换渲染（含河豚/道具 chip 图标路径）
+  for (let i = 0; i < 4; i++) {
+    env.fire('touchstart', tabX(i), TAB_Y); env.fire('touchend');
+    env.pump(2);
+  }
+  // 橡皮模式 + 非法放置红闪
+  env.fire('touchstart', tabX(3), TAB_Y); env.fire('touchend');
+  env.fire('touchstart', chipX(1), CHIP_Y); env.fire('touchend');
+  env.fire('touchstart', 60, 300); env.pump(2); // 禁区附近触发红闪/橡皮
+  env.fire('touchend');
+  assert.strictEqual(game.state, 'EDITOR');
+});
+
 run();
