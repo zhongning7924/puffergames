@@ -202,36 +202,53 @@ function pigOverlap(ent, pigs) {
   return pigs.some(p => Math.hypot(p.x - ent.x, p.y - ent.y) < p.radius + ent.radius - 0.01);
 }
 
+/**
+ * 物料将落的位置（网格吸附 + 防沉地钳制）。placeAt 与吸附预览共用同一公式，
+ * 保证「所见即所放」。悬空不钳（放高空保持原位，试玩时物理下落）；
+ * 仅当底边会穿支撑面（柱顶/地面）时抬到支撑面，snap 量化最多再抬 2px。
+ */
+function placePosition(draft, item, x, y) {
+  if (item.kind === 'block') {
+    const bx = snap(x - item.w / 2);
+    const support = groundYAt(draft, x);
+    let by = snap(Math.min(y - item.h / 2, support - item.h));
+    by = Math.min(by, support - item.h);
+    return { x: bx, y: by };
+  }
+  if (item.kind === 'pig') {
+    const px = snap(x);
+    const support = groundYAt(draft, px);
+    let py = snap(Math.min(y, support) - item.radius);
+    py = Math.min(py, support - item.radius);
+    return { x: px, y: py };
+  }
+  if (item.kind === 'pearl') return { x: snap(x), y: snap(y) };
+  return null;
+}
+
 /** 在世界坐标 (x,y) 放置物料（grid 吸附 / 支撑面 / 禁区 / 重叠 / 数量门限） */
 function placeAt(game, x, y, item) {
   const d = game.editor;
   if (!item || item.kind === 'eraser') return;
   if (item.kind === 'bird') { addBird(game, item.type); return; }
+  const pos = placePosition(d.draft, item, x, y);
+  if (!pos) return;
   if (item.kind === 'block') {
     if (d.draft.blocks.length >= CODEC.LIMITS.blocks) return;
-    const bx = snap(x - item.w / 2);
-    if (zoneBlocked(bx)) { flashReject(game); return; }
-    const support = groundYAt(d.draft, x);
-    // 指尖以上半身为准、不高于支撑面；snap 后钳制底不穿支撑面（snap 最多抬 2px）
-    let by = snap(Math.min(y - item.h / 2, support - item.h));
-    by = Math.min(by, support - item.h);
-    const ent = new E.Block(bx, by, item.w, item.h, item.type); // 草稿存实体实例
+    if (zoneBlocked(pos.x)) { flashReject(game); return; }
+    const ent = new E.Block(pos.x, pos.y, item.w, item.h, item.type); // 草稿存实体实例
     if (d.draft.blocks.some(b => blocksOverlap(ent, b))) { flashReject(game); return; }
     d.draft.blocks.push(ent);
   } else if (item.kind === 'pig') {
     if (d.draft.pigs.length >= CODEC.LIMITS.pigs) return;
-    const px = snap(x);
-    if (zoneBlocked(px, item.radius)) { flashReject(game); return; }
-    const support = groundYAt(d.draft, px);
-    let py = snap(Math.min(y, support) - item.radius);
-    py = Math.min(py, support - item.radius);
-    const ent = new E.Pig(px, py, item.radius);
+    if (zoneBlocked(pos.x, item.radius)) { flashReject(game); return; }
+    const ent = new E.Pig(pos.x, pos.y, item.radius);
     if (pigOverlap(ent, d.draft.pigs)) { flashReject(game); return; }
     d.draft.pigs.push(ent);
   } else if (item.kind === 'pearl') {
     if (d.draft.pearls.length >= CODEC.LIMITS.pearls) return;
-    if (zoneBlocked(snap(x), 9)) { flashReject(game); return; }
-    d.draft.pearls.push({ x: snap(x), y: snap(y) });
+    if (zoneBlocked(pos.x, 9)) { flashReject(game); return; }
+    d.draft.pearls.push({ x: pos.x, y: pos.y });
   }
   touchStructure(game);
   revalidate(game);
@@ -531,15 +548,26 @@ function deletePlayed(game, i) {
   writeStore(PLAYED_KEY, list);
 }
 
-/** 挑战记录开档：解码 → 挑战流装载 */
+/** 挑战记录开档：解码+校验 → 挑战流装载（码坏/被篡改则静默留在列表页） */
 function openPlayed(game, i) {
   const list = listPlayed(game);
   if (!list[i]) return;
-  const lv = CODEC.decodeLevel(list[i].code);
+  const lv = decodePlayable(list[i].code);
   if (lv) game.playCustom(lv, 'challenge', list[i].code);
 }
 
 // ==================== 分享 / 启动直达 / 剪贴板 ====================
+
+/**
+ * 挑战流解码：decode 通过后再跑编辑器同款全量校验。
+ * 关卡码是可手改的字符串（PG1 无校验和），结构合法 ≠ 可玩：0 章鱼会开局白送 WIN、
+ * 0 河豚无法发射、方块压弹弓区发射即撞、沉地/互叠是坏关。装载挑战前必须挡下。
+ */
+function decodePlayable(code) {
+  const lv = CODEC.decodeLevel(code);
+  if (!lv) return null;
+  return VALIDATE.validateLevel(lv, { editor: true }).ok ? lv : null;
+}
 
 /** WIN【保存并分享】按钮回调（作者流）：先存档再拉分享卡片 */
 function onSaveShare(game) {
@@ -558,7 +586,7 @@ function handleLaunchQuery(game) {
   }
   const code = SOCIAL.getLaunchCustom();
   if (!code) return;
-  const lv = CODEC.decodeLevel(code);
+  const lv = decodePlayable(code);
   if (lv) {
     game.playCustom(lv, 'challenge', code); // 第 3 参透传关卡码：二次分享 + recordPlayed 都靠它
   } else {
@@ -576,7 +604,7 @@ function enterFromClipboard(game) {
     wx.getClipboardData({
       success: (res) => {
         const code = (res.data || '').trim();
-        const lv = CODEC.decodeLevel(code);
+        const lv = decodePlayable(code);
         if (lv) game.playCustom(lv, 'challenge', code);
         else { game.clipboardError = '剪贴板里没有有效关卡码'; game.msgTimer = 240; }
       },
@@ -590,8 +618,8 @@ function enterFromClipboard(game) {
 module.exports = {
   enterEditor, editorExit, playCustom, backToEditor, newDraft,
   deriveLevel, instantiateDraft,
-  placeAt, removeAt, addBird, removeBirdAt,
-  findPalette, hitTest, tryPlay,
+  placeAt, placePosition, removeAt, addBird, removeBirdAt,
+  findPalette, hitTest, tryPlay, decodePlayable,
   saveCurrent, listSlots, deleteSlot, openSlot,
   recordPlayed, listPlayed, deletePlayed, openPlayed,
   onSaveShare, handleLaunchQuery, enterFromClipboard,

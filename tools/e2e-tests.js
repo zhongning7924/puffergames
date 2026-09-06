@@ -1324,4 +1324,73 @@ test('菜单：列表视图（我造的关/挑战记录）可进入、可开档�
   assert.strictEqual(game.state, 'MENU');
 });
 
+// =====================================================================
+// 造关师 T8 终审：挑战侧内容校验门 + 吸附预览/实际落位一致
+// =====================================================================
+
+test('挑战入口：decode 成功但几何/计数非法的码一律拦下（深链/剪贴板）', () => {
+  // 码可被手改：decode 只保证结构完整，不保证可玩。下列码结构合法但内容坏。
+  const bad = {
+    '0 章鱼（开局白送 WIN）': { birds: ['normal'], blocks: [], pigs: [], pearls: [] },
+    '0 河豚（无法发射）': { birds: [], blocks: [], pigs: [{ x: 240, y: 560, radius: 17 }], pearls: [] },
+    '方块压弹弓禁区': {
+      birds: ['normal'],
+      blocks: [{ x: 40, y: 549, width: 28, height: 28, type: 'wood' }],
+      pigs: [{ x: 240, y: 560, radius: 17 }], pearls: [],
+    },
+    '章鱼沉入地面': { birds: ['normal'], blocks: [], pigs: [{ x: 240, y: 600, radius: 17 }], pearls: [] },
+  };
+  for (const [name, lv] of Object.entries(bad)) {
+    // 深链入口
+    fresh();
+    env.ads.launchQuery = { custom: CODEC.encodeLevel(lv) };
+    game.handleLaunchQuery(); env.pump(1);
+    assert.strictEqual(game.isCustom, false, `[深链] ${name} 不应装载`);
+    assert.strictEqual(game.state, 'MENU', `[深链] ${name} 应留菜单`);
+    assert.ok(game.launchError, `[深链] ${name} 应给错误提示`);
+    // 剪贴板入口
+    fresh();
+    game.goToMenu(); game.openLevelList('ugcHome'); env.pump(1);
+    env.ads.clipboard = CODEC.encodeLevel(lv);
+    EDITOR.enterFromClipboard(game); env.pump(2);
+    assert.strictEqual(game.isCustom, false, `[剪贴板] ${name} 不应装载`);
+    assert.ok(game.clipboardError, `[剪贴板] ${name} 应给错误提示`);
+  }
+  // 合法码仍正常放行（回归）
+  fresh();
+  env.ads.launchQuery = { custom: CODEC.encodeLevel({ birds: ['normal'], blocks: [], pigs: [{ x: 240, y: 560, radius: 17 }], pearls: [] }) };
+  game.handleLaunchQuery(); env.pump(2);
+  assert.strictEqual(game.isCustom, true, '合法码深链正常装载');
+  assert.strictEqual(game.playOrigin, 'challenge');
+});
+
+test('编辑器：吸附预览落位与实际放置坐标严格一致（悬空保留/穿地抬升）', () => {
+  fresh();
+  game.editor = null;
+  game.enterEditor(); env.pump(1);
+  const d = game.editor;
+  // 木柱：高空（应悬空，试玩再塌）/ 穿地（应抬到地面）/ 常规 三点
+  const cases = [
+    ['wood-p', 240, 300], ['wood-p', 240, 640], ['wood-p', 180, 520],
+    ['pig-s', 300, 300], ['pig-s', 300, 640],
+    ['pearl', 330, 200],
+  ];
+  for (const [id, x, y] of cases) {
+    const item = EDITOR.findPalette(id);
+    const pos = EDITOR.placePosition(d.draft, item, x, y);
+    assert.ok(pos, `${id} 有落位点`);
+    const nB = d.draft.blocks.length, nP = d.draft.pigs.length, nR = d.draft.pearls.length;
+    EDITOR.placeAt(game, x, y, item);
+    let ex, ey;
+    if (item.kind === 'block') { ex = d.draft.blocks[nB].x; ey = d.draft.blocks[nB].y; }
+    else if (item.kind === 'pig') { ex = d.draft.pigs[nP].x; ey = d.draft.pigs[nP].y; }
+    else { ex = d.draft.pearls[nR].x; ey = d.draft.pearls[nR].y; }
+    assert.strictEqual(ex, pos.x, `${id}@${x},${y} 预览与放置 x 一致`);
+    assert.strictEqual(ey, pos.y, `${id}@${x},${y} 预览与放置 y 一致`);
+  }
+  // 穿地抬升：木柱底边不得沉于地面（GY）
+  const pillar = d.draft.blocks.find(b => b.height === 80);
+  assert.ok(pillar && pillar.y + pillar.height <= C.GROUND_Y + 0.01, '穿地放置被抬到地面，不沉地');
+});
+
 run();

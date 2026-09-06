@@ -195,25 +195,24 @@ function drawSelection(ctx, d) {
   ctx.restore();
 }
 
-/** 手指位置的吸附预览体（合法绿/非法红） */
+/** 手指位置的吸附预览体（与实际放置同公式：悬空保留、穿地抬升；合法绿/禁区红） */
 function drawSnapPreview(ctx, game) {
   const d = game.editor;
   const item = d.palette;
-  const x = d.touchX, y = d.touchY;
+  const pos = EDITOR.placePosition(d.draft, item, d.touchX, d.touchY);
+  if (!pos) return;
   ctx.save();
   ctx.globalAlpha = 0.5;
   ctx.fillStyle = '#5FD68A';
   if (item.kind === 'block') {
-    const bx = Math.round((x - item.w / 2) / 4) * 4;
-    const by = Math.round((y - item.h / 2) / 4) * 4;
-    if (bx < ZONE_X) ctx.fillStyle = '#E86060';
-    ctx.fillRect(bx, by, item.w, item.h);
+    if (pos.x < ZONE_X) ctx.fillStyle = '#E86060';
+    ctx.fillRect(pos.x, pos.y, item.w, item.h);
   } else if (item.kind === 'pig') {
-    if (x - item.radius < ZONE_X) ctx.fillStyle = '#E86060';
-    ctx.beginPath(); ctx.arc(Math.round(x / 4) * 4, y, item.radius, 0, Math.PI * 2); ctx.fill();
+    if (pos.x - item.radius < ZONE_X) ctx.fillStyle = '#E86060';
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, item.radius, 0, Math.PI * 2); ctx.fill();
   } else if (item.kind === 'pearl') {
-    if (x - 9 < ZONE_X) ctx.fillStyle = '#E86060';
-    ctx.beginPath(); ctx.arc(Math.round(x / 4) * 4, Math.round(y / 4) * 4, 9, 0, Math.PI * 2); ctx.fill();
+    if (pos.x - 9 < ZONE_X) ctx.fillStyle = '#E86060';
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, 9, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
 }
