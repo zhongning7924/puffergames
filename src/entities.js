@@ -727,6 +727,7 @@ class Block {
     this.stillFrames = 0;
     this.cracks = [];
     this.shake = 0;
+    this.pigContacts = new Set(); // 当前正接触的章鱼：用于碰撞去重（一次持续接触只在撞上瞬间掉一次血，防方块压王碾压）
   }
 
   update() {

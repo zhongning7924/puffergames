@@ -22,6 +22,7 @@ const SOCIAL = require('../src/social.js');
 const CODEC = require('../src/level-codec.js');
 const VALIDATE = require('../src/level-validate.js');
 const EDITOR = require('../src/editor.js');
+const PHYS = require('../src/physics.js');
 
 // ===== 极简测试运行器 =====
 const tests = [];
@@ -396,6 +397,26 @@ test('河豚愤怒膨胀：发射后 puff 0→1 鼓成刺球（视觉放大+全�
   assert.ok(puffed[0] > 1.2 && puffed[1] > 1.2, `鼓满视觉放大约 26%（scale=${puffed[0].toFixed(2)}）`);
   assert.ok(lineToCount(r.calls) > idleLines + 20,
     `鼓满全身炸刺（lineTo ${idleLines}→${lineToCount(r.calls)}）`);
+});
+
+test('方块压章王去重：持续接触只在撞上瞬间掉 1 血，不碾压（修复一发秒王）', () => {
+  // 章王免疫击退不挪窝；石板卡住后重力持续下压 → 旧逻辑每帧掉血，一块板压着就能秒杀
+  const boss = new E.Pig(200, 540, 33, { boss: true, hp: 14 });
+  const block = new E.Block(186, 505, 30, 30, 'stone');
+  block.dynamic = true;
+  const stub = { blocks: [block], pigs: [boss], onPigKilled() {}, onPigHurt() {}, playHitSound() {} };
+  const hp0 = boss.health;
+
+  // 持续碾压 30 帧：每帧给回下落速度，章王不被击退、方块持续重叠
+  for (let i = 0; i < 30; i++) { block.vy = 8; PHYS.checkDynamicCollisions(stub); }
+  assert.strictEqual(boss.health, hp0 - 1,
+    `30 帧持续压章王只掉 1 血（实际掉 ${hp0 - boss.health}）；旧逻辑会每帧掉血秒杀`);
+
+  // 方块真正腾空分离一帧（接触集清空），再落回砸下 = 新冲击，再掉 1 血
+  block.y = 380; block.vy = 6; PHYS.checkDynamicCollisions(stub); // 腾空不接触
+  block.y = 505;
+  for (let i = 0; i < 5; i++) { block.vy = 9; PHYS.checkDynamicCollisions(stub); }
+  assert.strictEqual(boss.health, hp0 - 2, '腾空分离后再砸算新冲击，应再掉 1 血');
 });
 
 // =====================================================================

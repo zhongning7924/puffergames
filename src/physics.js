@@ -128,24 +128,39 @@ function checkDynamicCollisions(game) {
     if (!block.alive || !block.dynamic) continue;
     const blockSpeed = Math.sqrt(block.vx ** 2 + block.vy ** 2);
     if (blockSpeed < 1) continue;
+    if (!block.pigContacts) block.pigContacts = new Set(); // 旧实例兜底
+    const touched = new Set();
 
     for (const pig of game.pigs) {
       if (!pig.alive || pig.dying || pig.sleeping) continue;
       const pigCircle = { x: pig.x, y: pig.y, radius: pig.radius };
       const col = U.circleOBB(pigCircle, block);
       if (col.collided) {
-        const impactForce = blockSpeed;
-        const killed = pig.takeDamage(impactForce);
-        if (killed) {
-          game.onPigKilled(pig);
-        } else {
-          game.onPigHurt(pig);
-        }
+        touched.add(pig);
+        const isNewImpact = !block.pigContacts.has(pig);
+        // 物理推开（普通章鱼被弹开；章王免疫击退保持原位，方块会堆在它身上）
         pig.knockback(block.vx * 0.3, block.vy * 0.3);
         block.vx *= 0.7;
         block.vy *= 0.7;
+        // 伤害：仅「新接触的冲击瞬间」且速度够快才掉血。
+        // 章王不被击退，方块会持续压在它身上——若每帧都掉血，一块石板压着就能碾压秒杀；
+        // 故一次持续接触只在撞上的瞬间算一次，方块真正分离（腾空）后再砸才算下一次。
+        if (isNewImpact && blockSpeed > 5) {
+          const killed = pig.takeDamage(blockSpeed);
+          if (killed) {
+            game.onPigKilled(pig);
+          } else {
+            game.onPigHurt(pig);
+          }
+        }
       }
     }
+
+    // 更新接触集：本帧仍接触的保留，已分离的移除（分离后再撞才算新冲击）
+    for (const pig of [...block.pigContacts]) {
+      if (!touched.has(pig)) block.pigContacts.delete(pig);
+    }
+    for (const pig of touched) block.pigContacts.add(pig);
   }
 
   // 动态方块 vs 其他方块（每对只检查一次，至少一个动态才检测）

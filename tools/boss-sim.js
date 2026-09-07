@@ -144,13 +144,15 @@ const PLANS = [
   {
     idx: 23, name: '第24关 岩甲章王·石拱断桥',
     shots: [
-      // 砰砰炸左墩基 → 桥面左端失撑
-      { type: 'bomb', tx: B + 44, ty: G - 55 },
-      // 砰砰炸右墩基 → 双墩齐断，载石桥面整面平拍
-      { type: 'bomb', tx: B + 148, ty: G - 55 },
-      // 兜底
-      { type: 'dash', tx: B + 100, ty: G - 40 },
-      { type: 'normal', tx: B + 100, ty: G - 30 },
+      // 砰砰在飞临左墩基时主动引爆（爆炸点≈瞄点）：炸断左墩 + 波及阵前章鱼 + 压爆桥下冻果
+      { type: 'bomb', tx: B + 44, ty: G - 55, ability: { x: B + 44 } },
+      // 砰砰在右墩基上方引爆 → 双墩齐断，载石桥面整面平拍
+      { type: 'bomb', tx: B + 148, ty: G - 55, ability: { x: B + 148 } },
+      // 兜底：瞄章王头部（避开脚下坍塌碎石），split 三丸子覆盖 + dash/normal 连补
+      { type: 'split', tx: B + 100, ty: G - 70, ability: { x: B + 40 } },
+      { type: 'dash', tx: B + 100, ty: G - 60 },
+      { type: 'normal', tx: B + 100, ty: G - 50 },
+      { type: 'normal', tx: B + 100, ty: G - 40 },
     ],
   },
   {

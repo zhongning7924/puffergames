@@ -689,18 +689,26 @@ function getLevels() {
       pigs: [
         // 岩甲章王（Boss）：压在断桥正下方，hp9；两度怒吼天降落石
         { x: STRUCT_BASE_X + 100, y: GROUND_Y - 32, radius: 32, boss: true, hp: 9, name: '岩甲章王' },
-        // 桥面哨章鱼（坐中央载石上）
-        { x: STRUCT_BASE_X + 82, y: GROUND_Y - 219, radius: 14 },
+        // 桥面哨章鱼（站桥面左段、贴左墩：第一发炸左墩时爆炸直接波及，不依赖随桥坠落）
+        { x: STRUCT_BASE_X + 48, y: GROUND_Y - 164, radius: 14 },
         // 阵前地面章鱼
         { x: STRUCT_BASE_X - 32, y: GROUND_Y - 16, radius: 16 },
       ],
       blocks: [
         // 桥面：厚重石板横压章王头顶（双墩齐断才整面平拍，断单侧只会掀偏）
         { x: STRUCT_BASE_X + 24, y: GROUND_Y - 150, width: 144, height: 26, type: 'stone' },
-        // 桥面载石 ×3：随桥平拍的配重（炸点在墩基，载石在爆炸边缘幸存下坠）
-        { x: STRUCT_BASE_X + 34, y: GROUND_Y - 178, width: 28, height: 28, type: 'stone' },
+        // 桥面载石 ×2：随桥平拍的配重（左段留空给桥面哨章鱼站位；炸点在墩基，载石在爆炸边缘幸存下坠）
         { x: STRUCT_BASE_X + 82, y: GROUND_Y - 178, width: 28, height: 28, type: 'stone' },
         { x: STRUCT_BASE_X + 130, y: GROUND_Y - 178, width: 28, height: 28, type: 'stone' },
+        // 桥下悬空冻果（双墩之间、桥面下，鸟打不进）：双墩齐断桥面整面平落时压爆连锁，
+        // 补「承重坍塌」之外的稳定固定伤害（方块碾压已去重，靠冻果连锁逐颗扣血）。
+        // 上层 ×2 贴桥面底、下层 ×1 骑章王额（两层 y 错开防互叠，连锁间距 <118 全连通）
+        { x: STRUCT_BASE_X + 62, y: GROUND_Y - 100, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 108, y: GROUND_Y - 100, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 86, y: GROUND_Y - 68, width: 26, height: 26, type: 'burst' },
+        // 章王脚边贴脸冻果 ×2（连锁末段贴脸爆，把固定伤害补足到两发机关可收，少靠残血补刀）
+        { x: STRUCT_BASE_X + 74, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 106, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
         // 左石桥墩（上下两段，砰砰炸基即断）
         { x: STRUCT_BASE_X + 30, y: GROUND_Y - 62, width: 28, height: 62, type: 'stone' },
         { x: STRUCT_BASE_X + 30, y: GROUND_Y - 124, width: 28, height: 62, type: 'stone' },
@@ -933,11 +941,15 @@ function getLevels() {
       blocks: [
         // 悬闸：巨型石板横空（双塔齐断才整面平落）
         { x: STRUCT_BASE_X + 16, y: GROUND_Y - 185, width: 150, height: 28, type: 'stone' },
-        // 章王头顶悬空冻果 ×3（悬在闸下、双塔之间，鸟打不进）：悬闸平落压碎即连锁，
+        // 闸下悬空冻果 ×3（悬在闸下、双塔之间，鸟打不进）：悬闸平落压碎即连锁，
         // 炸塔冲击波扫到也提前连锁；引爆点距章王头顶 ~60px，逐颗各扣 1 血
         { x: STRUCT_BASE_X + 50, y: GROUND_Y - 107, width: 26, height: 26, type: 'burst' },
         { x: STRUCT_BASE_X + 78, y: GROUND_Y - 107, width: 26, height: 26, type: 'burst' },
         { x: STRUCT_BASE_X + 106, y: GROUND_Y - 107, width: 26, height: 26, type: 'burst' },
+        // 贴脸冻果 ×2（连锁从闸下传到章王头顶/左脸，稳定固定伤害，不靠方块碾压）：
+        // 头顶果骑章王额、左脸果贴腮（block 贴猪合法）；间距 <118，闸下果一爆即串到
+        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 72, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 54, y: GROUND_Y - 48, width: 26, height: 26, type: 'burst' },
         // 左塔（木，两段；砰砰炸基即断）
         { x: STRUCT_BASE_X + 22, y: GROUND_Y - 78, width: 28, height: 78, type: 'wood' },
         { x: STRUCT_BASE_X + 22, y: GROUND_Y - 156, width: 28, height: 78, type: 'wood' },
