@@ -1393,4 +1393,56 @@ test('编辑器：吸附预览落位与实际放置坐标严格一致（悬空�
   assert.ok(pillar && pillar.y + pillar.height <= C.GROUND_Y + 0.01, '穿地放置被抬到地面，不沉地');
 });
 
+test('作者流 WIN/LOSE：触摸「返回编辑」回编辑器且多帧渲染不崩（currentLevelIndex=-1 回归）', () => {
+  // —— WIN 流：bomb 近射打通，触摸点返回编辑 ——
+  fresh();
+  game.editor = null;
+  game.enterEditor(); env.pump(1);
+  EDITOR.placeAt(game, 240, GY - 17, EDITOR.findPalette('pig-s'));
+  game.editor.draft.birds = ['bomb', 'bomb', 'bomb'];
+  EDITOR.tryPlay(game); env.pump(2);
+  let guard = 0;
+  while ((game.state === 'READY' || game.state === 'AIMING' || game.state === 'FLYING' || game.state === 'SETTLING') && guard++ < 25) {
+    if (game.state === 'READY' && game.currentBird) {
+      const bx = game.currentBird.x, by = game.currentBird.y;
+      env.fire('touchstart', bx, by);
+      env.fire('touchmove', bx - 30, by - 60);
+      env.fire('touchend');
+      env.pump(20);
+      if (game.state === 'FLYING') { env.fire('touchstart', 200, 300); env.pump(60); }
+    }
+    env.pump(120);
+  }
+  assert.strictEqual(game.state, 'WIN');
+  env.pump(120); // 结算动画跑完
+  const wb = game.buttons.editorBack;
+  assert.ok(wb, 'WIN 有「返回编辑」按钮');
+  env.fire('touchstart', wb.x + wb.width / 2, wb.y + wb.height / 2);
+  env.pump(1);
+  env.fire('touchend');
+  env.pump(3);
+  assert.strictEqual(game.state, 'EDITOR', 'WIN 触摸「返回编辑」→ 编辑器');
+  assert.strictEqual(game.editor.draft.pigs.length, 1, '草稿保留');
+  env.pump(30); // 回归：试玩置 currentLevelIndex=-1，回编辑器后 drawUI 读 levels[-1] 曾崩溃白屏
+  assert.strictEqual(game.state, 'EDITOR', '编辑器多帧渲染稳定');
+
+  // —— LOSE 流：normal 弱射打空，触摸点返回编辑 ——
+  fresh();
+  game.editor = null;
+  game.enterEditor(); env.pump(1);
+  EDITOR.placeAt(game, 350, GY - 17, EDITOR.findPalette('pig-s')); // 弱射够不到
+  EDITOR.tryPlay(game); env.pump(2);
+  shootOnce();
+  assert.strictEqual(game.state, 'LOSE');
+  const lb = game.buttons.editorBack;
+  assert.ok(lb, 'LOSE 有「返回编辑」按钮');
+  env.fire('touchstart', lb.x + lb.width / 2, lb.y + lb.height / 2);
+  env.pump(1);
+  env.fire('touchend');
+  env.pump(3);
+  assert.strictEqual(game.state, 'EDITOR', 'LOSE 触摸「返回编辑」→ 编辑器');
+  env.pump(30);
+  assert.strictEqual(game.state, 'EDITOR', '编辑器多帧渲染稳定');
+});
+
 run();

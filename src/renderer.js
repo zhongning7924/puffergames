@@ -453,8 +453,11 @@ function drawBossBar(game) {
 function drawUI(game) {
   const ctx = game.ctx;
 
+  // 编辑器自绘顶栏/底栏，不画战役 HUD；且试玩返回后 currentLevelIndex=-1（playCustom 置），
+  // isCustom 已被 enterEditor 复位，此处若继续读 getCurrentLevel() 会取到 levels[-1]=undefined 崩溃
   if (game.state === 'MENU' || game.state === 'LEVEL_SELECT' ||
-      game.state === 'LEADERBOARD' || game.state === 'SETTINGS') return;
+      game.state === 'LEADERBOARD' || game.state === 'SETTINGS' ||
+      game.state === 'EDITOR') return;
 
   // 顶栏背景（向下延伸盖住安全区，形成状态栏 scrim；内容避开灵动岛/刘海）
   const safeTop = C.SAFE_TOP || 0;
