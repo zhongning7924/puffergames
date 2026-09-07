@@ -419,6 +419,40 @@ test('方块压章王去重：持续接触只在撞上瞬间掉 1 血，不碾�
   assert.strictEqual(boss.health, hp0 - 2, '腾空分离后再砸算新冲击，应再掉 1 血');
 });
 
+test('章王怒吼天降物只砸空地：唤醒全部 sleep 落石/爆裂果坠落后，结构冻果不被引爆、章王零自伤（修复怒吼自爆）', () => {
+  // 天降落石末速 ~28px/帧，碰 hp1 冻果一碰即碎 → 自爆连锁；唤醒水平速度归零竖直坠落，
+  // 落点由关卡 x 精确控制在阵前空地（只砸地面），不得飘进冻果链/承重柱/章王正上方。
+  const physFrame = () => {
+    for (const b of game.blocks) if (b.alive) b.update();
+    for (const p of game.pigs) if (p.alive && typeof p.update === 'function') p.update();
+    PHYS.checkDynamicCollisions(game);
+    while (game.pendingExplosions.length) {
+      const e = game.pendingExplosions.shift();
+      game.explode(e.x, e.y);
+    }
+  };
+  // [关卡 idx, 结构内（非 sleep）冻果数]
+  const cases = [[15, 4], [23, 5], [31, 5], [39, 12]];
+  for (const [idx, burstN] of cases) {
+    fresh();
+    game.loadLevel(idx);
+    for (let i = 0; i < 30; i++) physFrame();
+    const boss = game.pigs.find(p => p.isBoss);
+    const structBursts = game.blocks.filter(b => b.type === 'burst' && !b.sleeping);
+    assert.strictEqual(structBursts.length, burstN, `L${idx + 1} 结构冻果数`);
+    const hp0 = boss.health;
+
+    // 章王连跨所有阶段怒吼：唤醒全部天降落石/爆裂果/援军（玩家零输出）
+    for (const b of game.blocks) if (b.sleeping) { b.sleeping = false; b.dynamic = true; b.vx = 0; b.angularVelocity = 0; b.stillFrames = 0; }
+    for (const p of game.pigs) if (p.sleeping) { p.sleeping = false; p.dynamic = true; p.vx = 0; p.stillFrames = 0; }
+    for (let i = 0; i < 800; i++) physFrame();
+
+    assert.strictEqual(structBursts.filter(b => b.alive).length, burstN, `L${idx + 1} 怒吼后结构冻果一颗不爆`);
+    assert.ok(boss.alive, `L${idx + 1} 章王未被自己的天降物带走`);
+    assert.strictEqual(boss.health, hp0, `L${idx + 1} 章王零自伤（实际掉 ${hp0 - boss.health}）`);
+  }
+});
+
 // =====================================================================
 // 4. 珍珠系统（P1）
 // =====================================================================

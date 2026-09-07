@@ -164,7 +164,11 @@ function triggerBossPhase(game, boss, phase) {
     if (b.sleeping && b.sleepMark === phase) {
       b.sleeping = false;
       b.dynamic = true;
-      b.vx = U.random(-1.5, 1.5);
+      // 竖直坠落（vx=0）：随机水平速度会让落石在数百像素下落中漂移 ~70px，
+      // 从「阵前空地」飘进冻果链/承重柱，一碰 hp1 冻果就自爆连锁把章王自己炸死。
+      // 落点完全由关卡 x 坐标精确控制（空地竖线），只砸地面造压迫。
+      b.vx = 0;
+      b.angularVelocity = 0;
       b.stillFrames = 0;
     }
   }

@@ -475,9 +475,10 @@ function getLevels() {
         { x: STRUCT_BASE_X - 39, y: GROUND_Y - 92, width: 28, height: 24, type: 'ice' },
         { x: STRUCT_BASE_X - 11, y: GROUND_Y - 92, width: 54, height: 24, type: 'ice' },
         { x: STRUCT_BASE_X + 43, y: GROUND_Y - 92, width: 28, height: 24, type: 'ice' },
-        // 阶段 1（半血怒吼）：天降爆裂果 ×2（预置屏外，唤醒后坠落）
-        { x: STRUCT_BASE_X + 94, y: -260, width: 26, height: 26, type: 'burst', sleep: 1 },
-        { x: STRUCT_BASE_X + 138, y: -320, width: 26, height: 26, type: 'burst', sleep: 1 },
+        // 阶段 1（半血怒吼）：天降爆裂果 ×2（落点刻意放阵前空地竖线、只砸地面——
+        // burst 一碰冰穹/冻果即碎爆，会自爆头顶冻果链把章王自己炸残，故绝不能落在冰穹正上方）
+        { x: STRUCT_BASE_X - 80, y: -260, width: 26, height: 26, type: 'burst', sleep: 1 },
+        { x: STRUCT_BASE_X - 100, y: -320, width: 26, height: 26, type: 'burst', sleep: 1 },
       ],
       // 隐藏珍珠：冰穹上方高空（极限高抛射程）
       pearls: [{ id: 'lv6', x: STRUCT_BASE_X + 130, y: GROUND_Y - 190 }],
@@ -715,12 +716,15 @@ function getLevels() {
         // 右石桥墩（上下两段）
         { x: STRUCT_BASE_X + 134, y: GROUND_Y - 62, width: 28, height: 62, type: 'stone' },
         { x: STRUCT_BASE_X + 134, y: GROUND_Y - 124, width: 28, height: 62, type: 'stone' },
+        // 天降落石：落点刻意放在「阵前空地」竖线（弹弓↔阵前猪、阵前猪↔左墩之间的空档，
+        // 下方只有地面）——落石自由落体末速 ~28px/帧，碰 hp1 冻果一碰即碎会自爆连锁，
+        // 故绝不能落在章王/冻果/桥墩正上方（否则章王残血怒吼把自己脚下冻果全点了）。
         // 阶段 1（2/3 血怒吼）：天降落石 ×2
-        { x: STRUCT_BASE_X + 74, y: -380, width: 28, height: 40, type: 'stone', sleep: 1 },
-        { x: STRUCT_BASE_X + 129, y: -440, width: 28, height: 40, type: 'stone', sleep: 1 },
-        // 阶段 2（1/3 血怒吼）：天降落石 ×2
-        { x: STRUCT_BASE_X + 54, y: -260, width: 24, height: 36, type: 'stone', sleep: 2 },
-        { x: STRUCT_BASE_X + 134, y: -320, width: 24, height: 36, type: 'stone', sleep: 2 },
+        { x: STRUCT_BASE_X - 78, y: -380, width: 28, height: 40, type: 'stone', sleep: 1 },
+        { x: STRUCT_BASE_X + 7, y: -440, width: 28, height: 40, type: 'stone', sleep: 1 },
+        // 阶段 2（1/3 血怒吼）：天降落石 ×2（同两条空地竖线，分批落下）
+        { x: STRUCT_BASE_X - 78, y: -260, width: 24, height: 36, type: 'stone', sleep: 2 },
+        { x: STRUCT_BASE_X + 7, y: -320, width: 24, height: 36, type: 'stone', sleep: 2 },
       ],
     },
 
@@ -956,11 +960,13 @@ function getLevels() {
         // 右塔（石，两段）
         { x: STRUCT_BASE_X + 134, y: GROUND_Y - 78, width: 28, height: 78, type: 'stone' },
         { x: STRUCT_BASE_X + 134, y: GROUND_Y - 156, width: 28, height: 78, type: 'stone' },
+        // 天降落石：落点刻意放阵前空地竖线（下方只有地面），绝不落在章王/冻果/双塔正上方——
+        // 落石末速 ~28px/帧，碰 hp1 冻果一碰即碎会引爆全连锁，残血怒吼会把章王自己炸死。
         // 阶段 1：天降落石 ×2
-        { x: STRUCT_BASE_X + 69, y: -380, width: 28, height: 40, type: 'stone', sleep: 1 },
-        { x: STRUCT_BASE_X + 124, y: -440, width: 28, height: 40, type: 'stone', sleep: 1 },
-        // 阶段 3：天降落石 ×1
-        { x: STRUCT_BASE_X + 99, y: -300, width: 26, height: 38, type: 'stone', sleep: 3 },
+        { x: STRUCT_BASE_X - 88, y: -380, width: 28, height: 40, type: 'stone', sleep: 1 },
+        { x: STRUCT_BASE_X - 7, y: -440, width: 28, height: 40, type: 'stone', sleep: 1 },
+        // 阶段 3：天降落石 ×1（同条空地竖线，晚落）
+        { x: STRUCT_BASE_X - 88, y: -300, width: 26, height: 38, type: 'stone', sleep: 3 },
       ],
     },
 
@@ -1223,14 +1229,17 @@ function getLevels() {
         { x: STRUCT_BASE_X + 104, y: GROUND_Y - 58, width: 26, height: 26, type: 'burst' },
         { x: STRUCT_BASE_X + 72, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
         { x: STRUCT_BASE_X + 104, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
+        // 天降落石/爆裂果：落点刻意放阵前空地竖线（下方只有地面），绝不落在王座/冻果链正上方——
+        // 落石末速 ~28px/帧碰 hp1 冻果一碰即碎、burst 碰石檐即爆，都会自爆多米诺链把章王自己炸死。
+        // 爆裂果只放最左竖线（离王座冻果 > 连锁距离），落石可落两条空地竖线。
         // 阶段 1：天降落石 ×2
-        { x: STRUCT_BASE_X + 64, y: -400, width: 30, height: 42, type: 'stone', sleep: 1 },
-        { x: STRUCT_BASE_X + 129, y: -470, width: 30, height: 42, type: 'stone', sleep: 1 },
-        // 阶段 2：天降爆裂果 ×1
-        { x: STRUCT_BASE_X + 102, y: -340, width: 28, height: 28, type: 'burst', sleep: 2 },
+        { x: STRUCT_BASE_X - 100, y: -400, width: 30, height: 42, type: 'stone', sleep: 1 },
+        { x: STRUCT_BASE_X - 12, y: -470, width: 30, height: 42, type: 'stone', sleep: 1 },
+        // 阶段 2：天降爆裂果 ×1（最左空地，落地只在空地爆、不连王座链）
+        { x: STRUCT_BASE_X - 100, y: -340, width: 28, height: 28, type: 'burst', sleep: 2 },
         // 阶段 3：天降落石 ×2
-        { x: STRUCT_BASE_X + 84, y: -300, width: 28, height: 40, type: 'stone', sleep: 3 },
-        { x: STRUCT_BASE_X + 139, y: -380, width: 28, height: 40, type: 'stone', sleep: 3 },
+        { x: STRUCT_BASE_X - 100, y: -300, width: 28, height: 40, type: 'stone', sleep: 3 },
+        { x: STRUCT_BASE_X - 12, y: -380, width: 28, height: 40, type: 'stone', sleep: 3 },
       ],
     },
   ];
