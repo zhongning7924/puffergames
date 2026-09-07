@@ -69,8 +69,8 @@ class Game {
       let totalStars = 0;
       for (const k in this.progress.stars) totalStars += this.progress.stars[k];
       return totalStars > 0
-        ? { title: `我在「冲吧！小河豚」收集了 ${totalStars} 颗星，来挑战我吧！`, query: '' }
-        : { title: '「冲吧！小河豚」—— 一弹入魂的物理弹射小游戏', query: '' };
+        ? { title: `我在「愤怒河豚的弹弓」收集了 ${totalStars} 颗星，来挑战我吧！`, query: '' }
+        : { title: '「愤怒河豚的弹弓」—— 一弹入魂的物理弹射小游戏', query: '' };
     });
     // 通过分享卡片进入 → 直达关卡：战役关(query.level，已解锁门控)/自制关(query.custom)
     // 分流逻辑在 editor.handleLaunchQuery（坏码留菜单 + launchError 提示）

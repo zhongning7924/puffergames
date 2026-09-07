@@ -49,13 +49,13 @@ function shareResult(levelIndex, stars) {
     if (levelIndex < 0) {
       // 每日挑战：不带直达参数（每日内容按日期生成）
       wx.shareAppMessage({
-        title: `我在「冲吧！小河豚」每日挑战拿下 ${stars} 星，今天这关你敢来吗？`,
+        title: `我在「愤怒河豚的弹弓」每日挑战拿下 ${stars} 星，今天这关你敢来吗？`,
       });
       return;
     }
     const levelNo = levelIndex + 1;
     wx.shareAppMessage({
-      title: `我在「冲吧！小河豚」第 ${levelNo} 关拿下 ${stars} 星，敢来挑战吗？`,
+      title: `我在「愤怒河豚的弹弓」第 ${levelNo} 关拿下 ${stars} 星，敢来挑战吗？`,
       query: `level=${levelNo}`,
     });
   } catch (e) {
@@ -91,7 +91,7 @@ function shareCustom(code, stars) {
     wx.shareAppMessage({
       title: stars
         ? `我造的关被拿下 ${stars} 星，你能超过吗？`
-        : '我造了一关「冲吧！小河豚」，你能打通吗？',
+        : '我造了一关「愤怒河豚的弹弓」，你能打通吗？',
       query: 'custom=' + encodeURIComponent(code),
     });
   } catch (e) {

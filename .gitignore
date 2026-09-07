@@ -14,3 +14,5 @@ outputs/*
 !outputs/puffer-avatar-144x144.png
 !outputs/mini-program-info.md
 !outputs/audit-content-*.md
+!outputs/release-materials-*.md
+!outputs/promo-*.png

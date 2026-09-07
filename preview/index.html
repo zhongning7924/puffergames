@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>冲吧！小河豚 - 本地预览</title>
+<title>愤怒河豚的弹弓 - 本地预览</title>
 <style>
   html, body {
     margin: 0; height: 100%;
@@ -34,6 +34,22 @@
 </div>
 
 <script>
+/* 截图模式参数预处理（须在适配层之前）：?dpr=2.88 覆写 devicePixelRatio，
+   让画布后备存储达到目标分辨率（1080×1920 = 375×667 × 2.88） */
+(function () {
+  var q = {};
+  location.search.replace(/^\?/, '').split('&').forEach(function (kv) {
+    var p = kv.split('='); q[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || '');
+  });
+  window.__shot = q;
+  if (q.dpr) {
+    var d = parseFloat(q.dpr);
+    try { Object.defineProperty(window, 'devicePixelRatio', { value: d, configurable: true }); }
+    catch (e) { window.devicePixelRatio = d; }
+  }
+})();
+</script>
+<script>
 /**
  * 浏览器版 wx API 适配层
  * 把微信小游戏的 wx.* 调用映射到标准 HTML5 Canvas / DOM，
@@ -63,7 +79,8 @@
         const t = (e.touches && e.touches[0]) || e;
         cx = t.clientX; cy = t.clientY;
       }
-      const x = cx - rect.left, y = cy - rect.top;
+      const x = (cx - rect.left) * (SCREEN_W / rect.width);   // CSS 像素 → 舞台坐标（画布可被 CSS 放大）
+      const y = (cy - rect.top) * (SCREEN_H / rect.height);
       const tobj = { clientX: x, clientY: y, identifier: 0 };
       const evt = {
         touches: (type === 'touchend' || type === 'touchcancel') ? [] : [tobj],
@@ -107,5 +124,67 @@
 })();
 </script>
 <script src="bundle.js"></script>
+<script>
+/**
+ * 截图模式（供无头 Chrome 取材，不影响正常预览）
+ * ?shot=1&dpr=2.88  画布铺满窗口、原生分辨率、隐藏提示浮层
+ * ?scene=select|play|boss  自动进入选关页 / 第 1 关 / 第 8 关（章王）
+ * ?prog=N           预置解锁进度（配合 boss 场景）
+ */
+(function () {
+  var q = window.__shot || {};
+  var shot = q.shot === '1' || !!q.scene || !!q.dpr;
+
+  if (shot) {
+    // 画布 CSS 尺寸铺满窗口（后备存储已是 dpr×舞台，视觉 1:1 原生像素）
+    var c = document.getElementById('game');
+    c.style.width = window.innerWidth + 'px';
+    c.style.height = window.innerHeight + 'px';
+    c.style.borderRadius = '0';
+    c.style.boxShadow = 'none';
+    document.getElementById('hint').style.display = 'none';
+    document.body.style.background = '#04121f';
+  }
+  if (q.prog) {
+    try {
+      localStorage.setItem('angryBirds_progress',
+        JSON.stringify({ unlockedLevels: parseInt(q.prog, 10) || 1, stars: {} }));
+    } catch (e) {}
+  }
+
+  var scene = q.scene || '';
+  if (!scene) return;
+
+  function click(x, y) {
+    var c = document.getElementById('game');
+    var r = c.getBoundingClientRect();
+    var k = r.width / 375;                 // CSS 尺寸 → 舞台坐标换算
+    var opts = {
+      bubbles: true, cancelable: true, button: 0,
+      clientX: r.left + x * k, clientY: r.top + y * k,
+    };
+    c.dispatchEvent(new MouseEvent('mousedown', opts));
+    c.dispatchEvent(new MouseEvent('mouseup', opts));
+  }
+
+  // 用 rAF 帧计数定时，避免依赖真实时钟
+  var frame = 0, step = 0;
+  requestAnimationFrame(function loop() {
+    frame++;
+    if (step === 0 && frame >= 12) {
+      step = 1;
+      if (scene === 'select' || scene === 'play' || scene === 'boss') {
+        click(187, 358);                   // 「开始游戏」
+      }
+    }
+    if (step === 1 && frame >= 24) {
+      step = 2;
+      if (scene === 'play') click(85.5, 194);    // 第 1 关（新手湾 2×4 网格 r1c1）
+      else if (scene === 'boss') click(289.5, 270); // 第 8 关（章王，r2c4）
+    }
+    requestAnimationFrame(loop);
+  });
+})();
+</script>
 </body>
 </html>

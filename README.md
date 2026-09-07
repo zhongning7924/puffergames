@@ -1,6 +1,6 @@
-# 冲吧！小河豚 · Puffer Go
+# 愤怒河豚的弹弓 · Puffer Go
 
-<img src="outputs/puffer-avatar-144x144.png" width="120" align="right" alt="冲吧小河豚头像">
+<img src="outputs/puffer-avatar-144x144.png" width="120" align="right" alt="愤怒河豚的弹弓头像">
 
 一款原创海洋题材的**弹射闯关微信小游戏**。拉动弹弓把小河豚发射出去，砸塌章鱼怪的堡垒，讨伐章末的章王 Boss。
 

@@ -201,14 +201,14 @@ function drawMenu(game) {
 
   // 标题阴影
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  ctx.fillText('冲吧！小河豚', cx + 3, titleY + bounce + 3);
+  ctx.fillText('愤怒河豚的弹弓', cx + 3, titleY + bounce + 3);
 
   // 标题渐变（河豚黄，海洋题材）
   const titleGrad = ctx.createLinearGradient(0, titleY - 20, 0, titleY + 40);
   titleGrad.addColorStop(0, '#FFD54F');
   titleGrad.addColorStop(1, '#FF8F00');
   ctx.fillStyle = titleGrad;
-  ctx.fillText('冲吧！小河豚', cx, titleY + bounce);
+  ctx.fillText('愤怒河豚的弹弓', cx, titleY + bounce);
 
   // 副标题：紧贴标题（随标题同步 bounce，与吉祥物/标题组成顶部 logo 区）
   ctx.font = '14px Arial';
