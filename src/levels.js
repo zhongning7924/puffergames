@@ -200,33 +200,37 @@ function getLevels() {
       ],
     },
 
-    // ====== 第8关：滩涂章王（新）—— 章节收官：首个 Boss 战，木壳教学 ======
+    // ====== 第8关：滩涂章王（新）—— 章节收官：首个 Boss，坍塌启蒙「悬木吊脚楼」======
+    // 解法不在正面硬壳：章王头顶一座木架平台、平台堆着石块，仅由左右两根细木柱撑住。
+    // 用梭梭冲刺（克木）撞断两根承重柱，整座石堆木楼平拍下来砸压章王。断一根会砸偏。
     {
       name: '第 8 关',
-      flavor: '浮木门楼',
-      hint: '巨型章王！先破壳，再直击本体！点候飞区能换豚！',
-      birds: ['normal', 'dash', 'bomb', 'normal', 'normal'],
+      flavor: '悬木吊脚楼',
+      hint: '章王头顶压着石堆木楼！换砰砰炸断两根木柱，让石堆整个砸下来！',
+      birds: ['normal', 'bomb', 'dash', 'bomb', 'normal'],
       trajectory: 46,
-      stars: [4700, 9500, 14200],
+      stars: [5200, 10000, 15000],
       pigs: [
-        // 滩涂章王（Boss）：木壳掩体中，免疫击退，需多次直击（教学章王无怒吼阶段）
+        // 滩涂章王（Boss）：站在两根承重柱之间，免疫击退；头顶悬石堆，拆柱塌楼杀
         { x: STRUCT_BASE_X + 92, y: GROUND_Y - 30, radius: 30, boss: true, hp: 5, name: '滩涂章王' },
-        // 屋顶哨章鱼
-        { x: STRUCT_BASE_X + 92, y: GROUND_Y - 114 - 14, radius: 14 },
         // 阵前地面章鱼
-        { x: STRUCT_BASE_X - 30, y: GROUND_Y - 16, radius: 16 },
+        { x: STRUCT_BASE_X - 34, y: GROUND_Y - 16, radius: 16 },
       ],
       blocks: [
-        // 木壳左墙（梭梭冲刺克木，破口后直击本体）
-        { x: STRUCT_BASE_X + 34, y: GROUND_Y - 44, width: 26, height: 44, type: 'wood' },
-        { x: STRUCT_BASE_X + 34, y: GROUND_Y - 88, width: 26, height: 44, type: 'wood' },
-        // 木壳右墙
-        { x: STRUCT_BASE_X + 124, y: GROUND_Y - 44, width: 26, height: 44, type: 'wood' },
-        { x: STRUCT_BASE_X + 124, y: GROUND_Y - 88, width: 26, height: 44, type: 'wood' },
-        // 木壳屋顶
-        { x: STRUCT_BASE_X + 34, y: GROUND_Y - 114, width: 116, height: 26, type: 'wood' },
-        // 爆裂果（阵前地面，引爆可掀开屋顶）
-        { x: STRUCT_BASE_X - 3, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
+        // 左承重木柱（两段叠放，梭梭冲刺克木一撞即断）
+        { x: STRUCT_BASE_X + 32, y: GROUND_Y - 78, width: 26, height: 78, type: 'wood' },
+        { x: STRUCT_BASE_X + 32, y: GROUND_Y - 156, width: 26, height: 78, type: 'wood' },
+        // 右承重木柱
+        { x: STRUCT_BASE_X + 126, y: GROUND_Y - 78, width: 26, height: 78, type: 'wood' },
+        { x: STRUCT_BASE_X + 126, y: GROUND_Y - 156, width: 26, height: 78, type: 'wood' },
+        // 木架平台梁（压在两柱顶上，柱断即平拍）
+        { x: STRUCT_BASE_X + 28, y: GROUND_Y - 182, width: 130, height: 26, type: 'wood' },
+        // 平台上的石块重物（塌落后高速砸压章王）
+        { x: STRUCT_BASE_X + 50, y: GROUND_Y - 210, width: 28, height: 28, type: 'stone' },
+        { x: STRUCT_BASE_X + 85, y: GROUND_Y - 210, width: 28, height: 28, type: 'stone' },
+        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 210, width: 28, height: 28, type: 'stone' },
+        // 石块间埋一颗爆裂果（塌压时连锁爆炸补伤害）
+        { x: STRUCT_BASE_X + 86, y: GROUND_Y - 236, width: 26, height: 26, type: 'burst' },
       ],
     },
 
@@ -440,44 +444,43 @@ function getLevels() {
     // ====== 第16关：冰壳章王（锚点）—— 三丸子分裂教学 + 章末 Boss：冰壳 ======
     {
       name: '第 16 关',
-      flavor: '潮阶塔林',   // 风味名（HUD 与关卡主题）
+      flavor: '冻果冰穹',   // 风味名（HUD 与关卡主题）
       hint: '新技能：三丸子空中点击一分为三！', // 首次进入显示技能教学
       birds: ['normal', 'split', 'dash', 'bomb', 'normal'],
       trajectory: 30,
       stars: [8000, 14000, 21000],
       pigs: [
-        // 冰壳章王（Boss）：冰壳掩体中，hp7；半血怒吼天降爆裂果（sleep 阶段物）
+        // 冰壳章王（Boss）：冻果冰穹正下方，hp7；半血怒吼天降爆裂果（sleep 阶段物）
         { x: STRUCT_BASE_X + 120, y: GROUND_Y - 26, radius: 26, boss: true, hp: 7, name: '冰壳章王' },
-        // 冰壳屋顶哨章鱼
-        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 114 - 12, radius: 12 },
+        // 冰穹顶哨章鱼（坐中央冻果上）
+        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 159, radius: 13 },
         // 前左地面
         { x: STRUCT_BASE_X - 28, y: GROUND_Y - 18, radius: 18 },
       ],
       blocks: [
-        // 左柱（石+木+冰）
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 120, width: 30, height: 120, type: 'stone' },
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 120 - 70, width: 30, height: 70, type: 'wood' },
-        { x: STRUCT_BASE_X - 2, y: GROUND_Y - 120 - 70 - 26, width: 34, height: 26, type: 'ice' },
-        // 中柱（木+石+冰）——柱顶冰帽加宽：本关首只即三丸子（分裂对冰 2 倍克制），
-        // 宽冰帽让"分裂→破冰"的解法在关卡结构里自解释，技能教学即关卡本身
-        { x: STRUCT_BASE_X + 41, y: GROUND_Y - 90, width: 30, height: 90, type: 'wood' },
-        { x: STRUCT_BASE_X + 41, y: GROUND_Y - 90 - 60, width: 30, height: 60, type: 'stone' },
-        // 中冰帽保持原 x（柱身左移 4px 给冰壳让位，宽帽视觉余量足够）
-        { x: STRUCT_BASE_X + 33, y: GROUND_Y - 90 - 60 - 24, width: 54, height: 24, type: 'ice' },
-        // 右柱顶冰帽（柱身让位给章王冰壳，冰帽悬浮——分裂破冰教学锚点保留）
-        { x: STRUCT_BASE_X + 93, y: GROUND_Y - 60 - 24, width: 34, height: 24, type: 'ice' },
-        // 章王冰壳：左墙 / 右墙 / 屋顶（三丸子一分为三，一发碎三块冰）
+        // 冰壳左墙 / 右墙（三丸子一分为三、一发碎多冰的教学锚点）
         { x: STRUCT_BASE_X + 72, y: GROUND_Y - 44, width: 20, height: 44, type: 'ice' },
         { x: STRUCT_BASE_X + 72, y: GROUND_Y - 88, width: 20, height: 44, type: 'ice' },
         { x: STRUCT_BASE_X + 150, y: GROUND_Y - 44, width: 18, height: 44, type: 'ice' },
         { x: STRUCT_BASE_X + 150, y: GROUND_Y - 88, width: 18, height: 44, type: 'ice' },
-        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 114, width: 96, height: 26, type: 'ice' },
-        // 阶段 1（半血怒吼）：天降爆裂果 ×2（预置屏外，唤醒后坠落砸开冰壳）
+        // 冰穹承重板：横压章王头顶，托着一排冻果（砰砰一炸，冰碎果连锁）
+        { x: STRUCT_BASE_X + 44, y: GROUND_Y - 120, width: 122, height: 24, type: 'ice' },
+        // 冻果 ×4：沿冰穹顶排开，间距 32 可连锁；逐颗引爆都在章王头顶 ~110px 内，各扣 1 血
+        { x: STRUCT_BASE_X + 44, y: GROUND_Y - 146, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 76, y: GROUND_Y - 146, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 108, y: GROUND_Y - 146, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 146, width: 26, height: 26, type: 'burst' },
+        // 浮冰靶 ×3（分裂教学锚点）：冰穹前檐下水平排开的三帽，三丸子近垂直下落横散、一发各碎一冰
+        // （split 对冰 2.0 克制自解释）；位于冻果弹道下方 ~50px，不干扰砰砰冻果连锁主解
+        { x: STRUCT_BASE_X - 39, y: GROUND_Y - 92, width: 28, height: 24, type: 'ice' },
+        { x: STRUCT_BASE_X - 11, y: GROUND_Y - 92, width: 54, height: 24, type: 'ice' },
+        { x: STRUCT_BASE_X + 43, y: GROUND_Y - 92, width: 28, height: 24, type: 'ice' },
+        // 阶段 1（半血怒吼）：天降爆裂果 ×2（预置屏外，唤醒后坠落）
         { x: STRUCT_BASE_X + 94, y: -260, width: 26, height: 26, type: 'burst', sleep: 1 },
         { x: STRUCT_BASE_X + 138, y: -320, width: 26, height: 26, type: 'burst', sleep: 1 },
       ],
-      // 隐藏珍珠：画面右尽头、冰壳上方（极限射程）
-      pearls: [{ id: 'lv6', x: STRUCT_BASE_X + 130, y: GROUND_Y - 170 }],
+      // 隐藏珍珠：冰穹上方高空（极限高抛射程）
+      pearls: [{ id: 'lv6', x: STRUCT_BASE_X + 130, y: GROUND_Y - 190 }],
     },
 
     // ============================================================
@@ -679,27 +682,31 @@ function getLevels() {
     // ====== 第24关：岩甲章王（锚点，综合）—— 章节收官：Boss 战，石壳两阶段 ======
     {
       name: '第 24 关',
-      flavor: '深渊王座',   // 风味名（HUD 与关卡主题）
+      flavor: '石拱断桥',   // 风味名（HUD 与关卡主题）
       birds: ['normal', 'dash', 'bomb', 'split', 'bomb', 'normal'],
       trajectory: 22,
       stars: [12000, 20000, 30000],
       pigs: [
-        // 岩甲章王（Boss）：石壳掩体中，hp9；两度怒吼天降落石（砰砰爆炸克石）
+        // 岩甲章王（Boss）：压在断桥正下方，hp9；两度怒吼天降落石
         { x: STRUCT_BASE_X + 100, y: GROUND_Y - 32, radius: 32, boss: true, hp: 9, name: '岩甲章王' },
-        // 石壳屋顶哨章鱼
-        { x: STRUCT_BASE_X + 100, y: GROUND_Y - 120 - 14, radius: 14 },
+        // 桥面哨章鱼（坐中央载石上）
+        { x: STRUCT_BASE_X + 82, y: GROUND_Y - 219, radius: 14 },
         // 阵前地面章鱼
         { x: STRUCT_BASE_X - 32, y: GROUND_Y - 16, radius: 16 },
       ],
       blocks: [
-        // 石壳左墙
-        { x: STRUCT_BASE_X + 36, y: GROUND_Y - 46, width: 28, height: 46, type: 'stone' },
-        { x: STRUCT_BASE_X + 36, y: GROUND_Y - 92, width: 28, height: 46, type: 'stone' },
-        // 石壳右墙
-        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 46, width: 28, height: 46, type: 'stone' },
-        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 92, width: 28, height: 46, type: 'stone' },
-        // 石壳屋顶
-        { x: STRUCT_BASE_X + 36, y: GROUND_Y - 120, width: 126, height: 28, type: 'stone' },
+        // 桥面：厚重石板横压章王头顶（双墩齐断才整面平拍，断单侧只会掀偏）
+        { x: STRUCT_BASE_X + 24, y: GROUND_Y - 150, width: 144, height: 26, type: 'stone' },
+        // 桥面载石 ×3：随桥平拍的配重（炸点在墩基，载石在爆炸边缘幸存下坠）
+        { x: STRUCT_BASE_X + 34, y: GROUND_Y - 178, width: 28, height: 28, type: 'stone' },
+        { x: STRUCT_BASE_X + 82, y: GROUND_Y - 178, width: 28, height: 28, type: 'stone' },
+        { x: STRUCT_BASE_X + 130, y: GROUND_Y - 178, width: 28, height: 28, type: 'stone' },
+        // 左石桥墩（上下两段，砰砰炸基即断）
+        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 62, width: 28, height: 62, type: 'stone' },
+        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 124, width: 28, height: 62, type: 'stone' },
+        // 右石桥墩（上下两段）
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 62, width: 28, height: 62, type: 'stone' },
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 124, width: 28, height: 62, type: 'stone' },
         // 阶段 1（2/3 血怒吼）：天降落石 ×2
         { x: STRUCT_BASE_X + 74, y: -380, width: 28, height: 40, type: 'stone', sleep: 1 },
         { x: STRUCT_BASE_X + 129, y: -440, width: 28, height: 40, type: 'stone', sleep: 1 },
@@ -906,32 +913,37 @@ function getLevels() {
     // ====== 第32关：深渊章王（新）—— 章节收官：Boss 战，混合壳三阶段（落石+召唤） ======
     {
       name: '第 32 关',
-      flavor: '梦魇海脊',
+      flavor: '双塔悬闸',
       birds: ['bomb', 'split', 'dash', 'bomb', 'split', 'normal'],
       trajectory: 16,
       stars: [12800, 20500, 27000],
       pigs: [
-        // 深渊章王（Boss）：石墙木墙冰顶混合壳，hp11，三度怒吼
+        // 深渊章王（Boss）：悬闸正下方，hp11，三度怒吼（落石+召唤）
         { x: STRUCT_BASE_X + 98, y: GROUND_Y - 33, radius: 33, boss: true, hp: 11, name: '深渊章王' },
-        // 屋顶哨章鱼
-        { x: STRUCT_BASE_X + 98, y: GROUND_Y - 120 - 13, radius: 13 },
+        // 悬闸顶哨章鱼（站闸面上）
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 198, radius: 13 },
         // 阵前地面章鱼
         { x: STRUCT_BASE_X - 46, y: GROUND_Y - 16, radius: 16 },
-        // 阶段 2 召唤：援军小章鱼 ×2（预置屏外，怒吼时落下）
+        // 阶段 2 召唤：援军小章鱼 ×2（预置屏外，怒吼时落下，被悬闸碾压）
         { x: STRUCT_BASE_X + 74, y: -250, radius: 14, sleep: 2 },
         { x: STRUCT_BASE_X + 119, y: -310, radius: 14, sleep: 2 },
         // 阶段 3 召唤：援军小章鱼 ×1
         { x: STRUCT_BASE_X + 99, y: -370, radius: 15, sleep: 3 },
       ],
       blocks: [
-        // 混合壳：左石墙（砰砰破）
-        { x: STRUCT_BASE_X + 31, y: GROUND_Y - 46, width: 28, height: 46, type: 'stone' },
-        { x: STRUCT_BASE_X + 31, y: GROUND_Y - 92, width: 28, height: 46, type: 'stone' },
-        // 右木墙（梭梭破）
-        { x: STRUCT_BASE_X + 133, y: GROUND_Y - 46, width: 28, height: 46, type: 'wood' },
-        { x: STRUCT_BASE_X + 133, y: GROUND_Y - 92, width: 28, height: 46, type: 'wood' },
-        // 冰顶（三丸子破）
-        { x: STRUCT_BASE_X + 31, y: GROUND_Y - 120, width: 130, height: 28, type: 'ice' },
+        // 悬闸：巨型石板横空（双塔齐断才整面平落）
+        { x: STRUCT_BASE_X + 16, y: GROUND_Y - 185, width: 150, height: 28, type: 'stone' },
+        // 章王头顶悬空冻果 ×3（悬在闸下、双塔之间，鸟打不进）：悬闸平落压碎即连锁，
+        // 炸塔冲击波扫到也提前连锁；引爆点距章王头顶 ~60px，逐颗各扣 1 血
+        { x: STRUCT_BASE_X + 50, y: GROUND_Y - 107, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 107, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 106, y: GROUND_Y - 107, width: 26, height: 26, type: 'burst' },
+        // 左塔（木，两段；砰砰炸基即断）
+        { x: STRUCT_BASE_X + 22, y: GROUND_Y - 78, width: 28, height: 78, type: 'wood' },
+        { x: STRUCT_BASE_X + 22, y: GROUND_Y - 156, width: 28, height: 78, type: 'wood' },
+        // 右塔（石，两段）
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 78, width: 28, height: 78, type: 'stone' },
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 156, width: 28, height: 78, type: 'stone' },
         // 阶段 1：天降落石 ×2
         { x: STRUCT_BASE_X + 69, y: -380, width: 28, height: 40, type: 'stone', sleep: 1 },
         { x: STRUCT_BASE_X + 124, y: -440, width: 28, height: 40, type: 'stone', sleep: 1 },
@@ -1153,32 +1165,52 @@ function getLevels() {
     // ====== 第40关：王座终焉（锚点）—— 终极 Boss：潮汐王座·章王，三阶段收官 ======
     {
       name: '第 40 关',
-      flavor: '王座终焉',
+      flavor: '多米诺王座',
       birds: ['bomb', 'split', 'dash', 'bomb', 'split', 'normal'],
       trajectory: 12,
       stars: [16000, 25000, 34000],
       pigs: [
-        // 潮汐王座·章王（最终 Boss）：双层壳，hp14，三度怒吼（落石+爆裂果+召唤）
+        // 潮汐王座·章王（最终 Boss）：三层石堡王座下，hp14，三度怒吼
         { x: STRUCT_BASE_X + 96, y: GROUND_Y - 34, radius: 34, boss: true, hp: 14, name: '潮汐王座·章王' },
-        // 屋顶哨章鱼
-        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 120 - 14, radius: 14 },
+        // 王座外层哨章鱼（站最高石檐上）
+        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 244, radius: 14 },
         // 阵前地面章鱼
         { x: STRUCT_BASE_X - 56, y: GROUND_Y - 16, radius: 16 },
-        // 阶段 2 召唤：援军小章鱼 ×2
+        // 阶段 2 召唤：援军小章鱼 ×2（被逐层坍塌的石堡碾压）
         { x: STRUCT_BASE_X + 69, y: -260, radius: 14, sleep: 2 },
         { x: STRUCT_BASE_X + 124, y: -330, radius: 15, sleep: 2 },
         // 阶段 3 召唤：援军小章鱼 ×1
         { x: STRUCT_BASE_X + 94, y: -380, radius: 16, sleep: 3 },
       ],
       blocks: [
-        // 双石墙 + 石主梁
-        { x: STRUCT_BASE_X + 24, y: GROUND_Y - 46, width: 28, height: 46, type: 'stone' },
-        { x: STRUCT_BASE_X + 24, y: GROUND_Y - 92, width: 28, height: 46, type: 'stone' },
-        { x: STRUCT_BASE_X + 132, y: GROUND_Y - 46, width: 28, height: 46, type: 'stone' },
-        { x: STRUCT_BASE_X + 132, y: GROUND_Y - 92, width: 28, height: 46, type: 'stone' },
-        { x: STRUCT_BASE_X + 24, y: GROUND_Y - 120, width: 136, height: 28, type: 'stone' },
-        // 内层冰顶（双层壳：先碎冰再炸石）
-        { x: STRUCT_BASE_X + 56, y: GROUND_Y - 148, width: 74, height: 24, type: 'ice' },
+        // —— 三层石堡：外/中石檐悬空逐级抬高，内层王座盖由双石柱落地 ——
+        // 内层王座盖（章王头顶）
+        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 110, width: 120, height: 26, type: 'stone' },
+        // 王座双石柱（落地门柱）
+        { x: STRUCT_BASE_X + 44, y: GROUND_Y - 84, width: 26, height: 84, type: 'stone' },
+        { x: STRUCT_BASE_X + 130, y: GROUND_Y - 84, width: 26, height: 84, type: 'stone' },
+        // 中层石檐（悬空）
+        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 170, width: 130, height: 26, type: 'stone' },
+        // 外层石檐（悬空）
+        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 230, width: 140, height: 26, type: 'stone' },
+        // —— 冻果多米诺链：一发引爆，从外檐逐级连爆到王座盖、再传到章王头顶 ——
+        // b0 外檐顶（高抛触发点）
+        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 256, width: 26, height: 26, type: 'burst' },
+        // b1 中檐顶
+        { x: STRUCT_BASE_X + 52, y: GROUND_Y - 196, width: 26, height: 26, type: 'burst' },
+        // 王座盖顶一排冻果（链腰，平射可及；打中即双向引爆全链；贴王 ~90，各扣 1 血）
+        { x: STRUCT_BASE_X + 38, y: GROUND_Y - 136, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 64, y: GROUND_Y - 136, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 94, y: GROUND_Y - 136, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 136, width: 26, height: 26, type: 'burst' },
+        // 章王头顶贴果（王座盖下悬挂）
+        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 84, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 98, y: GROUND_Y - 84, width: 26, height: 26, type: 'burst' },
+        // 章王身侧 / 脚边贴脸果（连锁末段贴脸爆，固定伤害，少靠坍塌随机）
+        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 58, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 104, y: GROUND_Y - 58, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 104, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
         // 阶段 1：天降落石 ×2
         { x: STRUCT_BASE_X + 64, y: -400, width: 30, height: 42, type: 'stone', sleep: 1 },
         { x: STRUCT_BASE_X + 129, y: -470, width: 30, height: 42, type: 'stone', sleep: 1 },
