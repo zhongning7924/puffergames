@@ -23,6 +23,8 @@ class Bird {
     this.rotation = 0;
     this.trail = [];
     this.squish = 0;       // 弹性形变动画
+    this.puff = 0;         // 愤怒膨胀度 0→1（发射后鼓成刺球，纯视觉）
+    this.puffT = 0;        // 膨胀动画帧计数
     this.onGround = false;
     this.stillFrames = 0;  // 静止帧计数
     this.blinkTimer = 0;
@@ -123,6 +125,13 @@ class Bird {
     // 形变恢复 Squish recovery
     this.squish *= 0.85;
 
+    // 愤怒膨胀 Puff：发射后立马鼓成刺球（easeOutBack 带 overshoot，气鼓鼓 Q 弹）
+    this.puffT++;
+    const pt = Math.min(1, this.puffT / 9);
+    this.puff = pt < 1
+      ? 1 + 2.70158 * Math.pow(pt - 1, 3) + 1.70158 * Math.pow(pt - 1, 2)
+      : 1;
+
     // 静止检测 Still detection (不限于地面，停在方块上也算)
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     if (speed < C.REST_THRESHOLD) {
@@ -155,6 +164,8 @@ class Bird {
     this.vy = vy;
     this.launched = true;
     this.trail = [];
+    this.puff = 0;     // 发射瞬间从头鼓气
+    this.puffT = 0;
   }
 
   draw(ctx) {
@@ -173,11 +184,17 @@ class Bird {
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
 
-    const sx = 1 - this.squish;
-    const sy = 1 + this.squish;
+    // 愤怒膨胀：发射后整体鼓大（纯视觉，物理半径 this.radius 不变），鼓满后带气鼓鼓呼吸
+    const breathe = this.puff >= 1 ? 1 + 0.028 * Math.sin(this.puffT * 0.18) : 1;
+    const ps = (1 + 0.26 * this.puff) * breathe;
+    const sx = (1 - this.squish) * ps;
+    const sy = (1 + this.squish) * ps;
     ctx.scale(sx, sy);
 
     const r = this.radius;
+
+    // 愤怒尖刺：膨胀时全身炸起一圈短棘（刺鲀气鼓鼓）——先画刺再画身体，刺根埋入体内被盖住、只露刺尖
+    if (this.puff > 0.02) this.drawPuffSpikes(ctx, r, this.puff);
 
     // 身体 Body（颜色随豚种）
     ctx.beginPath();
@@ -334,6 +351,26 @@ class Bird {
       ctx.fillStyle = colors[i % colors.length];
       ctx.fill();
     }
+  }
+
+  /** 愤怒尖刺：膨胀态沿全身一圈竖起的短棘（刺鲀炸刺）；跳过正前嘴/正后尾保持五官干净。
+   *  刺根半径 base<r 埋进身体圆内，被后画的身体盖住，只露出 r 外的刺尖，天然贴合轮廓。 */
+  drawPuffSpikes(ctx, r, puff) {
+    const N = 16;
+    const len = r * 0.34 * puff;  // 刺长随膨胀竖起
+    const base = r * 0.7;         // 刺根半径（< r，被身体圆盖住）
+    const halfW = 0.11;           // 刺底半宽（弧度）
+    ctx.fillStyle = this.props.bodyDark;
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+      if (i === 0 || i === N / 2) continue; // 跳过正前（嘟嘴）/正后（尾鳍）
+      const a = (i / N) * Math.PI * 2;
+      ctx.moveTo(Math.cos(a - halfW) * base, Math.sin(a - halfW) * base);
+      ctx.lineTo(Math.cos(a) * (r + len), Math.sin(a) * (r + len));
+      ctx.lineTo(Math.cos(a + halfW) * base, Math.sin(a + halfW) * base);
+      ctx.closePath();
+    }
+    ctx.fill();
   }
 }
 

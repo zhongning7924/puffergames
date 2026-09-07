@@ -358,6 +358,46 @@ test('弹道残影：发射后记录完整轨迹，结算后保留，下一发�
   assert.ok(Array.isArray(game.lastTrail), '第二发重置为新记录');
 });
 
+test('河豚愤怒膨胀：发射后 puff 0→1 鼓成刺球（视觉放大+全身炸刺），物理半径不变', () => {
+  // 记录型 ctx：抓 scale 参数与 lineTo 数量（draw 全方法 no-op，仅记录调用）
+  const rec = () => {
+    const calls = [];
+    const ctx = new Proxy({}, {
+      get(t, p) {
+        if (p === 'createLinearGradient' || p === 'createRadialGradient') return () => ({ addColorStop() {} });
+        if (p === 'measureText') return () => ({ width: 10 });
+        return (...a) => { calls.push([p, a]); };
+      },
+      set: () => true,
+    });
+    return { ctx, calls };
+  };
+  const scaleOf = calls => { const s = calls.find(c => c[0] === 'scale'); return s ? s[1] : null; };
+  const lineToCount = calls => calls.filter(c => c[0] === 'lineTo').length;
+
+  const bird = new E.Bird(60, 200, 'normal');
+  assert.strictEqual(bird.puff, 0, '未发射膨胀度为 0');
+  assert.strictEqual(bird.radius, C.BIRD_RADIUS);
+  let r = rec();
+  bird.draw(r.ctx);
+  const idle = scaleOf(r.calls);
+  assert.ok(Math.abs(idle[0] - 1) < 1e-6 && Math.abs(idle[1] - 1) < 1e-6, '未发射不放大（scale≈1）');
+  const idleLines = lineToCount(r.calls);
+
+  bird.launch(8, 3);
+  assert.strictEqual(bird.puff, 0, 'launch 瞬间从头鼓气');
+  for (let i = 0; i < 9; i++) bird.update();
+  assert.ok(bird.puff >= 0.99, `发射后 9 帧鼓满（puff=${bird.puff.toFixed(2)}）`);
+  assert.strictEqual(bird.radius, C.BIRD_RADIUS, '物理半径不变（碰撞/平衡不受视觉放大影响）');
+
+  r = rec();
+  bird.draw(r.ctx);
+  const puffed = scaleOf(r.calls);
+  assert.ok(puffed[0] > 1.2 && puffed[1] > 1.2, `鼓满视觉放大约 26%（scale=${puffed[0].toFixed(2)}）`);
+  assert.ok(lineToCount(r.calls) > idleLines + 20,
+    `鼓满全身炸刺（lineTo ${idleLines}→${lineToCount(r.calls)}）`);
+});
+
 // =====================================================================
 // 4. 珍珠系统（P1）
 // =====================================================================
