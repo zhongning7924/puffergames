@@ -208,6 +208,7 @@ function solve(idx) {
 }
 
 // ==================== 主流程 ====================
+function run() {
 const args = process.argv.slice(2).map(Number).filter(n => !isNaN(n)).map(n => n - 1);
 const idxs = args.length ? args : LEVELS.map((_, i) => i);
 const STATIC_ONLY = !!process.env.STATIC;
@@ -258,3 +259,11 @@ if (!STATIC_ONLY) {
 }
 
 console.log(`\n静态目标曲线 WARN：${warns.length ? '\n  ' + warns.join('\n  ') : '无（全部贴合目标曲线）'}`);
+}
+
+// 供 e2e 难度曲线断言复用静态尺子（require 时不跑慢模拟；仅直接执行才跑）
+module.exports = {
+  CHAPTER, chapterOf, analyze, MAT_LABEL, STRUCT_MATS, hpOf, BOSS_IDX, LEVELS,
+};
+
+if (require.main === module) run();

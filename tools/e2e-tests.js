@@ -1540,4 +1540,65 @@ test('作者流 WIN/LOSE：触摸「返回编辑」回编辑器且多帧渲染�
   assert.strictEqual(game.state, 'EDITOR', '编辑器多帧渲染稳定');
 });
 
+// ==================== 难度曲线回归（T10 批G）：锁死分章目标曲线 ====================
+// 复用 tools/level-sim.js 的静态尺子（require 不跑慢模拟），把章节资源比/主材/砰砰限额/
+// 火砖主场/壳包裹等曲线不变量变成硬断言，防止后续改关回退到「没难度」。
+test('难度曲线：材料血量 wood3/ice2/stone6/fire5 与四鸟克制矩阵', () => {
+  assert.strictEqual(C.BLOCK_TYPES.wood.health, 3, '木 hp3');
+  assert.strictEqual(C.BLOCK_TYPES.ice.health, 2, '冰 hp2');
+  assert.strictEqual(C.BLOCK_TYPES.stone.health, 6, '石 hp6（石头加厚）');
+  assert.strictEqual(C.BLOCK_TYPES.fire.health, 5, '火 hp5');
+  const dv = C.BIRD_TYPES;
+  assert.strictEqual(dv.dash.damageVs.wood, 2.0, '梭梭克木');
+  assert.strictEqual(dv.split.damageVs.ice, 2.0, '三丸子克冰');
+  assert.strictEqual(dv.bomb.damageVs.stone, 2.0, '砰砰克石');
+  assert.strictEqual(dv.normal.damageVs.fire, 2.0, '嘟嘟铁头克火');
+  assert.strictEqual(dv.bomb.damageVs.fire, 1.0, '火砖抗爆');
+  // Block.takeDamage：health -= floor(force/4)，force 已含材质倍率。
+  // 砰砰近炸块力 ≈ BOMB_FORCE+3 = 17，火砖 ×1.0 → floor(17/4)=4 < hp5（一发不碎）
+  assert.ok(Math.floor((C.BOMB_FORCE + 3) * dv.bomb.damageVs.fire / 4) < C.BLOCK_TYPES.fire.health,
+    '砰砰近炸火砖一发不碎（抗爆）');
+  // 嘟嘟铁头高速直撞力 ~12，火砖 ×2.0 → floor(24/4)=6 ≥ hp5（一发碎）
+  assert.ok(Math.floor(12 * dv.normal.damageVs.fire / 4) >= C.BLOCK_TYPES.fire.health,
+    '嘟嘟铁头火砖一发碎（克制）');
+});
+
+test('难度曲线：40 关鸟/猪比落各章区间、主材占比、砰砰限额、非全裸群', () => {
+  const sim = require('./level-sim.js');
+  sim.LEVELS.forEach((lv, idx) => {
+    const a = sim.analyze(idx);
+    const ch = sim.chapterOf(idx);
+    const label = `L${idx + 1}`;
+    assert.ok(a.birdsN >= 1 && a.awake >= 1, label + ' 鸟数/醒豚数均 ≥1');
+    if (a.isBoss) {
+      assert.ok(lv.pigs.some(p => p.boss), label + ' 章王关必须有 boss 豚');
+      return;
+    }
+    if (idx === 0) return; // L1 教学零方块关，无结构材料，跳过
+    const [lo, hi] = ch.ratio;
+    assert.ok(a.ratio >= lo - 1e-9 && a.ratio <= hi + 1e-9,
+      `${label} 资源比 ${a.ratio.toFixed(2)} 不在[${lo},${hi}]`);
+    if (ch.main) {
+      const want = [].concat(ch.main);
+      assert.ok(want.includes(a.mainType), `${label} 主材应为 ${want.join('/')}，实 ${sim.MAT_LABEL[a.mainType]}`);
+      assert.ok(a.mainRatio >= 0.55 - 1e-9, `${label} 主材占比 ${(a.mainRatio * 100) | 0}% < 55%`);
+    }
+    assert.ok(a.bombN <= 2, `${label} 砰砰 ×${a.bombN} > 2`);
+    if (idx >= 16 && a.awake >= 3) {
+      assert.ok(a.exposed < a.awake, `${label} 章鱼全裸露、无壳包裹`);
+    }
+  });
+});
+
+test('难度曲线：五章 L33-39 火砖在场 + 必配嘟嘟 + 砰砰稀缺（每关 1 发）', () => {
+  const sim = require('./level-sim.js');
+  for (let idx = 32; idx <= 38; idx++) { // L33-39 非章王
+    const lv = sim.LEVELS[idx];
+    const label = `L${idx + 1}`;
+    assert.ok((lv.blocks || []).some(b => b.type === 'fire'), label + ' 应有火砖（嘟嘟主场）');
+    assert.ok(lv.birds.includes('normal'), label + ' 应配嘟嘟铁头碎火砖');
+    assert.strictEqual(lv.birds.filter(t => t === 'bomb').length, 1, label + ' 砰砰应稀缺（1 发）');
+  }
+});
+
 run();
