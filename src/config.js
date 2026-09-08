@@ -234,11 +234,11 @@ const BLOCK_TYPES = {
     colorLight: COLORS.woodLight,
     particle: COLORS.particleBrown,
   },
-  // 注：stone 血量暂维持 4。全局 4→6 随第四章（石主题，批 E）重做 L25-32 时一起落地——
-  // 提血会让 L32 双塔悬闸里被石块护住的援军打不到（该关本就在批 E 整章重排），
-  // 届时按新砰砰配队重排并验绿，避免现在为待重做关卡打临时补丁。
+  // stone 血量 6（批 E 落地）：石头加厚，把砰砰（石×2、爆力 14）顶成唯一高效破石手段——
+  // 梭梭/三丸子对石 0.6/0.5 刮痧、嘟嘟直撞也要多发；石壳掩体逼玩家把稀缺的砰砰用在
+  // 承重石基上引爆坍塌。砰砰配队同步稀有化（每关 ≤1），与「石头加厚」共同约束砰砰平衡。
   stone: {
-    health: 4,
+    health: 6,
     density: 2.0,
     color: COLORS.stone,
     colorDark: COLORS.stoneDark,

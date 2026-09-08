@@ -715,193 +715,159 @@ function getLevels() {
     // 第四章：极境深渊（idx 24-31）—— 硬关连发，章节开局稍作喘息
     // ============================================================
 
-    // ====== 第25关：深海峡谷（新）—— 喘息关：石桥峡谷 ======
+    // ====== 第25关：深海峡谷（章首教学）—— 砰砰首破石：紧凑石堡里挤 3 豚（砰㿡爆波一发三杀），
+    // 1 孤豚远在爆波+碎块净空（~150px）之外。石章不能「分散开阔」：砰㿡爆波110+爆力14甩出的重碎块
+    // 净空约 250px，开阔关容不下；故石章 = 紧凑堡垒，砰㿡爆波清堡内多豚。3 鸟 4 豚：砰㿡必中堡拿3、
+    // 余 1 鸟点孤豚；砰砰不中则三豚封死 → 教会「砰砰炸石堡」。石堡无压顶宽梁（宽板被炸成推土铲横扫）。
     {
       name: '第 25 关',
       flavor: '深海峡谷',
-      birds: ['bomb', 'dash', 'normal', 'split', 'normal'],
+      birds: ['bomb', 'dash', 'normal'],
       trajectory: 21,
-      stars: [10500, 17000, 23000],
+      stars: [8500, 13500, 18500],
       pigs: [
-        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X - 20, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 85 - 22 - 15, radius: 15 },
-        { x: STRUCT_BASE_X + 150, y: GROUND_Y - 14, radius: 14 },
+        { x: STRUCT_BASE_X - 90, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左，距堡左墙碎块落点 42px）
+        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 13, radius: 10 },            // 石堡内豚（左，三豚挤排唯砰㿡可及）
+        { x: STRUCT_BASE_X + 116, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（中，爆心）
+        { x: STRUCT_BASE_X + 136, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（右）
       ],
       blocks: [
-        // 左石壁
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 85, width: 26, height: 85, type: 'stone' },
-        // 右石壁
-        { x: STRUCT_BASE_X + 110, y: GROUND_Y - 85, width: 26, height: 85, type: 'stone' },
-        // 木桥面
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 85 - 22, width: 116, height: 22, type: 'wood' },
+        // 紧凑石堡（全石）：两道高墙夹死三豚，无压顶梁（避免宽板抛飞横扫）；砰㿡在堡内引爆一发三杀。
+        // 高弧可吊入但一发一豚且窄缝难穿，远逊砰㿡三杀。左墙碎块被爆力推向左侧、落点止于 ~rel-48，碰不到孤豚 rel-90。
+        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
       ],
     },
 
-    // ====== 第26关：绝渊礁柱（新）—— 三根高低柱 + 冰帽 ======
+    // ====== 第26关：绝渊礁柱（石）—— 高墙石堡 3 豚（砰㿡爆波一发三杀，高墙窄缝非砰㿡难进），
+    // 1 孤豚远在爆波+碎块净空外。比 L25 墙更高（h108），非砰㿡鸟高弧吊入更难 → 砰砰必修。3 鸟 4 豚。
     {
       name: '第 26 关',
       flavor: '绝渊礁柱',
-      birds: ['split', 'bomb', 'dash', 'normal', 'normal'],
-      trajectory: 21,
-      stars: [10800, 17500, 23500],
+      birds: ['bomb', 'split', 'normal'],
+      trajectory: 22,
+      stars: [8500, 13500, 18500],
       pigs: [
-        { x: STRUCT_BASE_X - 25, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 48, y: GROUND_Y - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 105, y: GROUND_Y - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 23, y: GROUND_Y - 100 - 22 - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 138, y: GROUND_Y - 100 - 22 - 14, radius: 14 },
+        { x: STRUCT_BASE_X - 95, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左安全区，距碎块落点 ~50px）
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 13, radius: 10 },            // 石堡内豚（左）
+        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（中，爆心）
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（右）
       ],
       blocks: [
-        // 柱 1（石+冰帽，高）
-        { x: STRUCT_BASE_X + 10, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
-        { x: STRUCT_BASE_X + 6, y: GROUND_Y - 100 - 22, width: 34, height: 22, type: 'ice' },
-        // 柱 2（木+冰帽，矮）
-        { x: STRUCT_BASE_X + 70, y: GROUND_Y - 75, width: 26, height: 75, type: 'wood' },
-        { x: STRUCT_BASE_X + 66, y: GROUND_Y - 75 - 22, width: 34, height: 22, type: 'ice' },
-        // 柱 3（石+冰帽，高）
-        { x: STRUCT_BASE_X + 125, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
-        { x: STRUCT_BASE_X + 121, y: GROUND_Y - 100 - 22, width: 34, height: 22, type: 'ice' },
+        // 高墙石堡（全石）：两道 h108 高墙夹三豚，无压顶板（宽板被炸成推土铲横扫，避之）。
+        // 砰㿡高弧吊入引爆三杀；墙高缝窄（内净 ~52px），梭梭/三丸子/嘟嘟直撞石墙刮痧、高弧难穿。
+        { x: STRUCT_BASE_X + 62, y: GROUND_Y - 108, width: 26, height: 108, type: 'stone' },
+        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 108, width: 26, height: 108, type: 'stone' },
       ],
     },
 
-    // ====== 第27关：寒流闸门（新）—— 重石门 + 爆裂果 ======
+    // ====== 第27关：寒流闸门（石）—— 高墙石堡三豚（砰㿡吊入爆杀）+ 阵前冻果教学，1 孤豚远置 ======
     {
       name: '第 27 关',
       flavor: '寒流闸门',
-      birds: ['bomb', 'split', 'dash', 'normal', 'normal'],
+      birds: ['bomb', 'dash', 'normal'],
       trajectory: 20,
-      stars: [11200, 18000, 24000],
+      stars: [9000, 14000, 19000],
       pigs: [
-        { x: STRUCT_BASE_X + 62, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X - 45, y: GROUND_Y - 15, radius: 15 },
-        { x: STRUCT_BASE_X + 62, y: GROUND_Y - 95 - 26 - 15, radius: 15 },
-        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X - 80, y: GROUND_Y - 14, radius: 14 },
+        { x: STRUCT_BASE_X - 95, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左安全区）
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 13, radius: 10 },            // 石堡内豚（左）
+        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（中）
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（右）
       ],
       blocks: [
-        // 左石门柱
-        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 95, width: BLOCK_W, height: 95, type: 'stone' },
-        // 右石门柱
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 95, width: BLOCK_W, height: 95, type: 'stone' },
-        // 石门楣
-        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 95 - 26, width: 93, height: 26, type: 'stone' },
-        // 爆裂果（阵前）
-        { x: STRUCT_BASE_X - 15, y: GROUND_Y - 24, width: 24, height: 24, type: 'burst' },
+        // 石堡高墙（全石，砰㿡主场）：h100 高墙（越重越不容易被爆力抛成远距抛射体，孤豚才安全）；
+        // 无压顶板。冻果骑右墙顶，砰㿡爆波连锁扩伤。
+        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
+        { x: STRUCT_BASE_X + 141, y: GROUND_Y - 100 - 26, width: 26, height: 26, type: 'burst' },
       ],
     },
 
-    // ====== 第28关：漩涡碉堡（锚点） ======
+    // ====== 第28关：漩涡碉堡（锚点·石）—— 百级高墙石堡三豚（砰㿡三杀），墙头石旗垛加压，1 孤豚远置 ======
     {
       name: '第 28 关',
       flavor: '漩涡碉堡',
-      birds: ['bomb', 'dash', 'normal', 'normal', 'normal'],
-      trajectory: 22,
-      stars: [10000, 16000, 22500],
+      birds: ['bomb', 'dash', 'split'],
+      trajectory: 19,
+      stars: [9000, 14000, 19000],
       pigs: [
-        { x: STRUCT_BASE_X - 14, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 116, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 56, y: GROUND_Y - 80 - 28 - 55 - 28 - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 16, y: GROUND_Y - 80 - 28 - 14, radius: 14 },
+        { x: STRUCT_BASE_X - 95, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左安全区）
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 13, radius: 10 },            // 石堡内豚（左）
+        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（中）
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（右）
       ],
       blocks: [
-        // 两岸石柱
-        { x: STRUCT_BASE_X, y: GROUND_Y - 80, width: 28, height: 80, type: 'stone' },
-        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 80, width: 28, height: 80, type: 'stone' },
-        // 下石梁
-        { x: STRUCT_BASE_X, y: GROUND_Y - 80 - 28, width: 118, height: 28, type: 'stone' },
-        // 上木柱
-        { x: STRUCT_BASE_X + 8, y: GROUND_Y - 80 - 28 - 55, width: 28, height: 55, type: 'wood' },
-        { x: STRUCT_BASE_X + 80, y: GROUND_Y - 80 - 28 - 55, width: 28, height: 55, type: 'wood' },
-        // 上冰梁
-        { x: STRUCT_BASE_X + 8, y: GROUND_Y - 80 - 28 - 55 - 28, width: 100, height: 28, type: 'ice' },
-        // 爆裂果（冰梁顶）
-        { x: STRUCT_BASE_X + 44, y: GROUND_Y - 80 - 28 - 55 - 28 - 26, width: 26, height: 26, type: 'burst' },
+        // 百级高墙（全石）
+        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
+        // 墙头石旗垛（骑左墙顶、有支撑；砰㿡爆波可掀，碎块仅在墙顶附近，碰不到孤豚）
+        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 100 - 22, width: 26, height: 22, type: 'stone' },
       ],
     },
 
-    // ====== 第29关：断崖炮台（锚点） ======
+    // ====== 第29关：断崖炮台（锚点·石）—— 高墙石堡三豚（砰㿡三杀），墙头冻果连锁增爆，1 孤豚远置 ======
     {
       name: '第 29 关',
       flavor: '断崖炮台',
-      birds: ['bomb', 'split', 'dash', 'normal', 'normal'],
-      trajectory: 20,
-      stars: [10500, 16500, 23000],
+      birds: ['bomb', 'split', 'dash'],
+      trajectory: 19,
+      stars: [9000, 14000, 19000],
       pigs: [
-        { x: STRUCT_BASE_X - 15, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 135, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 95 - 28 - 22 - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 95 - 28 - 14, radius: 14 },
+        { x: STRUCT_BASE_X - 95, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左安全区）
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 13, radius: 10 },            // 石堡内豚（左）
+        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（中）
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（右）
       ],
       blocks: [
-        // 三石柱
-        { x: STRUCT_BASE_X, y: GROUND_Y - 95, width: 28, height: 95, type: 'stone' },
-        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 95, width: 28, height: 95, type: 'stone' },
-        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 95, width: 28, height: 95, type: 'stone' },
-        // 下石梁
-        { x: STRUCT_BASE_X, y: GROUND_Y - 95 - 28, width: 146, height: 28, type: 'stone' },
-        // 上冰桥
-        { x: STRUCT_BASE_X + 28, y: GROUND_Y - 95 - 28 - 22, width: 90, height: 22, type: 'ice' },
-        // 爆裂果
-        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 95 - 28 - 22 - 26, width: 26, height: 26, type: 'burst' },
+        // 高墙（全石）
+        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        // 墙头冻果（骑右墙顶、有支撑；砰㿡爆波连锁扩伤，碎块只在墙顶附近）
+        { x: STRUCT_BASE_X + 141, y: GROUND_Y - 96 - 26, width: 26, height: 26, type: 'burst' },
       ],
     },
 
-    // ====== 第30关：冰火长城（锚点） ======
+    // ====== 第30关：冰火长城（石）—— 高墙石堡三豚（砰㿡三杀），墙头冰帽点缀「冰火」，1 孤豚远置 ======
     {
       name: '第 30 关',
       flavor: '冰火长城',
-      birds: ['split', 'bomb', 'dash', 'normal', 'normal'],
+      birds: ['bomb', 'split', 'normal'],
       trajectory: 18,
-      stars: [11000, 17000, 23500],
+      stars: [9000, 14000, 19000],
       pigs: [
-        { x: STRUCT_BASE_X - 16, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 58, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 34, y: GROUND_Y - 95 - 28 - 26 - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 104, y: GROUND_Y - 95 - 28 - 26 - 16, radius: 16 },
+        { x: STRUCT_BASE_X - 95, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左安全区）
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 13, radius: 10 },            // 石堡内豚（左）
+        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（中）
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（右）
       ],
       blocks: [
-        // 冰柱 + 中石柱
-        { x: STRUCT_BASE_X, y: GROUND_Y - 95, width: 26, height: 95, type: 'ice' },
-        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 95, width: 26, height: 95, type: 'ice' },
-        { x: STRUCT_BASE_X + 58, y: GROUND_Y - 95, width: 26, height: 95, type: 'stone' },
-        // 冰横梁
-        { x: STRUCT_BASE_X, y: GROUND_Y - 95 - 28, width: 138, height: 28, type: 'ice' },
-        // 石顶（左/右）
-        { x: STRUCT_BASE_X + 14, y: GROUND_Y - 95 - 28 - 26, width: 40, height: 26, type: 'stone' },
-        { x: STRUCT_BASE_X + 84, y: GROUND_Y - 95 - 28 - 26, width: 40, height: 26, type: 'stone' },
+        // 高墙（全石，主体）
+        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        // 墙头冰帽（骑左墙顶、有支撑；点「冰火长城」主题，石仍占 67% 主体）
+        { x: STRUCT_BASE_X + 58, y: GROUND_Y - 96 - 22, width: 30, height: 22, type: 'ice' },
       ],
     },
 
-    // ====== 第31关：赤渊门阵（新）—— 双石塔 + 冰墩桥 ======
+    // ====== 第31关：赤渊门阵（石·章末前哨）—— 双柱石门夹三豚（砰㿡三杀），柱顶石垛压阵，1 孤豚远置。
+    // 砰㿡配队稀有化：每关 ≤1（旧版双砰㿡违背石章约束）。弹道提示收窄到 18，末关最需精准吊射。
     {
       name: '第 31 关',
       flavor: '赤渊门阵',
-      birds: ['bomb', 'bomb', 'split', 'dash', 'normal', 'normal'],
-      trajectory: 17,
-      stars: [11800, 18500, 25000],
+      birds: ['bomb', 'split', 'dash'],
+      trajectory: 18,
+      stars: [9000, 14000, 19000],
       pigs: [
-        { x: STRUCT_BASE_X + 25, y: GROUND_Y - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 70, y: GROUND_Y - 35 - 18 - 15, radius: 15 },
-        { x: STRUCT_BASE_X + 25, y: GROUND_Y - 90 - 24 - 14, radius: 14 },
-        { x: STRUCT_BASE_X - 30, y: GROUND_Y - 16, radius: 16 },
+        { x: STRUCT_BASE_X - 95, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左安全区）
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 13, radius: 10 },            // 石门内豚（左）
+        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 13, radius: 10 },           // 石门内豚（中）
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 13, radius: 10 },           // 石门内豚（右）
       ],
       blocks: [
-        // T1 石塔
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 90, width: 26, height: 90, type: 'stone' },
-        { x: STRUCT_BASE_X + 34, y: GROUND_Y - 90, width: 26, height: 90, type: 'stone' },
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 90 - 24, width: 60, height: 24, type: 'stone' },
-        // T2 石塔
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 90, width: 26, height: 90, type: 'stone' },
-        { x: STRUCT_BASE_X + 129, y: GROUND_Y - 90, width: 26, height: 90, type: 'stone' },
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 90 - 24, width: 60, height: 24, type: 'stone' },
-        // 中央冰墩 + 矮冰桥（塔间净空 B+60..B+95，桥不触塔）
-        { x: STRUCT_BASE_X + 66, y: GROUND_Y - 35, width: 20, height: 35, type: 'ice' },
-        { x: STRUCT_BASE_X + 62, y: GROUND_Y - 35 - 18, width: 32, height: 18, type: 'ice' },
+        // 石门双柱（全石 h100）：不设柱顶垛——垛石会在最低弹道下把砰㿡挡在墙外、爆波被墙吃掉三杀失败。
+        // 纯双柱留出吊射通道，砰㿡高弧吊入爆波三杀。
+        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
       ],
     },
 
@@ -919,11 +885,12 @@ function getLevels() {
         { x: STRUCT_BASE_X + 90, y: GROUND_Y - 198, radius: 13 },
         // 阵前地面章鱼
         { x: STRUCT_BASE_X - 46, y: GROUND_Y - 16, radius: 16 },
-        // 阶段 2 召唤：援军小章鱼 ×2（预置屏外，怒吼时落下，被悬闸碾压）
-        { x: STRUCT_BASE_X + 74, y: -250, radius: 14, sleep: 2 },
-        { x: STRUCT_BASE_X + 119, y: -310, radius: 14, sleep: 2 },
-        // 阶段 3 召唤：援军小章鱼 ×1
-        { x: STRUCT_BASE_X + 99, y: -370, radius: 15, sleep: 3 },
+        // 阶段 2 召唤：援军小章鱼 ×2（phase2 怒吼短距秒落、分列章王两侧，皆在砰㿡爆波区内）。
+        { x: STRUCT_BASE_X + 70, y: -160, radius: 14, sleep: 2 },
+        { x: STRUCT_BASE_X + 130, y: -170, radius: 14, sleep: 2 },
+        // 阶段 3 召唤：援军 ×1（phase3 怒吼落下，落点正压章王身上 rel98、短距秒落——
+        // phase3 即终局，章王低血挨杀时同体爆波/裂弹把援军一并收掉，不留漏豚）。
+        { x: STRUCT_BASE_X + 98, y: -150, radius: 15, sleep: 3 },
       ],
       blocks: [
         // 悬闸：巨型石板横空（双塔齐断才整面平落）
@@ -937,12 +904,13 @@ function getLevels() {
         // 头顶果骑章王额、左脸果贴腮（block 贴猪合法）；间距 <118，闸下果一爆即串到
         { x: STRUCT_BASE_X + 96, y: GROUND_Y - 72, width: 26, height: 26, type: 'burst' },
         { x: STRUCT_BASE_X + 54, y: GROUND_Y - 48, width: 26, height: 26, type: 'burst' },
-        // 左塔（木，两段；砰砰炸基即断）
+        // 双承重塔（皆木两段；砰砰炸基即断）：悬闸须双塔齐断才整面平落，故承重塔一律用木——
+        // 若用石 hp6，砰砰一发炸不断右塔、悬闸不落，闸顶哨豚（G-198）悬高不可达即成死局。
+        // 悬闸本体仍是石 hp6（密度2.0 重板，只需失撑后塌落碾压冻果/章王，不靠打碎）。
         { x: STRUCT_BASE_X + 22, y: GROUND_Y - 78, width: 28, height: 78, type: 'wood' },
         { x: STRUCT_BASE_X + 22, y: GROUND_Y - 156, width: 28, height: 78, type: 'wood' },
-        // 右塔（石，两段）
-        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 78, width: 28, height: 78, type: 'stone' },
-        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 156, width: 28, height: 78, type: 'stone' },
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 78, width: 28, height: 78, type: 'wood' },
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 156, width: 28, height: 78, type: 'wood' },
         // 天降落石：落点刻意放阵前空地竖线（下方只有地面），绝不落在章王/冻果/双塔正上方——
         // 落石末速 ~28px/帧，碰 hp1 冻果一碰即碎会引爆全连锁，残血怒吼会把章王自己炸死。
         // 阶段 1：天降落石 ×2
