@@ -237,206 +237,191 @@ function getLevels() {
     // 第二章：珊瑚海（idx 8-15）—— 混合材质，分裂教学收官
     // ============================================================
 
-    // ====== 第9关：浅礁初试（新）—— 木柱冰梁小屋 ======
+    // 第二章难度主线（珊瑚海 木→冰）：
+    //   - 章鱼从「挤一座堡垒」拆成「各占一个独立掩体」并拉开间距，一发最多带走一只 → 省弹药；
+    //   - 不配砰砰：木/冰是软材料，dash/嘟嘟足以碎，且砰砰 110px 爆径在 200px 宽阵上会一发全清（作弊解）；
+    //   - 可靠可解基元（白盒实测）：裸地猪（直射）、低矮棚屋（两短柱 h60~66+顶，高抛破顶/穿柱）、
+    //     柱高 ≤108 的单柱顶猪（高抛，猪位 ≤G-124）。薄墙挡地猪、双塔夹豚、高于 G-125 的柱顶均实测落空，不用。
+    // ====== 第9关：浅礁初探（3 豚）—— 裸猪 / 木棚 / 高柱顶，教「一发一豚」 ======
     {
       name: '第 9 关',
-      flavor: '浅礁初试',
-      birds: ['normal', 'dash', 'normal', 'bomb'],
+      flavor: '浅礁初探',
+      birds: ['dash', 'normal', 'normal', 'normal'],
       trajectory: 48,
       stars: [4300, 8600, 13000],
       pigs: [
-        { x: STRUCT_BASE_X + 76, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 145, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 76, y: GROUND_Y - 75 - 24 - 14, radius: 14 },
+        { x: STRUCT_BASE_X - 44, y: GROUND_Y - 16, radius: 16 },            // 前左裸猪（直射热身）
+        { x: STRUCT_BASE_X + 42, y: GROUND_Y - 13, radius: 13 },            // 木棚内
+        { x: STRUCT_BASE_X + 129, y: GROUND_Y - 118, radius: 14 },          // 高柱顶（高抛）
       ],
       blocks: [
-        // 左柱
-        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 75, width: 26, height: 75, type: 'wood' },
-        // 右柱
-        { x: STRUCT_BASE_X + 100, y: GROUND_Y - 75, width: 26, height: 75, type: 'wood' },
-        // 冰梁
-        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 75 - 24, width: 86, height: 24, type: 'ice' },
+        // 木棚：两短柱 + 顶盖
+        { x: STRUCT_BASE_X + 2, y: GROUND_Y - 66, width: 26, height: 66, type: 'wood' },
+        { x: STRUCT_BASE_X + 56, y: GROUND_Y - 66, width: 26, height: 66, type: 'wood' },
+        { x: STRUCT_BASE_X - 4, y: GROUND_Y - 90, width: 92, height: 24, type: 'wood' },
+        // 右侧高柱（柱顶裸猪）
+        { x: STRUCT_BASE_X + 116, y: GROUND_Y - 104, width: 26, height: 104, type: 'wood' },
       ],
     },
 
-    // ====== 第10关：珊瑚回廊（新）—— 双木塔 + 冰梁 ======
+    // ====== 第10关：珊瑚回廊（4 豚）—— 木棚首次盖「冰顶」（冰脆，过渡）+ 两根高柱顶豚 ======
     {
       name: '第 10 关',
       flavor: '珊瑚回廊',
-      birds: ['dash', 'normal', 'bomb', 'normal'],
+      birds: ['dash', 'normal', 'normal', 'normal'],
       trajectory: 47,
       stars: [4500, 9000, 13500],
       pigs: [
-        { x: STRUCT_BASE_X + 26, y: GROUND_Y - 15, radius: 15 },
-        { x: STRUCT_BASE_X + 121, y: GROUND_Y - 15, radius: 15 },
-        { x: STRUCT_BASE_X - 30, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 121, y: GROUND_Y - 85 - 24 - 15, radius: 15 },
+        { x: STRUCT_BASE_X - 52, y: GROUND_Y - 16, radius: 16 },            // 裸猪
+        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 12, radius: 12 },            // 木柱冰顶棚内
+        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 117, radius: 13 },           // 高柱顶
+        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 113, radius: 13 },          // 远高柱顶
       ],
       blocks: [
-        // A 塔
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 85, width: 26, height: 85, type: 'wood' },
-        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 85, width: 26, height: 85, type: 'wood' },
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 85 - 24, width: 66, height: 24, type: 'ice' },
-        // B 塔
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 85, width: 26, height: 85, type: 'wood' },
-        { x: STRUCT_BASE_X + 135, y: GROUND_Y - 85, width: 26, height: 85, type: 'wood' },
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 85 - 24, width: 66, height: 24, type: 'ice' },
+        // 木柱 + 冰顶
+        { x: STRUCT_BASE_X - 6, y: GROUND_Y - 64, width: 24, height: 64, type: 'wood' },
+        { x: STRUCT_BASE_X + 42, y: GROUND_Y - 64, width: 24, height: 64, type: 'wood' },
+        { x: STRUCT_BASE_X - 12, y: GROUND_Y - 88, width: 80, height: 24, type: 'ice' },
+        // 两根木高柱
+        { x: STRUCT_BASE_X + 83, y: GROUND_Y - 104, width: 26, height: 104, type: 'wood' },
+        { x: STRUCT_BASE_X + 127, y: GROUND_Y - 100, width: 26, height: 100, type: 'wood' },
       ],
     },
 
-    // ====== 第11关：海葵石堡（新）—— 首次重石结构 ======
+    // ====== 第11关：海葵冰堡（4 豚）—— 木冰对半：前排一根冰高柱、两座棚（木柱冰顶 / 全冰棚） ======
     {
       name: '第 11 关',
-      flavor: '海葵石堡',
-      birds: ['normal', 'bomb', 'dash', 'normal', 'normal'],
+      flavor: '海葵冰堡',
+      birds: ['normal', 'dash', 'normal', 'normal'],
       trajectory: 46,
       stars: [4700, 9400, 14000],
       pigs: [
-        { x: STRUCT_BASE_X + 57, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X - 25, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 100, y: GROUND_Y - 90 - 26 - 15, radius: 15 },
-        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 17, radius: 17 },
+        { x: STRUCT_BASE_X - 81, y: GROUND_Y - 101, radius: 13 },           // 前冰高柱顶
+        { x: STRUCT_BASE_X - 44, y: GROUND_Y - 16, radius: 16 },            // 裸猪
+        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 12, radius: 12 },            // 木柱冰顶棚内
+        { x: STRUCT_BASE_X + 132, y: GROUND_Y - 12, radius: 12 },           // 全冰棚内
       ],
       blocks: [
-        // 左石柱
-        { x: STRUCT_BASE_X + 15, y: GROUND_Y - 90, width: BLOCK_W, height: 90, type: 'stone' },
-        // 右石柱
-        { x: STRUCT_BASE_X + 85, y: GROUND_Y - 90, width: BLOCK_W, height: 90, type: 'stone' },
-        // 石门楣
-        { x: STRUCT_BASE_X + 15, y: GROUND_Y - 90 - 26, width: 98, height: 26, type: 'stone' },
-        // 门楣冰帽（破冰克制入口）
-        { x: STRUCT_BASE_X + 45, y: GROUND_Y - 90 - 26 - 22, width: 30, height: 22, type: 'ice' },
+        // 前冰高柱
+        { x: STRUCT_BASE_X - 94, y: GROUND_Y - 88, width: 26, height: 88, type: 'ice' },
+        // 棚 A：木柱 + 冰顶
+        { x: STRUCT_BASE_X - 6, y: GROUND_Y - 64, width: 24, height: 64, type: 'wood' },
+        { x: STRUCT_BASE_X + 42, y: GROUND_Y - 64, width: 24, height: 64, type: 'wood' },
+        { x: STRUCT_BASE_X - 12, y: GROUND_Y - 88, width: 80, height: 24, type: 'ice' },
+        // 棚 B：全冰
+        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X + 144, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 88, width: 78, height: 24, type: 'ice' },
       ],
     },
 
-    // ====== 第12关：浪花三塔（新）—— 三座小塔混合材质 ======
+    // ====== 第12关：浪花三哨（4 豚）—— 一棚两柱、一高一矮：高冰柱顶豚 + 矮木柱顶豚的高抛差 ======
     {
       name: '第 12 关',
-      flavor: '浪花三塔',
-      birds: ['normal', 'dash', 'bomb', 'normal', 'normal'],
+      flavor: '浪花三哨',
+      birds: ['dash', 'normal', 'normal', 'normal'],
       trajectory: 45,
       stars: [4900, 9800, 14600],
       pigs: [
-        { x: STRUCT_BASE_X + 22, y: GROUND_Y - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 92, y: GROUND_Y - 15, radius: 15 },
-        { x: STRUCT_BASE_X + 92, y: GROUND_Y - 90 - 24 - 15, radius: 15 },
-        { x: STRUCT_BASE_X - 30, y: GROUND_Y - 16, radius: 16 },
+        { x: STRUCT_BASE_X - 52, y: GROUND_Y - 16, radius: 16 },            // 裸猪
+        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 12, radius: 12 },            // 木柱冰顶棚内
+        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 121, radius: 13 },           // 高冰柱顶
+        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 99, radius: 13 },           // 矮木柱顶
       ],
       blocks: [
-        // T1 木塔
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 70, width: 24, height: 70, type: 'wood' },
-        { x: STRUCT_BASE_X + 32, y: GROUND_Y - 70, width: 24, height: 70, type: 'wood' },
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 70 - 24, width: 56, height: 24, type: 'ice' },
-        // T2 石塔（更高）
-        { x: STRUCT_BASE_X + 70, y: GROUND_Y - 90, width: 24, height: 90, type: 'stone' },
-        { x: STRUCT_BASE_X + 102, y: GROUND_Y - 90, width: 24, height: 90, type: 'stone' },
-        { x: STRUCT_BASE_X + 70, y: GROUND_Y - 90 - 24, width: 56, height: 24, type: 'stone' },
-        // T3 右侧冰柱
-        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 40, width: 24, height: 40, type: 'ice' },
-        { x: STRUCT_BASE_X + 138, y: GROUND_Y - 40 - 20, width: 28, height: 20, type: 'ice' },
+        // 木柱 + 冰顶
+        { x: STRUCT_BASE_X - 6, y: GROUND_Y - 64, width: 24, height: 64, type: 'wood' },
+        { x: STRUCT_BASE_X + 42, y: GROUND_Y - 64, width: 24, height: 64, type: 'wood' },
+        { x: STRUCT_BASE_X - 12, y: GROUND_Y - 88, width: 80, height: 24, type: 'ice' },
+        // 高冰柱
+        { x: STRUCT_BASE_X + 83, y: GROUND_Y - 108, width: 26, height: 108, type: 'ice' },
+        // 矮木柱
+        { x: STRUCT_BASE_X + 127, y: GROUND_Y - 86, width: 26, height: 86, type: 'wood' },
       ],
     },
 
-    // ====== 第13关：混合堡垒（锚点） ======
+    // ====== 第13关：礁堡迷阵（4 豚）—— 进入全冰：掩体皆冰；柱顶豚分置阵列两端（前低柱/远高柱），互不波及 ======
     {
       name: '第 13 关',
       flavor: '礁堡迷阵',   // 风味名（HUD 与关卡主题）
-      birds: ['dash', 'normal', 'bomb', 'normal'],
-      trajectory: 45,
+      birds: ['normal', 'dash', 'normal', 'normal'],
+      trajectory: 44,
       stars: [5000, 10000, 15000],
       pigs: [
-        { x: STRUCT_BASE_X + 15, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 52, y: GROUND_Y - 60, radius: 20 },
-        { x: STRUCT_BASE_X + 52, y: GROUND_Y - 140, radius: 18 },
+        { x: STRUCT_BASE_X - 81, y: GROUND_Y - 101, radius: 13 },           // 前低冰柱顶
+        { x: STRUCT_BASE_X - 40, y: GROUND_Y - 16, radius: 16 },            // 裸豚
+        { x: STRUCT_BASE_X + 46, y: GROUND_Y - 12, radius: 12 },            // 矮冰棚内
+        { x: STRUCT_BASE_X + 130, y: GROUND_Y - 12, radius: 12 },           // 高冰棚内（顶更高，高抛需更陡）
       ],
       blocks: [
-        // 左石柱
-        { x: STRUCT_BASE_X, y: GROUND_Y - BLOCK_H_LONG, width: BLOCK_W, height: BLOCK_H_LONG, type: 'stone' },
-        // 右石柱
-        { x: STRUCT_BASE_X + 78, y: GROUND_Y - BLOCK_H_LONG, width: BLOCK_W, height: BLOCK_H_LONG, type: 'stone' },
-        // 横梁木
-        { x: STRUCT_BASE_X, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT, width: 106, height: BLOCK_H_SHORT, type: 'wood' },
-        // 二层左木柱
-        { x: STRUCT_BASE_X + 5, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT - 55, width: BLOCK_W, height: 55, type: 'wood' },
-        // 二层右木柱
-        { x: STRUCT_BASE_X + 73, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT - 55, width: BLOCK_W, height: 55, type: 'wood' },
-        // 二层顶冰板
-        { x: STRUCT_BASE_X + 5, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT - 55 - BLOCK_H_SHORT, width: 96, height: BLOCK_H_SHORT, type: 'ice' },
-        // 顶层小冰块
-        { x: STRUCT_BASE_X + 35, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT - 55 - BLOCK_H_SHORT - 30, width: 36, height: 30, type: 'ice' },
+        // 前低冰柱
+        { x: STRUCT_BASE_X - 94, y: GROUND_Y - 88, width: 26, height: 88, type: 'ice' },
+        // 矮冰棚
+        { x: STRUCT_BASE_X + 10, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X + 58, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X + 4, y: GROUND_Y - 88, width: 80, height: 24, type: 'ice' },
+        // 高冰棚（柱高 92、顶更高）
+        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 92, width: 24, height: 92, type: 'ice' },
+        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 92, width: 24, height: 92, type: 'ice' },
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 116, width: 78, height: 24, type: 'ice' },
       ],
     },
 
-    // ====== 第14关：珊瑚要塞（锚点） ======
+    // ====== 第14关：珊瑚要塞（4 豚）—— 全冰分兵：前低柱顶豚 + 裸豚 + 两座拉开间距的冰棚（切断坍塌串杀） ======
     {
       name: '第 14 关',
       flavor: '珊瑚要塞',   // 风味名（HUD 与关卡主题）
-      birds: ['normal', 'dash', 'bomb', 'normal', 'normal'],
-      trajectory: 40,
+      birds: ['normal', 'dash', 'normal', 'normal'],
+      trajectory: 42,
       stars: [6000, 12000, 20000],
       pigs: [
-        // 左侧结构
-        { x: STRUCT_BASE_X - 5, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 25, y: GROUND_Y - 80, radius: 18 },
-        // 右侧结构
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 20, radius: 20 },
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 100, radius: 18 },
-        // 顶部
-        { x: STRUCT_BASE_X + 55, y: GROUND_Y - 170, radius: 16 },
+        { x: STRUCT_BASE_X - 81, y: GROUND_Y - 101, radius: 13 },           // 前低冰柱顶
+        { x: STRUCT_BASE_X - 44, y: GROUND_Y - 16, radius: 16 },            // 裸豚
+        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 12, radius: 12 },            // 冰棚 A 内
+        { x: STRUCT_BASE_X + 128, y: GROUND_Y - 12, radius: 12 },           // 冰棚 B 内
       ],
       blocks: [
-        // === 左侧小塔 ===
-        { x: STRUCT_BASE_X - 20, y: GROUND_Y - 70, width: BLOCK_W, height: 70, type: 'wood' },
-        { x: STRUCT_BASE_X + 12, y: GROUND_Y - 70, width: BLOCK_W, height: 70, type: 'wood' },
-        { x: STRUCT_BASE_X - 20, y: GROUND_Y - 70 - BLOCK_H_SHORT, width: 60, height: BLOCK_H_SHORT, type: 'stone' },
-
-        // === 右侧石塔 ===
-        { x: STRUCT_BASE_X + 70, y: GROUND_Y - 80, width: BLOCK_W, height: 80, type: 'stone' },
-        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 80, width: BLOCK_W, height: 80, type: 'stone' },
-        { x: STRUCT_BASE_X + 70, y: GROUND_Y - 80 - BLOCK_H_SHORT, width: 70, height: BLOCK_H_SHORT, type: 'wood' },
-
-        // === 顶部桥 ===
-        { x: STRUCT_BASE_X + 5, y: GROUND_Y - 160, width: 120, height: BLOCK_H_SHORT, type: 'ice' },
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 160 - 35, width: 90, height: 35, type: 'ice' },
-
-        // === 装饰冰块 ===
-        { x: STRUCT_BASE_X + 48, y: GROUND_Y - 160 - 35 - 20, width: 34, height: 20, type: 'ice' },
+        // 前低冰柱
+        { x: STRUCT_BASE_X - 94, y: GROUND_Y - 88, width: 26, height: 88, type: 'ice' },
+        // 冰棚 A
+        { x: STRUCT_BASE_X - 6, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X + 42, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X - 12, y: GROUND_Y - 88, width: 80, height: 24, type: 'ice' },
+        // 冰棚 B（与 A 拉开 ~18px，坍塌不串杀）
+        { x: STRUCT_BASE_X + 92, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X + 86, y: GROUND_Y - 88, width: 78, height: 24, type: 'ice' },
       ],
-      // 隐藏珍珠：冰桥下方、双塔之间（低平抽射角度）
-      pearls: [{ id: 'lv4', x: STRUCT_BASE_X + 20, y: GROUND_Y - 121 }],
+      // 隐藏珍珠：阵前高空（高抛射程奖励）
+      pearls: [{ id: 'lv4', x: STRUCT_BASE_X + 10, y: GROUND_Y - 178 }],
     },
 
-    // ====== 第15关：双子塔（锚点） ======
+    // ====== 第15关：双子冰哨（4 豚）—— 全冰：前柱顶豚 + 裸豚 + 两座冰棚，棚间一颗冻果 ======
     {
       name: '第 15 关',
-      flavor: '双子灯塔',   // 风味名（HUD 与关卡主题）
-      birds: ['dash', 'normal', 'bomb', 'normal', 'normal'],
-      trajectory: 35,
+      flavor: '双子冰哨',   // 风味名（HUD 与关卡主题）
+      birds: ['normal', 'dash', 'normal', 'normal'],
+      trajectory: 40,
       stars: [7000, 13000, 19000],
       pigs: [
-        // 前左地面
-        { x: STRUCT_BASE_X - 25, y: GROUND_Y - 18, radius: 18 },
-        // 左塔顶（桥未覆盖处）
-        { x: STRUCT_BASE_X - 2, y: GROUND_Y - 90 - 26 - 18, radius: 16 },
-        // 桥左
-        { x: STRUCT_BASE_X + 45, y: GROUND_Y - 90 - 26 - 22 - 16, radius: 16 },
-        // 桥右
-        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 90 - 26 - 22 - 16, radius: 16 },
+        { x: STRUCT_BASE_X - 81, y: GROUND_Y - 101, radius: 13 },           // 前冰柱顶
+        { x: STRUCT_BASE_X - 38, y: GROUND_Y - 15, radius: 14 },            // 裸豚
+        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 12, radius: 12 },            // 冰棚 A 内
+        { x: STRUCT_BASE_X + 132, y: GROUND_Y - 12, radius: 12 },           // 冰棚 B 内
       ],
       blocks: [
-        // 左塔
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 90, width: 28, height: 90, type: 'wood' },
-        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 90, width: 28, height: 90, type: 'wood' },
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 90 - 26, width: 58, height: 26, type: 'stone' },
-        // 右塔
-        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 90, width: 28, height: 90, type: 'wood' },
-        { x: STRUCT_BASE_X + 108, y: GROUND_Y - 90, width: 28, height: 90, type: 'wood' },
-        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 90 - 26, width: 58, height: 26, type: 'stone' },
-        // 桥
-        { x: STRUCT_BASE_X + 28, y: GROUND_Y - 90 - 26 - 22, width: 80, height: 22, type: 'ice' },
-        // 爆裂果（吊在冰桥下方，引爆可震断双塔）
-        { x: STRUCT_BASE_X + 58, y: GROUND_Y - 90 - 26, width: 20, height: 20, type: 'burst' },
+        // 前冰柱
+        { x: STRUCT_BASE_X - 94, y: GROUND_Y - 88, width: 26, height: 88, type: 'ice' },
+        // 冰棚 A
+        { x: STRUCT_BASE_X - 6, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X + 42, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X - 12, y: GROUND_Y - 88, width: 80, height: 24, type: 'ice' },
+        // 冰棚 B
+        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X + 144, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 88, width: 78, height: 24, type: 'ice' },
+        // 冻果：裸豚与冰棚 A 之间地面，坍塌可压爆（效率奖励）
+        { x: STRUCT_BASE_X - 28, y: GROUND_Y - 22, width: 20, height: 20, type: 'burst' },
       ],
     },
 
