@@ -925,209 +925,195 @@ function getLevels() {
     // 第五章：潮汐王座（idx 32-39）—— 终章：重石结构与豚队列极限
     // ============================================================
 
-    // ====== 第33关：曜海三台（新）—— 三层石阶递进 ======
+    // ====== 第33关：曜海火台（新）—— 五·潮汐王座首关：右侧石堡(砰砰) + 远左火台高豚(嘟嘟精准弧射) ======
+    // 火砖 hp5 抗爆（砰砰 14×1.0→3 伤撞不碎）。火柱与高豚放「远左」——距右石堡爆心 ~230px，
+    // 砰㿧直击(110)与抛物碎片(~150)都够不到，火柱不倾倒、高豚存活；要够到它得换嘟嘟/三丸子
+    // 精准高弧射上柱顶（火柱碎了也只换嘟嘟点）。砰㿧专清右侧紧凑石堡（含墙顶哨豚）。
     {
       name: '第 33 关',
-      flavor: '曜海三台',
-      birds: ['bomb', 'split', 'dash', 'bomb', 'normal', 'normal'],
-      trajectory: 15,
+      flavor: '曜海火台',
+      birds: ['bomb', 'normal', 'dash', 'split'],
+      trajectory: 14,
       stars: [12500, 20000, 26500],
       pigs: [
-        { x: STRUCT_BASE_X + 12, y: GROUND_Y - 45 - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 128, y: GROUND_Y - 45 - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 105, y: GROUND_Y - 45 - 45 - 13, radius: 13 },
-        { x: STRUCT_BASE_X + 63, y: GROUND_Y - 45 - 45 - 45 - 14, radius: 14 },
-        { x: STRUCT_BASE_X - 30, y: GROUND_Y - 16, radius: 16 },
+        { x: STRUCT_BASE_X - 102, y: GROUND_Y - 16, radius: 16 },             // 阵前孤豚（裸）
+        { x: STRUCT_BASE_X - 66, y: GROUND_Y - 90 - 13, radius: 13 },         // 远左火台顶高豚
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 11, radius: 11 },              // 石堡内豚（左）
+        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 11, radius: 11 },            // 石堡内豚（中）
+        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 11, radius: 11 },            // 石堡内豚（右）
+        { x: STRUCT_BASE_X + 91, y: GROUND_Y - 84 - 11, radius: 11 },       // 石堡左墙顶哨豚
       ],
       blocks: [
-        // 一层台基
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 45, width: 140, height: 45, type: 'stone' },
-        // 二层台基
-        { x: STRUCT_BASE_X + 25, y: GROUND_Y - 45 - 45, width: 90, height: 45, type: 'stone' },
-        // 三层台基
-        { x: STRUCT_BASE_X + 45, y: GROUND_Y - 45 - 45 - 45, width: 36, height: 45, type: 'stone' },
+        // —— 远左火台（柱矮 h90：爆炸 reach=155，柱中心距右堡爆心 165 够不到，柱不倾倒、高豚存活；
+        //    火柱炸不碎，高豚须嘟嘟/三丸子精准高弧射上柱顶）——
+        { x: STRUCT_BASE_X - 78, y: GROUND_Y - 90, width: 24, height: 90, type: 'fire' },
+        { x: STRUCT_BASE_X - 40, y: GROUND_Y - 34, width: 28, height: 34, type: 'fire' },
+        // —— 紧凑石堡（砰㿧断墙）——
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 84, width: 26, height: 84, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 84, width: 26, height: 84, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 84 - 26, width: 26, height: 26, type: 'stone' },
       ],
     },
 
-    // ====== 第34关：沉殿王厅（新）—— 石柱大厅 + 内冰龛 ======
+    // ====== 第34关：沉殿火厅（新）—— 右石堡 4 豚(砰砰) + r24 大豚(两击) + 火台高豚(嘟嘟破火) ======
+    // 砰㿧一弹清右侧紧凑石堡（4 豚）。砰砰仅 1 发；远左两幸存弹道不交叉：r24 大豚近侧地面
+    // （短低弹道不越火台柱，hp2 吃两击）；火台高豚更右更高，火柱全高挡地面道、火砖炸不碎，
+    // 唯嘟嘟铁头×2 碎台或高弧直点。4 鸟 6 豚 ratio 0.67。
     {
       name: '第 34 关',
-      flavor: '沉殿王厅',
-      birds: ['bomb', 'split', 'dash', 'bomb', 'split', 'normal'],
+      flavor: '沉殿火厅',
+      birds: ['bomb', 'normal', 'split', 'normal'],
       trajectory: 15,
       stars: [13000, 20500, 27500],
       pigs: [
-        { x: STRUCT_BASE_X + 35, y: GROUND_Y - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 110, y: GROUND_Y - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 79, y: GROUND_Y - 30 - 13, radius: 13 },
-        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 100 - 26 - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 105, y: GROUND_Y - 100 - 26 - 14, radius: 14 },
-        { x: STRUCT_BASE_X - 30, y: GROUND_Y - 16, radius: 16 },
+        // —— 右侧石堡（砰㿧一发清 4）——
+        { x: STRUCT_BASE_X + 94, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 91, y: GROUND_Y - 96 - 12, radius: 12 },        // 左高墙顶哨豚
+        // —— 独立幸存（弹道不交叉）——
+        { x: STRUCT_BASE_X - 102, y: GROUND_Y - 24, radius: 24 },            // 近侧 r24 大豚（hp2 两击）
+        { x: STRUCT_BASE_X - 66, y: GROUND_Y - 90 - 13, radius: 13 },        // 远左火台顶高豚（嘟嘟破火）
       ],
       blocks: [
-        // 左石柱
-        { x: STRUCT_BASE_X + 10, y: GROUND_Y - 100, width: BLOCK_W, height: 100, type: 'stone' },
-        // 右石柱
-        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 100, width: BLOCK_W, height: 100, type: 'stone' },
-        // 石门楣
-        { x: STRUCT_BASE_X + 10, y: GROUND_Y - 100 - 26, width: 138, height: 26, type: 'stone' },
-        // 内冰龛（地面小章鱼的掩体）
-        { x: STRUCT_BASE_X + 65, y: GROUND_Y - 30, width: 28, height: 30, type: 'ice' },
+        // 远左火台（矮柱 h90 砰㿧够不到；火砖唯嘟嘟铁头×2 碎）
+        { x: STRUCT_BASE_X - 78, y: GROUND_Y - 90, width: 24, height: 90, type: 'fire' },
+        { x: STRUCT_BASE_X - 40, y: GROUND_Y - 34, width: 28, height: 34, type: 'fire' },
+        // 紧凑石堡（左高墙 h96、右墙 h84+帽 h26）
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 84, width: 26, height: 84, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 84 - 26, width: 26, height: 26, type: 'stone' },
       ],
     },
 
-    // ====== 第35关：王座前奏（新）—— 木塔石塔对望 + 爆裂果 ======
+    // ====== 第35关：王座前奏（新）—— 高石堡(砰㿧) + 远左火台高豚 + 阵前孤豚 ======
+    // 石堡墙加高到 h110（哨豚更高，但仍在砰㿧直击半径内）；砰砰 1 发清 4 堡豚，
+    // 火台高豚唯嘟嘟破火、阵前孤豚独立。火砖占比约 40%。4 鸟 6 豚 ratio 0.67。
     {
       name: '第 35 关',
       flavor: '王座前奏',
-      birds: ['split', 'bomb', 'dash', 'bomb', 'split', 'normal'],
+      birds: ['bomb', 'normal', 'split', 'normal'],
       trajectory: 14,
       stars: [13200, 21000, 28000],
       pigs: [
-        { x: STRUCT_BASE_X + 22, y: GROUND_Y - 13, radius: 13 },
-        { x: STRUCT_BASE_X + 22, y: GROUND_Y - 85 - 22 - 13, radius: 13 },
-        { x: STRUCT_BASE_X + 125, y: GROUND_Y - 14, radius: 14 },
-        { x: STRUCT_BASE_X + 125, y: GROUND_Y - 95 - 24 - 14, radius: 14 },
-        { x: STRUCT_BASE_X - 30, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 13, radius: 13 },
+        { x: STRUCT_BASE_X + 94, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 91, y: GROUND_Y - 110 - 12, radius: 12 },        // 高墙顶哨豚
+        { x: STRUCT_BASE_X - 102, y: GROUND_Y - 16, radius: 16 },             // 阵前孤豚
+        { x: STRUCT_BASE_X - 66, y: GROUND_Y - 90 - 13, radius: 13 },         // 远左火台顶高豚
       ],
       blocks: [
-        // 左木塔
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 85, width: 24, height: 85, type: 'wood' },
-        { x: STRUCT_BASE_X + 32, y: GROUND_Y - 85, width: 24, height: 85, type: 'wood' },
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 85 - 22, width: 56, height: 22, type: 'wood' },
-        // 右石塔
-        { x: STRUCT_BASE_X + 100, y: GROUND_Y - 95, width: 26, height: 95, type: 'stone' },
-        { x: STRUCT_BASE_X + 136, y: GROUND_Y - 95, width: 26, height: 95, type: 'stone' },
-        { x: STRUCT_BASE_X + 100, y: GROUND_Y - 95 - 24, width: 62, height: 24, type: 'stone' },
-        // 爆裂果（两塔之间）
-        { x: STRUCT_BASE_X + 75, y: GROUND_Y - 24, width: 24, height: 24, type: 'burst' },
+        { x: STRUCT_BASE_X - 78, y: GROUND_Y - 90, width: 24, height: 90, type: 'fire' },
+        { x: STRUCT_BASE_X - 40, y: GROUND_Y - 34, width: 28, height: 34, type: 'fire' },
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 110, width: 26, height: 110, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 110, width: 26, height: 110, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 110 - 26, width: 26, height: 26, type: 'stone' },
       ],
     },
 
-    // ====== 第36关：三重堡垒（锚点） ======
+    // ====== 第36关：三重堡垒（新）—— 双层石堡(砰㿧) + 远左火台高豚 + 阵前孤豚 ======
+    // 石堡带石楣双层（地豚 + 楣前豚全在砰㿧半径内）；火砖门柱 2 根占比提高。
+    // 砰砰 1 发；嘟嘟破火、三丸子/梭梭点孤豚。4 鸟 6 豚 ratio 0.67。
     {
       name: '第 36 关',
       flavor: '三重堡垒',
-      birds: ['bomb', 'dash', 'split', 'bomb', 'normal', 'normal'],
+      birds: ['bomb', 'normal', 'split', 'normal'],
       trajectory: 16,
       stars: [13500, 21500, 29500],
       pigs: [
-        { x: STRUCT_BASE_X - 16, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 8, y: GROUND_Y - 70 - 26 - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 45, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 59, y: GROUND_Y - 95 - 60 - 26 - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 131, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 80 - 26 - 16, radius: 16 },
+        { x: STRUCT_BASE_X + 94, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 84 - 26 - 12, radius: 12 },   // 石楣前哨豚
+        { x: STRUCT_BASE_X - 102, y: GROUND_Y - 16, radius: 16 },
+        { x: STRUCT_BASE_X - 66, y: GROUND_Y - 90 - 13, radius: 13 },
       ],
       blocks: [
-        // A 塔（短）
-        { x: STRUCT_BASE_X - 5, y: GROUND_Y - 70, width: 26, height: 70, type: 'stone' },
-        { x: STRUCT_BASE_X - 5, y: GROUND_Y - 70 - 26, width: 30, height: 26, type: 'wood' },
-        // B 塔（高）
-        { x: STRUCT_BASE_X + 45, y: GROUND_Y - 95, width: 28, height: 95, type: 'wood' },
-        { x: STRUCT_BASE_X + 45, y: GROUND_Y - 95 - 60, width: 28, height: 60, type: 'stone' },
-        { x: STRUCT_BASE_X + 43, y: GROUND_Y - 95 - 60 - 26, width: 32, height: 26, type: 'ice' },
-        // C 塔（中）
-        { x: STRUCT_BASE_X + 105, y: GROUND_Y - 80, width: 26, height: 80, type: 'stone' },
-        { x: STRUCT_BASE_X + 105, y: GROUND_Y - 80 - 26, width: 30, height: 26, type: 'wood' },
+        { x: STRUCT_BASE_X - 78, y: GROUND_Y - 90, width: 24, height: 90, type: 'fire' },
+        { x: STRUCT_BASE_X - 40, y: GROUND_Y - 34, width: 28, height: 34, type: 'fire' },
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 84, width: 26, height: 84, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 84, width: 26, height: 84, type: 'stone' },
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 84 - 26, width: 90, height: 26, type: 'stone' },
       ],
     },
 
-    // ====== 第37关：潮汐要塞（锚点） ======
+    // ====== 第37关：潮汐要塞（新）—— 高石堡 + 近侧 r24 大豚 + 远火台高豚 ======
+    // 砰㿧 1 发清右石堡 4 豚；近侧 r24 大豚（贴弹弓短打）+ 远左火台高豚独立。
+    // 4 鸟 6 豚 ratio 0.67。
     {
       name: '第 37 关',
       flavor: '潮汐要塞',
-      birds: ['bomb', 'bomb', 'split', 'dash', 'normal', 'normal'],
+      birds: ['bomb', 'normal', 'split', 'normal'],
       trajectory: 14,
       stars: [14000, 22500, 30500],
       pigs: [
-        { x: STRUCT_BASE_X - 16, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 58, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 100 - 28 - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 100 - 28 - 55 - 26 - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 104, y: GROUND_Y - 100 - 28 - 55 - 26 - 16, radius: 16 },
+        { x: STRUCT_BASE_X + 94, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 91, y: GROUND_Y - 96 - 12, radius: 12 },
+        { x: STRUCT_BASE_X - 102, y: GROUND_Y - 24, radius: 24 },             // 近侧 r24 大豚
+        { x: STRUCT_BASE_X - 66, y: GROUND_Y - 90 - 13, radius: 13 },
       ],
       blocks: [
-        // 双石门塔 + 门楣
-        { x: STRUCT_BASE_X, y: GROUND_Y - 100, width: 28, height: 100, type: 'stone' },
-        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 100, width: 28, height: 100, type: 'stone' },
-        { x: STRUCT_BASE_X, y: GROUND_Y - 100 - 28, width: 146, height: 28, type: 'stone' },
-        // 上木柱
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 100 - 28 - 55, width: 28, height: 55, type: 'wood' },
-        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 100 - 28 - 55, width: 28, height: 55, type: 'wood' },
-        // 上冰檐
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 100 - 28 - 55 - 26, width: 104, height: 26, type: 'ice' },
-        // 爆裂果（冰檐顶）
-        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 100 - 28 - 55 - 26 - 26, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X - 78, y: GROUND_Y - 90, width: 24, height: 90, type: 'fire' },
+        { x: STRUCT_BASE_X - 40, y: GROUND_Y - 34, width: 28, height: 34, type: 'fire' },
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96 - 26, width: 26, height: 26, type: 'stone' },
       ],
     },
 
-    // ====== 第38关：终潮堡垒（新）======
-    // TODO(由你设计，可选)：这一关与下一关是全游戏难度顶点，当前给出可玩的
-    // 默认实现（双重石门 + 内庭冰龛，7 章鱼 6 豚）。真正的取舍留给你：
-    //   1) 结构：重石门楣硬抗（当前） vs 多重内庭层层保护？
-    //   2) 豚队列：双 bomb 正面破墙（当前）还是 双 split 扫冰檐？
-    //   3) 爆裂果位置：内庭中央（连锁清场）vs 门前（先手消耗）？
-    // 直接改下面的 pigs / blocks / birds 即可（改完跑 node tools/validate-levels.js）。
-    // 建议数值区间：trajectory 12-13；stars [14500-15500, 23000-24000, 31000-32500]。
+    // ====== 第38关：终潮堡垒（新·难度顶点）—— 右石堡 4 豚 + 远左「双火台」两独立高豚 ======
+    // 远左两座火台一近一矮、一远一高（皆在砰㿧直击/碎片外，火砖唯嘟嘟×2 碎）：
+    // 高弧点杀要分两发、弹道各异。砰㿧 1 发清石堡。4 鸟 6 豚 ratio 0.67、火砖占比近半。
     {
       name: '第 38 关',
       flavor: '终潮堡垒',
-      birds: ['bomb', 'bomb', 'split', 'dash', 'normal', 'normal'],
+      birds: ['bomb', 'normal', 'split', 'normal'],
       trajectory: 13,
       stars: [15000, 23500, 32000],
       pigs: [
-        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 15, radius: 15 },   // 内庭中央
-        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 60 - 22 - 14, radius: 14 }, // 冰龛檐上
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 13, radius: 13 },   // 门内左
-        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 100 - 26 - 14, radius: 14 }, // 门楣上
-        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 100 - 26 - 13, radius: 13 }, // 门楣右
-        { x: STRUCT_BASE_X - 35, y: GROUND_Y - 16, radius: 16 },   // 阵前
+        { x: STRUCT_BASE_X + 94, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 91, y: GROUND_Y - 96 - 12, radius: 12 },
+        { x: STRUCT_BASE_X - 86, y: GROUND_Y - 60 - 13, radius: 13 },         // 近矮火台顶豚
+        { x: STRUCT_BASE_X - 62, y: GROUND_Y - 100 - 13, radius: 13 },        // 远高火台顶豚
       ],
       blocks: [
-        // 外石门（重石）
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 100, width: BLOCK_W, height: 100, type: 'stone' },
-        { x: STRUCT_BASE_X + 130, y: GROUND_Y - 100, width: BLOCK_W, height: 100, type: 'stone' },
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 100 - 26, width: 158, height: 26, type: 'stone' },
-        // 内庭冰龛（保护中央章鱼）
-        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 60, width: 22, height: 60, type: 'ice' },
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 60, width: 22, height: 60, type: 'ice' },
-        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 60 - 22, width: 77, height: 22, type: 'ice' },
+        { x: STRUCT_BASE_X - 98, y: GROUND_Y - 60, width: 24, height: 60, type: 'fire' },
+        { x: STRUCT_BASE_X - 74, y: GROUND_Y - 100, width: 24, height: 100, type: 'fire' },
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 96 - 26, width: 90, height: 26, type: 'stone' },
       ],
     },
 
-    // ====== 第39关：王庭之门（新）======
-    // TODO(由你设计，可选)：终章前哨。默认实现为「巨石门 + 冰神龛 + 爆裂果」，
-    // 7 章鱼全技能队列。可调整方向同上一关；注意 7 章鱼是全游戏最大章鱼数，
-    // 三星门槛 33000 已接近理论满分上限，别再上调。
+    // ====== 第39关：王庭之门（新·终章前哨）—— 右石堡 4 豚 + 双火台两高豚 + 阵前孤豚 ======
+    // 全游戏最多豚数 7：砰㿧 1 发清右石堡 4 豚；双火台高豚两发高弧 + 阵前孤豚一发。
+    // 4 鸟 7 豚 ratio 0.57（资源偏紧、逼分弹精确）。
     {
       name: '第 39 关',
       flavor: '王庭之门',
-      birds: ['bomb', 'split', 'dash', 'bomb', 'split', 'normal'],
+      birds: ['bomb', 'normal', 'split', 'normal'],
       trajectory: 12,
       stars: [15500, 24000, 33000],
       pigs: [
-        { x: STRUCT_BASE_X + 47, y: GROUND_Y - 13, radius: 13 },   // 龛左地面
-        { x: STRUCT_BASE_X + 67, y: GROUND_Y - 50 - 20 - 12, radius: 12 }, // 龛顶
-        { x: STRUCT_BASE_X + 45, y: GROUND_Y - 110 - 28 - 13, radius: 13 }, // 门楣左
-        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 110 - 28 - 12, radius: 12 }, // 门楣中
-        { x: STRUCT_BASE_X + 110, y: GROUND_Y - 110 - 28 - 13, radius: 13 }, // 门楣右
-        { x: STRUCT_BASE_X - 35, y: GROUND_Y - 16, radius: 16 },   // 阵前左
-        { x: STRUCT_BASE_X - 70, y: GROUND_Y - 15, radius: 15 },   // 阵前更左
+        { x: STRUCT_BASE_X + 94, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 12, radius: 12 },
+        { x: STRUCT_BASE_X + 91, y: GROUND_Y - 96 - 12, radius: 12 },
+        { x: STRUCT_BASE_X - 74, y: GROUND_Y - 60 - 13, radius: 13 },         // 近矮火台顶豚
+        { x: STRUCT_BASE_X - 50, y: GROUND_Y - 100 - 13, radius: 13 },        // 远高火台顶豚
+        { x: STRUCT_BASE_X - 108, y: GROUND_Y - 15, radius: 15 },             // 阵前最左孤豚
       ],
       blocks: [
-        // 巨型石门柱
-        { x: STRUCT_BASE_X + 5, y: GROUND_Y - 110, width: 30, height: 110, type: 'stone' },
-        { x: STRUCT_BASE_X + 125, y: GROUND_Y - 110, width: 30, height: 110, type: 'stone' },
-        // 巨石门楣
-        { x: STRUCT_BASE_X + 5, y: GROUND_Y - 110 - 28, width: 150, height: 28, type: 'stone' },
-        // 内冰龛
-        { x: STRUCT_BASE_X + 55, y: GROUND_Y - 50, width: 24, height: 50, type: 'ice' },
-        { x: STRUCT_BASE_X + 51, y: GROUND_Y - 50 - 20, width: 32, height: 20, type: 'ice' },
-        // 爆裂果（龛右侧，引爆连锁清内庭）
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 24, width: 24, height: 24, type: 'burst' },
+        { x: STRUCT_BASE_X - 86, y: GROUND_Y - 60, width: 24, height: 60, type: 'fire' },
+        { x: STRUCT_BASE_X - 62, y: GROUND_Y - 100, width: 24, height: 100, type: 'fire' },
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 96 - 26, width: 90, height: 26, type: 'stone' },
       ],
     },
 
