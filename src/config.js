@@ -138,7 +138,7 @@ const COLORS = {
   pigSnout: '#F3E5F5',     // 吸盘/触手尖（键名保留，形象已改为章鱼）
   pigSnoutDark: '#AB47BC',
 
-  // 方块 Blocks（材质靠色相区分：奶茶木 / 雾霾蓝石 / 冰晶蓝）
+  // 方块 Blocks（材质靠色相区分：奶茶木 / 雾霾蓝石 / 冰晶蓝 / 熔岩砖火）
   wood: '#D9C2A8',
   woodDark: '#C4A88C',
   woodLight: '#EFE0D0',
@@ -148,6 +148,10 @@ const COLORS = {
   ice: '#B3E5FC',
   iceDark: '#81D4FA',
   iceLight: '#F0FAFF',
+  // 火/熔岩砖 Fire（第四材料，纯材质无环境燃烧机制；嘟嘟铁头重击 fire×2 克制）
+  fire: '#E8603C',          // 熔岩砖身：砖红
+  fireDark: '#8E2A1C',      // 火山岩暗部/砖缝
+  fireLight: '#FFC46B',     // 熔融裂纹/亮边（发光橙）
 
   // UI
   white: '#FFFFFF',
@@ -172,6 +176,7 @@ const COLORS = {
   particleGray: '#B0BEC5',
   particleBlue: '#4FC3F7',
   particleYellow: '#FFD54F',
+  particleOrange: '#FF8A45',  // 熔岩砖碎屑
 };
 
 // 河豚族种类 Puffer types（键名 bird/BIRD_TYPES 保留，题材已迁移为海洋）
@@ -183,15 +188,15 @@ const BIRD_TYPES = {
     body: '#FFD54F', bodyDark: '#F9A825', belly: '#FFF8E1',
     crest: ['#FF8F00'], // 背刺
     trail: '255, 213, 79',
-    damageVs: { wood: 1.0, stone: 1.0, ice: 1.0 },
-    ability: null, // 无技能
+    damageVs: { wood: 1.0, stone: 1.0, ice: 1.0, fire: 2.0 },
+    ability: null, // 无技能；铁头重击专克熔岩砖（fire×2），给无技能嘟嘟专属主场
   },
   dash: {
     name: '梭梭',
     body: '#B3E5FC', bodyDark: '#039BE5', belly: '#E1F5FE',
     crest: ['#039BE5'], // 背刺（鳍色）
     trail: '179, 229, 252',
-    damageVs: { wood: 2.0, stone: 0.6, ice: 1.2 },
+    damageVs: { wood: 2.0, stone: 0.6, ice: 1.2, fire: 0.6 },
     ability: 'dash', // 空中点击：沿当前方向冲刺加速
   },
   bomb: {
@@ -199,15 +204,15 @@ const BIRD_TYPES = {
     body: '#A1887F', bodyDark: '#5D4037', belly: '#D7CCC8',
     crest: ['#FF9F43', '#FF5252'], // 背刺（警示色）
     trail: '161, 136, 127',
-    damageVs: { wood: 1.2, stone: 2.0, ice: 1.2 },
-    ability: 'bomb', // 空中点击或首次撞击：范围爆炸
+    damageVs: { wood: 1.2, stone: 2.0, ice: 1.2, fire: 1.0 },
+    ability: 'bomb', // 空中点击或首次撞击：范围爆炸（熔岩抗爆，火砖不被砰䂵全碎）
   },
   split: {
     name: '三丸子',
     body: '#FF8A65', bodyDark: '#E64A19', belly: '#FBE9E7',
     crest: ['#4FC3F7', '#FFD54F', '#FF8A65'], // 三色背刺
     trail: '255, 138, 101',
-    damageVs: { wood: 0.8, stone: 0.5, ice: 2.0 },
+    damageVs: { wood: 0.8, stone: 0.5, ice: 2.0, fire: 0.6 },
     ability: 'split', // 空中点击：一分为三
   },
 };
@@ -222,13 +227,16 @@ const SPLIT_ANGLE = 0.28;      // 三翎分裂的上下偏转角（弧度）
 // 方块属性 Block properties
 const BLOCK_TYPES = {
   wood: {
-    health: 2,
+    health: 3,
     density: 1.0,
     color: COLORS.wood,
     colorDark: COLORS.woodDark,
     colorLight: COLORS.woodLight,
     particle: COLORS.particleBrown,
   },
+  // 注：stone 血量暂维持 4。全局 4→6 随第四章（石主题，批 E）重做 L25-32 时一起落地——
+  // 提血会让 L32 双塔悬闸里被石块护住的援军打不到（该关本就在批 E 整章重排），
+  // 届时按新砰砰配队重排并验绿，避免现在为待重做关卡打临时补丁。
   stone: {
     health: 4,
     density: 2.0,
@@ -238,12 +246,22 @@ const BLOCK_TYPES = {
     particle: COLORS.particleGray,
   },
   ice: {
-    health: 1,
+    health: 2,
     density: 0.5,
     color: COLORS.ice,
     colorDark: COLORS.iceDark,
     colorLight: COLORS.iceLight,
     particle: COLORS.particleBlue,
+  },
+  // 火/熔岩砖 Fire：第四材料。硬度高（hp5、密度1.5），砰砰爆炸仅 ×1 抗爆、
+  // 梭梭/三丸子 ×0.6 刮痧，唯嘟嘟铁头高速直撞 fire×2 一发碎——逼玩家换无技能嘟嘟精准点杀。
+  fire: {
+    health: 5,
+    density: 1.5,
+    color: COLORS.fire,
+    colorDark: COLORS.fireDark,
+    colorLight: COLORS.fireLight,
+    particle: COLORS.particleOrange,
   },
   // 爆裂果（原创爆炸物：橙色浆果造型，非炸药桶表达）
   // 被摧毁时触发范围爆炸，可链式引爆其他爆裂果

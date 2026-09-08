@@ -55,127 +55,127 @@ function getLevels() {
       pearls: [{ id: 'lv0', x: STRUCT_BASE_X + 60, y: GROUND_Y - 320 }],
     },
 
-    // ====== 第2关：平沙练靶（新）—— 单间小木屋，巩固基础弹射 ======
+    // ====== 第2关：平沙练靶 —— 第一座木屋：屋中章鱼要先破木 ======
+    // 木 hp3 已能扛住普通嘟嘟的弱撞，正面平射被左柱挡住，得撞柱/塌顶或高抛。
     {
       name: '第 2 关',
       flavor: '平沙练靶',
-      birds: ['normal', 'normal', 'normal'],
+      birds: ['normal', 'normal', 'normal', 'normal'],
       trajectory: 65,
       stars: [2500, 5000, 7500],
       pigs: [
-        { x: STRUCT_BASE_X + 73, y: GROUND_Y - 17, radius: 17 },
-        { x: STRUCT_BASE_X + 150, y: GROUND_Y - 18, radius: 18 },
+        { x: STRUCT_BASE_X - 22, y: GROUND_Y - 18, radius: 18 },            // 屋前裸豚（直射练靶）
+        { x: STRUCT_BASE_X + 82, y: GROUND_Y - 16, radius: 15 },            // 紧贴立木后（碎木即撞猪，一发带走）
+        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 96, radius: 15 },           // 木柱顶（高抛目标，顶上无遮蔽）
       ],
       blocks: [
-        // 左柱
-        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 70, width: BLOCK_W, height: 70, type: 'wood' },
-        // 右柱
-        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 70, width: BLOCK_W, height: 70, type: 'wood' },
-        // 顶梁
-        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 70 - 26, width: 94, height: 26, type: 'wood' },
+        // 挡在中路豚前的立木（贴紧猪，满力撞碎后余势立刻撞到猪）
+        { x: STRUCT_BASE_X + 44, y: GROUND_Y - 56, width: 28, height: 56, type: 'wood' },
+        // 托高柱顶豚的木柱（猪在柱顶裸露，可高抛直砸）
+        { x: STRUCT_BASE_X + 126, y: GROUND_Y - 80, width: 28, height: 80, type: 'wood' },
       ],
     },
 
-    // ====== 第3关：简单木屋（锚点）—— 梭梭冲刺教学 ======
+    // ====== 第3关：孤屿木屋 —— 梭梭冲刺教学：克木一撞断柱、木楼坍塌 ======
     {
       name: '第 3 关',
       flavor: '孤屿木屋',   // 风味名（HUD 与关卡主题）
       hint: '新技能：梭梭空中点击极速冲刺！', // 首次进入显示技能教学
-      birds: ['normal', 'dash', 'normal'],
+      birds: ['dash', 'normal', 'normal', 'normal'],
       trajectory: 60,
       stars: [3000, 6000, 9000],
       pigs: [
-        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 95, y: GROUND_Y - 18, radius: 18 },
-        { x: STRUCT_BASE_X + 68, y: GROUND_Y - 70, radius: 18 },
+        { x: STRUCT_BASE_X + 64, y: GROUND_Y - 17, radius: 15 },            // 下层木屋里
+        { x: STRUCT_BASE_X + 67, y: GROUND_Y - 113, radius: 15 },           // 二层楼板上
+        { x: STRUCT_BASE_X + 150, y: GROUND_Y - 16, radius: 16 },           // 远处地面
       ],
       blocks: [
-        // 左柱
-        { x: STRUCT_BASE_X + 10, y: GROUND_Y - BLOCK_H_LONG, width: BLOCK_W, height: BLOCK_H_LONG, type: 'wood' },
-        // 右柱
-        { x: STRUCT_BASE_X + 98, y: GROUND_Y - BLOCK_H_LONG, width: BLOCK_W, height: BLOCK_H_LONG, type: 'wood' },
-        // 顶梁
-        { x: STRUCT_BASE_X + 10, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT, width: BLOCK_W_LONG + 18, height: BLOCK_H_SHORT, type: 'wood' },
+        // 下层四柱两柱
+        { x: STRUCT_BASE_X + 14, y: GROUND_Y - 72, width: 28, height: 72, type: 'wood' },
+        { x: STRUCT_BASE_X + 86, y: GROUND_Y - 72, width: 28, height: 72, type: 'wood' },
+        // 一层楼板
+        { x: STRUCT_BASE_X + 6, y: GROUND_Y - 98, width: 116, height: 26, type: 'wood' },
+        // 上层两柱（梭梭断下柱即整体坍塌）
+        { x: STRUCT_BASE_X + 26, y: GROUND_Y - 148, width: 28, height: 50, type: 'wood' },
+        { x: STRUCT_BASE_X + 80, y: GROUND_Y - 148, width: 28, height: 50, type: 'wood' },
+        // 屋顶
+        { x: STRUCT_BASE_X + 18, y: GROUND_Y - 174, width: 98, height: 26, type: 'wood' },
       ],
-      // 隐藏珍珠：木屋后方（需翻越屋顶或反弹墙后的刁钻角度）
-      pearls: [{ id: 'lv1', x: STRUCT_BASE_X + 135, y: GROUND_Y - 30 }],
+      // 隐藏珍珠：木屋后上方（高抛过顶才够得到）
+      pearls: [{ id: 'lv1', x: STRUCT_BASE_X + 150, y: GROUND_Y - 205 }],
     },
 
-    // ====== 第4关：潮间演武（新）—— 冲刺够远处的梁上章鱼 ======
+    // ====== 第4关：潮间演武 —— 梭梭冲刺：冲穿一整面长木墙带走墙后豚，再够远豚 ======
     {
       name: '第 4 关',
       flavor: '潮间演武',
-      birds: ['normal', 'dash', 'normal'],
+      birds: ['dash', 'normal', 'normal', 'normal'],
       trajectory: 55,
       stars: [3500, 7000, 10500],
       pigs: [
-        { x: STRUCT_BASE_X - 10, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 48, y: GROUND_Y - 90 - 26 - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 18, radius: 18 },
+        { x: STRUCT_BASE_X - 30, y: GROUND_Y - 18, radius: 18 },            // 墙前裸豚
+        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 16, radius: 15 },            // 长木墙后紧贴（梭梭冲穿连猪）
+        { x: STRUCT_BASE_X + 144, y: GROUND_Y - 75, radius: 15 },           // 远处柱顶裸豚（冲刺够远/高抛）
       ],
       blocks: [
-        // 木柱
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 90, width: BLOCK_W, height: 90, type: 'wood' },
-        // 顶冰板（冲刺低平抽射可破）
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 90 - 26, width: 56, height: 26, type: 'ice' },
+        // 长木墙（高大；梭梭冲刺 wood×2 一穿即碎，普通嘟嘟狠撞也可）
+        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 92, width: 28, height: 92, type: 'wood' },
+        // 远处托柱（柱顶豚裸露，可直接砸）
+        { x: STRUCT_BASE_X + 130, y: GROUND_Y - 60, width: 28, height: 60, type: 'wood' },
       ],
     },
 
-    // ====== 第5关：石塔（锚点）—— 砰砰爆炸教学 ======
+    // ====== 第5关：石塔守望 —— 砰砰爆炸教学：一爆塌木塔（顺带炸碎石墩） ======
     {
       name: '第 5 关',
       flavor: '石塔守望',   // 风味名（HUD 与关卡主题）
       hint: '新技能：砰砰空中点击范围爆炸！', // 首次进入显示技能教学
-      birds: ['normal', 'normal', 'bomb', 'normal'],
+      birds: ['normal', 'bomb', 'normal', 'normal'],
       trajectory: 50,
       stars: [4000, 8000, 12000],
       pigs: [
-        { x: STRUCT_BASE_X + 50, y: GROUND_Y - 20, radius: 20 },
-        { x: STRUCT_BASE_X + 50, y: GROUND_Y - 110, radius: 20 },
-        { x: STRUCT_BASE_X + 50, y: GROUND_Y - 200, radius: 18 },
+        { x: STRUCT_BASE_X - 28, y: GROUND_Y - 16, radius: 16 },            // 塔前裸豚
+        { x: STRUCT_BASE_X + 68, y: GROUND_Y - 17, radius: 16 },            // 塔中
+        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 16, radius: 16 },           // 塔后地面
       ],
       blocks: [
-        // 底层 石柱
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - BLOCK_H_LONG, width: BLOCK_W, height: BLOCK_H_LONG, type: 'stone' },
-        { x: STRUCT_BASE_X + 76, y: GROUND_Y - BLOCK_H_LONG, width: BLOCK_W, height: BLOCK_H_LONG, type: 'stone' },
-        // 底层石板
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT, width: 84, height: BLOCK_H_SHORT, type: 'stone' },
-        // 中层木柱
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT - 60, width: BLOCK_W, height: 60, type: 'wood' },
-        { x: STRUCT_BASE_X + 76, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT - 60, width: BLOCK_W, height: 60, type: 'wood' },
-        // 中层木板
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT - 60 - BLOCK_H_SHORT, width: 84, height: BLOCK_H_SHORT, type: 'wood' },
-        // 顶层冰块
-        { x: STRUCT_BASE_X + 35, y: GROUND_Y - BLOCK_H_LONG - BLOCK_H_SHORT - 60 - BLOCK_H_SHORT - 25, width: 54, height: 25, type: 'ice' },
+        // 木塔两柱（砰䂵木×1.2，断基即塌）
+        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 96, width: 28, height: 96, type: 'wood' },
+        { x: STRUCT_BASE_X + 88, y: GROUND_Y - 96, width: 28, height: 96, type: 'wood' },
+        // 楼板
+        { x: STRUCT_BASE_X + 10, y: GROUND_Y - 122, width: 116, height: 26, type: 'wood' },
+        // 楼上压一块石墩（砰䂵石×2 一发碎，演示砰䂵克石；也加重坍塌）
+        { x: STRUCT_BASE_X + 48, y: GROUND_Y - 150, width: 28, height: 28, type: 'stone' },
       ],
-      // 隐藏珍珠：石塔正上方（高抛过顶才能碰到）
+      // 隐藏珍珠：木塔正上方（高抛过顶才能碰到）
       pearls: [{ id: 'lv2', x: STRUCT_BASE_X + 50, y: GROUND_Y - 260 }],
     },
 
-    // ====== 第6关：碎礁石墙（新）—— 首次石材质，砰砰破墙 ======
+    // ====== 第6关：碎礁木垒 —— 炸基座课：木堆压在两只「脚墩」上，断脚全塌 ======
     {
       name: '第 6 关',
-      flavor: '碎礁石墙',
+      flavor: '碎礁木垒',
       birds: ['normal', 'dash', 'bomb', 'normal'],
       trajectory: 49,
       stars: [4200, 8400, 12600],
       pigs: [
-        { x: STRUCT_BASE_X + 70, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X - 20, y: GROUND_Y - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 70, y: GROUND_Y - 100 - 26 - 16, radius: 16 },
-        { x: STRUCT_BASE_X + 150, y: GROUND_Y - 18, radius: 18 },
+        { x: STRUCT_BASE_X - 30, y: GROUND_Y - 16, radius: 16 },            // 垒前裸豚
+        { x: STRUCT_BASE_X + 80, y: GROUND_Y - 17, radius: 15 },            // 木垒下方
+        { x: STRUCT_BASE_X + 70, y: GROUND_Y - 140, radius: 14 },           // 梁上（随塌落砸下）
       ],
       blocks: [
-        // 左石墙
-        { x: STRUCT_BASE_X + 10, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
-        // 右石墙
-        { x: STRUCT_BASE_X + 104, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
-        // 木横梁
-        { x: STRUCT_BASE_X + 10, y: GROUND_Y - 100 - 26, width: 120, height: 26, type: 'wood' },
+        // 两根承重木柱（脚墩）
+        { x: STRUCT_BASE_X + 24, y: GROUND_Y - 100, width: 28, height: 100, type: 'wood' },
+        { x: STRUCT_BASE_X + 108, y: GROUND_Y - 100, width: 28, height: 100, type: 'wood' },
+        // 长横梁
+        { x: STRUCT_BASE_X + 14, y: GROUND_Y - 126, width: 132, height: 26, type: 'wood' },
+        // 梁上木堆（断脚后整片砸落）
+        { x: STRUCT_BASE_X + 50, y: GROUND_Y - 154, width: 28, height: 28, type: 'wood' },
+        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 154, width: 28, height: 28, type: 'wood' },
       ],
     },
 
-    // ====== 第7关：双礁哨塔（新）—— 两座小木塔，练习逐个击破 ======
+    // ====== 第7关：双礁哨塔 —— 两座木哨塔分兵，各自断柱塌顶 ======
     {
       name: '第 7 关',
       flavor: '双礁哨塔',
@@ -183,20 +183,19 @@ function getLevels() {
       trajectory: 48,
       stars: [4500, 9000, 13500],
       pigs: [
-        { x: STRUCT_BASE_X + 32, y: GROUND_Y - 15, radius: 15 },
-        { x: STRUCT_BASE_X + 32, y: GROUND_Y - 80 - 26 - 15, radius: 15 },
-        { x: STRUCT_BASE_X + 122, y: GROUND_Y - 15, radius: 15 },
-        { x: STRUCT_BASE_X - 25, y: GROUND_Y - 16, radius: 16 },
+        { x: STRUCT_BASE_X - 40, y: GROUND_Y - 16, radius: 16 },            // 两塔之间前裸豚
+        { x: STRUCT_BASE_X + 36, y: GROUND_Y - 16, radius: 15 },            // A 塔下
+        { x: STRUCT_BASE_X + 126, y: GROUND_Y - 16, radius: 15 },           // B 塔下
       ],
       blocks: [
-        // A 塔
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 80, width: 26, height: 80, type: 'wood' },
-        { x: STRUCT_BASE_X + 44, y: GROUND_Y - 80, width: 26, height: 80, type: 'wood' },
-        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 80 - 26, width: 70, height: 26, type: 'wood' },
-        // B 塔
-        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 80, width: 26, height: 80, type: 'wood' },
-        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 80, width: 26, height: 80, type: 'wood' },
-        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 80 - 26, width: 70, height: 26, type: 'ice' },
+        // A 塔（左）
+        { x: STRUCT_BASE_X + 0, y: GROUND_Y - 86, width: 28, height: 86, type: 'wood' },
+        { x: STRUCT_BASE_X + 44, y: GROUND_Y - 86, width: 28, height: 86, type: 'wood' },
+        { x: STRUCT_BASE_X - 6, y: GROUND_Y - 112, width: 84, height: 26, type: 'wood' },
+        // B 塔（右）
+        { x: STRUCT_BASE_X + 88, y: GROUND_Y - 86, width: 28, height: 86, type: 'wood' },
+        { x: STRUCT_BASE_X + 132, y: GROUND_Y - 86, width: 28, height: 86, type: 'wood' },
+        { x: STRUCT_BASE_X + 80, y: GROUND_Y - 112, width: 84, height: 26, type: 'wood' },
       ],
     },
 

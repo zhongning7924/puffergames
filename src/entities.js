@@ -923,11 +923,32 @@ class Block {
       ctx.lineTo(-w / 2 + 2, -h / 2 + 4);
       ctx.closePath();
       ctx.fill();
+    } else if (this.type === 'fire') {
+      // 熔岩砖：火山岩暗砖缝（错缝砌筑）+ 熔融发光脉
+      ctx.strokeStyle = p.colorDark;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-w / 2 + 2, 0); ctx.lineTo(w / 2 - 2, 0);   // 横砖缝
+      ctx.moveTo(-w * 0.18, -h / 2 + 2); ctx.lineTo(-w * 0.18, 0); // 上行竖缝
+      ctx.moveTo(w * 0.22, 0); ctx.lineTo(w * 0.22, h / 2 - 2);   // 下行竖缝（错缝）
+      ctx.stroke();
+      // 熔融主脉（发光橙，自下而上贯穿，像砖内热流）
+      ctx.strokeStyle = p.colorLight;
+      ctx.lineWidth = 1.6;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.28, h / 2 - 3);
+      ctx.lineTo(-w * 0.08, h * 0.08);
+      ctx.lineTo(w * 0.12, -h * 0.12);
+      ctx.lineTo(w * 0.3, -h / 2 + 3);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
     }
 
     // 裂纹 Cracks
     if (this.cracks.length > 0) {
-      ctx.strokeStyle = this.type === 'ice' ? 'rgba(255,255,255,0.7)' : p.colorDark;
+      ctx.strokeStyle = this.type === 'ice' ? 'rgba(255,255,255,0.7)'
+        : this.type === 'fire' ? p.colorLight : p.colorDark;
       ctx.lineWidth = 1.2;
       for (const crack of this.cracks) {
         ctx.beginPath();

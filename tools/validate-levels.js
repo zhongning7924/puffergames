@@ -17,6 +17,7 @@
 'use strict';
 
 const { getLevels } = require('../src/levels.js');
+const C = require('../src/config.js');
 const DAILY = require('../src/daily.js');
 const PEARLS = require('../src/pearls.js');
 // 几何校验与编辑器共用纯函数（互叠/越界/沉地/珍珠可达性/候飞豚越屏）
@@ -70,16 +71,16 @@ function checkGeometry(label, level) {
   issues.forEach((iss) => fail(`${label} ${iss.msg}`));
 }
 
-/** 难度指标（信息输出） */
-const HP = { wood: 2, stone: 4, ice: 1, burst: 1 };
-const DENS = { wood: 1.0, stone: 2.0, ice: 0.5, burst: 0.8 };
+/** 难度指标（信息输出）；材料血量/密度动态读 config，新增材料（如火熔岩砖）自动纳入 */
+const hpOf = t => (C.BLOCK_TYPES[t] ? C.BLOCK_TYPES[t].health : 1);
+const denOf = t => (C.BLOCK_TYPES[t] && C.BLOCK_TYPES[t].density != null ? C.BLOCK_TYPES[t].density : 1);
 
 function printMetrics(label, level) {
   const blocks = level.blocks || [];
   const pigs = level.pigs || [];
   const birds = Array.isArray(level.birds) ? level.birds.length : level.birds;
   const hard = blocks.length
-    ? blocks.reduce((s, b) => s + HP[b.type] * DENS[b.type], 0) / blocks.length
+    ? blocks.reduce((s, b) => s + hpOf(b.type) * denOf(b.type), 0) / blocks.length
     : 0;
   const n = pigs.length;
   // 理论满分：N 章鱼全连击 N(N+1)/2×1000 + 方块×500 + 剩豚(豚数-1)×5000
