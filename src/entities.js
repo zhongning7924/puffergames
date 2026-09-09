@@ -438,6 +438,8 @@ class Pig {
     this.radius = radius;
     this.isBoss = !!opts.boss;
     this.bossName = opts.name || '';
+    // 章王配色（五色差异化的单一数据源在 config.BOSS_STYLE；未知 style 回退深渊紫）
+    this.bossStyle = C.BOSS_STYLE[opts.style] || C.BOSS_STYLE.abyss;
     this.sleepMark = opts.sleep || 0;   // >0 = 休眠体，在章王第 N 阶段怒吼时唤醒
     this.sleeping = this.sleepMark > 0;
     const defaultHp = radius > 26 ? 3 : radius > 20 ? 2 : 1;
@@ -551,19 +553,23 @@ class Pig {
 
     const r = this.radius;
 
-    // 身体 Body（章王：深紫重甲色 + 更粗描边，巨物压场）
+    // 章王按 style 取专属配色（本体/描边/触手/嘴/裂纹/怒眉同源 BOSS_STYLE），普通豚用默认紫
+    const bs = this.isBoss ? this.bossStyle : null;
+    const bodyMain = bs ? bs.body : C.COLORS.pigBody;
+    const bodyDark = bs ? bs.dark : C.COLORS.pigBodyDark;
+    const flashColor = (bs && bs.flash) ? bs.flash : '#FFEB3B';
+
+    // 身体 Body（章王：style 重甲色 + 更粗描边，巨物压场）
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
-    const bodyColor = this.hurtFlash > 0 ? '#FFEB3B'
-      : (this.isBoss ? '#8E24AA' : C.COLORS.pigBody);
-    ctx.fillStyle = bodyColor;
+    ctx.fillStyle = this.hurtFlash > 0 ? flashColor : bodyMain;
     ctx.fill();
-    ctx.strokeStyle = C.COLORS.pigBodyDark;
+    ctx.strokeStyle = bodyDark;
     ctx.lineWidth = this.isBoss ? 3.5 : 1.5;
     ctx.stroke();
 
     // 头顶卷触手 Curled tentacle（章鱼特征，螺旋卷 + 吸盘尖）
-    ctx.strokeStyle = C.COLORS.pigBodyDark;
+    ctx.strokeStyle = bodyDark;
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -571,7 +577,7 @@ class Pig {
     ctx.stroke();
     ctx.beginPath();
     ctx.arc(6, -r - 6.5, 2.5, 0, Math.PI * 2); // 吸盘尖
-    ctx.fillStyle = this.hurtFlash > 0 ? '#FFF176' : C.COLORS.pigSnout;
+    ctx.fillStyle = this.hurtFlash > 0 ? flashColor : C.COLORS.pigSnout;
     ctx.fill();
 
     // 底部小触手 Bottom tentacles（4 个半圆小足，贴身体下缘）
@@ -580,9 +586,9 @@ class Pig {
       const ty = r * 0.82;
       ctx.beginPath();
       ctx.arc(tx, ty, r * 0.16, 0, Math.PI * 2);
-      ctx.fillStyle = this.hurtFlash > 0 ? '#FFEB3B' : C.COLORS.pigBody;
+      ctx.fillStyle = this.hurtFlash > 0 ? flashColor : bodyMain;
       ctx.fill();
-      ctx.strokeStyle = C.COLORS.pigBodyDark;
+      ctx.strokeStyle = bodyDark;
       ctx.lineWidth = 1.2;
       ctx.stroke();
       // 吸盘点
@@ -593,7 +599,7 @@ class Pig {
     }
 
     // 嘴巴 Mouth（ω 形坏笑，章鱼赖皮相）
-    ctx.strokeStyle = C.COLORS.pigBodyDark;
+    ctx.strokeStyle = bodyDark;
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -655,7 +661,7 @@ class Pig {
 
     // 受伤裂纹 Damage cracks（章王裂纹更粗，数量随掉血增多）
     if (this.health < this.maxHealth && !this.dying) {
-      ctx.strokeStyle = C.COLORS.pigBodyDark;
+      ctx.strokeStyle = bodyDark;
       ctx.lineWidth = this.isBoss ? 2 : 1;
       const cracks = Math.min(this.maxHealth - this.health, this.isBoss ? 8 : 6);
       for (let i = 0; i < cracks; i++) {
@@ -687,7 +693,7 @@ class Pig {
       ctx.fill();
       ctx.stroke();
       // 怒眉
-      ctx.strokeStyle = '#4A148C';
+      ctx.strokeStyle = bodyDark;
       ctx.lineWidth = 3.5;
       ctx.lineCap = 'round';
       ctx.beginPath();

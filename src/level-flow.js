@@ -104,7 +104,7 @@ function setupLevel(game, level) {
 
   // 生成章鱼（章王：boss/hp/name；阶段援军：sleep 标记）
   game.pigs = level.pigs.map(p => new E.Pig(p.x, p.y, p.radius,
-    { boss: p.boss, hp: p.hp, name: p.name, sleep: p.sleep }));
+    { boss: p.boss, hp: p.hp, name: p.name, sleep: p.sleep, style: p.style }));
 
   // 生成方块（章王阶段掉落物：sleep 标记，预置屏幕外，怒吼时唤醒）
   game.blocks = level.blocks.map(b => new E.Block(b.x, b.y, b.width, b.height, b.type,

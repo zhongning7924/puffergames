@@ -23,6 +23,7 @@ const CODEC = require('../src/level-codec.js');
 const VALIDATE = require('../src/level-validate.js');
 const EDITOR = require('../src/editor.js');
 const PHYS = require('../src/physics.js');
+const HELP = require('../src/help.js');
 
 // ===== 极简测试运行器 =====
 const tests = [];
@@ -224,6 +225,44 @@ test('章末 Boss 关：idx 7/15/23/31/39 各守一只章王，字段正确，�
       assert.strictEqual(bosses.length, 0, `L${i + 1} 非章末关不应配置章王`);
     }
   });
+});
+
+test('章王五色差异化：战斗内 bossStyle 五王互异，且与图鉴/配置同源', () => {
+  fresh();
+  const BOSS_STYLE = { 7: 'marsh', 15: 'ice', 23: 'stone', 31: 'abyss', 39: 'throne' };
+  const battleBodies = [];
+  for (const idx of Object.keys(BOSS_STYLE)) {
+    game.loadLevel(Number(idx));
+    const boss = game.pigs.find(p => p.isBoss);
+    const styleId = BOSS_STYLE[idx];
+    assert.strictEqual(boss.bossStyle, C.BOSS_STYLE[styleId],
+      `L${idx + 1} 章王 bossStyle 应解析为 ${styleId}`);
+    battleBodies.push(boss.bossStyle.body);
+  }
+  // 战斗内五王本体色两两不同
+  assert.strictEqual(new Set(battleBodies).size, 5, '五只章王本体色应两两不同');
+
+  // 图鉴五卡 style 与配置同源、互异（旧 shellColor 手抄表已删）
+  assert.strictEqual(HELP.HELP_BOSSES.length, 5);
+  const cardBodies = HELP.HELP_BOSSES.map(b => C.BOSS_STYLE[b.style].body);
+  assert.strictEqual(new Set(cardBodies).size, 5, '图鉴五张章王卡配色应两两不同');
+  Object.keys(BOSS_STYLE).forEach((idx, i) => {
+    assert.strictEqual(cardBodies[i], battleBodies[i],
+      `L${idx + 1} 图鉴配色与战斗内不一致`);
+  });
+  // 未知 style 安全回退深渊紫（旧硬编码色），不炸渲染
+  const fallback = new E.Pig(0, 0, 30, { boss: true });
+  assert.strictEqual(fallback.bossStyle, C.BOSS_STYLE.abyss);
+});
+
+test('图鉴克制矩阵：damageVs 与 BIRD_TYPES 同源含 fire，嘟嘟文案显示「火×2」', () => {
+  for (const card of HELP.HELP_PUFFERS) {
+    assert.deepStrictEqual(card.damageVs, C.BIRD_TYPES[card.type].damageVs,
+      `${card.name} 图鉴 damageVs 必须与 BIRD_TYPES 同源（防手抄漏材质）`);
+  }
+  const dudu = HELP.HELP_PUFFERS.find(p => p.type === 'normal');
+  assert.strictEqual(dudu.damageVs.fire, 2, '嘟嘟铁头克制火材质 fire×2');
+  assert.ok(HELP.damageText(dudu.damageVs).indexOf('火×2') >= 0, '克制文案应含「火×2」');
 });
 
 test('Boss 实体：免疫击退、自定义血量、受击扣 1 血', () => {

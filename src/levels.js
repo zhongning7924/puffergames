@@ -211,7 +211,7 @@ function getLevels() {
       stars: [5200, 10000, 15000],
       pigs: [
         // 滩涂章王（Boss）：站在两根承重柱之间，免疫击退；头顶悬石堆，拆柱塌楼杀
-        { x: STRUCT_BASE_X + 92, y: GROUND_Y - 30, radius: 30, boss: true, hp: 5, name: '滩涂章王' },
+        { x: STRUCT_BASE_X + 92, y: GROUND_Y - 30, radius: 30, boss: true, hp: 5, name: '滩涂章王', style: 'marsh' },
         // 阵前地面章鱼
         { x: STRUCT_BASE_X - 34, y: GROUND_Y - 16, radius: 16 },
       ],
@@ -435,7 +435,7 @@ function getLevels() {
       stars: [8000, 14000, 21000],
       pigs: [
         // 冰壳章王（Boss）：冻果冰穹正下方，hp7；半血怒吼天降爆裂果（sleep 阶段物）
-        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 26, radius: 26, boss: true, hp: 7, name: '冰壳章王' },
+        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 26, radius: 26, boss: true, hp: 7, name: '冰壳章王', style: 'ice' },
         // 冰穹顶哨章鱼（坐中央冻果上）
         { x: STRUCT_BASE_X + 120, y: GROUND_Y - 159, radius: 13 },
         // 前左地面
@@ -672,7 +672,7 @@ function getLevels() {
       stars: [12000, 20000, 30000],
       pigs: [
         // 岩甲章王（Boss）：压在断桥正下方，hp9；两度怒吼天降落石
-        { x: STRUCT_BASE_X + 100, y: GROUND_Y - 32, radius: 32, boss: true, hp: 9, name: '岩甲章王' },
+        { x: STRUCT_BASE_X + 100, y: GROUND_Y - 32, radius: 32, boss: true, hp: 9, name: '岩甲章王', style: 'stone' },
         // 桥面哨章鱼（站桥面左段、贴左墩：第一发炸左墩时爆炸直接波及，不依赖随桥坠落）
         { x: STRUCT_BASE_X + 48, y: GROUND_Y - 164, radius: 14 },
         // 阵前地面章鱼
@@ -880,7 +880,7 @@ function getLevels() {
       stars: [12800, 20500, 27000],
       pigs: [
         // 深渊章王（Boss）：悬闸正下方，hp11，三度怒吼（落石+召唤）
-        { x: STRUCT_BASE_X + 98, y: GROUND_Y - 33, radius: 33, boss: true, hp: 11, name: '深渊章王' },
+        { x: STRUCT_BASE_X + 98, y: GROUND_Y - 33, radius: 33, boss: true, hp: 11, name: '深渊章王', style: 'abyss' },
         // 悬闸顶哨章鱼（站闸面上）
         { x: STRUCT_BASE_X + 90, y: GROUND_Y - 198, radius: 13 },
         // 阵前地面章鱼
@@ -1126,7 +1126,7 @@ function getLevels() {
       stars: [16000, 25000, 34000],
       pigs: [
         // 潮汐王座·章王（最终 Boss）：三层石堡王座下，hp14，三度怒吼
-        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 34, radius: 34, boss: true, hp: 14, name: '潮汐王座·章王' },
+        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 34, radius: 34, boss: true, hp: 14, name: '潮汐王座·章王', style: 'throne' },
         // 王座外层哨章鱼（站最高石檐上）
         { x: STRUCT_BASE_X + 140, y: GROUND_Y - 244, radius: 14 },
         // 阵前地面章鱼

@@ -275,6 +275,18 @@ const BLOCK_TYPES = {
   },
 };
 
+// 章王配色 Boss styles（战斗内本体与图鉴头像的单一数据源）
+// body 取深一档：避免与同色壳材质方块「融壳」、避免图鉴浅色卡片上浅色发飘；
+// dark 用于描边/卷触手/嘴线/裂纹/怒眉；flash 为受伤闪色（琥珀王黄闪不可见 → 白闪）。
+// 缺省/未知 style 一律回退 abyss（历史深紫，即旧硬编码色）。
+const BOSS_STYLE = {
+  marsh:  { body: '#8D6E63', dark: '#5D4037' },                    // L8 滩涂章王（木壳系暖棕）
+  ice:    { body: '#4FC3F7', dark: '#0277BD' },                    // L16 冰壳章王
+  stone:  { body: '#78909C', dark: '#37474F' },                    // L24 岩甲章王
+  abyss:  { body: '#8E24AA', dark: '#4A148C' },                    // L32 深渊章王（兼 fallback）
+  throne: { body: '#FF8F00', dark: '#E65100', flash: '#FFF8E1' },  // L40 潮汐王座（琥珀橙）
+};
+
 module.exports = {
   init,
   FEATURES,
@@ -299,6 +311,7 @@ module.exports = {
   get COLORS() { return COLORS; },
   get BLOCK_TYPES() { return BLOCK_TYPES; },
   get BIRD_TYPES() { return BIRD_TYPES; },
+  get BOSS_STYLE() { return BOSS_STYLE; },
   get DASH_BOOST() { return DASH_BOOST; },
   get DASH_MIN_SPEED() { return DASH_MIN_SPEED; },
   get BOMB_RADIUS() { return BOMB_RADIUS; },

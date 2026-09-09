@@ -28,7 +28,7 @@ const HELP_PUFFERS = [
     bodyColor: C.BIRD_TYPES.normal.body,
     abilityName: '无技能',
     abilityDesc: '标准弹射，适合新手熟悉手感与关卡几何。',
-    damageVs: { wood: 1.0, stone: 1.0, ice: 1.0 },
+    damageVs: { ...C.BIRD_TYPES.normal.damageVs },
   },
   {
     type: 'dash',
@@ -36,7 +36,7 @@ const HELP_PUFFERS = [
     bodyColor: C.BIRD_TYPES.dash.body,
     abilityName: '疾翎冲刺',
     abilityDesc: '空中点击 → 沿当前方向极速冲刺（速度 ×2.1），直捣远处掩体。',
-    damageVs: { wood: 2.0, stone: 0.6, ice: 1.2 },
+    damageVs: { ...C.BIRD_TYPES.dash.damageVs },
   },
   {
     type: 'bomb',
@@ -44,7 +44,7 @@ const HELP_PUFFERS = [
     bodyColor: C.BIRD_TYPES.bomb.body,
     abilityName: '岩轰爆炸',
     abilityDesc: '空中点击或首次撞击 → 范围爆炸（半径 110），一发清场。',
-    damageVs: { wood: 1.2, stone: 2.0, ice: 1.2 },
+    damageVs: { ...C.BIRD_TYPES.bomb.damageVs },
   },
   {
     type: 'split',
@@ -52,18 +52,19 @@ const HELP_PUFFERS = [
     bodyColor: C.BIRD_TYPES.split.body,
     abilityName: '三胞分裂',
     abilityDesc: '空中点击 → 一分为三（上下偏转），一发覆盖三处。',
-    damageVs: { wood: 0.8, stone: 0.5, ice: 2.0 },
+    damageVs: { ...C.BIRD_TYPES.split.damageVs },
   },
 ];
 
-// 章王图鉴：name 章王名 / level 所在关 / hp 血量 / shell 外壳 / trait 机制特点
+// 章王图鉴：name 章王名 / level 所在关 / hp 血量 / shell 外壳 / style 配色 id
+// （与战斗内同源 config.BOSS_STYLE，改色只改 config 一处）/ trait 机制特点
 const HELP_BOSSES = [
   {
     name: '滩涂章王',
     level: 8,
     hp: 5,
     shell: '木壳',
-    shellColor: C.COLORS.wood || '#A1887F',
+    style: 'marsh',
     trait: '首个 Boss（教学战，无怒吼）。免疫击退，需多次直击破壳。',
   },
   {
@@ -71,7 +72,7 @@ const HELP_BOSSES = [
     level: 16,
     hp: 7,
     shell: '冰壳',
-    shellColor: C.COLORS.ice || '#B3E5FC',
+    style: 'ice',
     trait: '半血触发怒吼，从屏外天降「爆裂果」援军，注意走位躲避。',
   },
   {
@@ -79,7 +80,7 @@ const HELP_BOSSES = [
     level: 24,
     hp: 9,
     shell: '石壳',
-    shellColor: C.COLORS.stone || '#90A4AE',
+    style: 'stone',
     trait: '两阶段；两度怒吼天降「落石」，用砰砰（克石）破壳最快。',
   },
   {
@@ -87,7 +88,7 @@ const HELP_BOSSES = [
     level: 32,
     hp: 11,
     shell: '混合壳',
-    shellColor: '#7E57C2',
+    style: 'abyss',
     trait: '石墙 + 木墙 + 冰顶混合壳；三度怒吼，需轮换河豚克制。',
   },
   {
@@ -95,7 +96,7 @@ const HELP_BOSSES = [
     level: 40,
     hp: 14,
     shell: '王座双层壳',
-    shellColor: '#FFB300',
+    style: 'throne',
     trait: '最终 Boss，血量最高；三度怒吼（落石 + 爆裂果 + 召唤援军）。',
   },
 ];
@@ -209,7 +210,7 @@ function drawBossCard(ctx, x, y, w, b) {
   roundRect(ctx, x, y, w, 96, 12);
   ctx.stroke();
 
-  drawOctopusMini(ctx, x + 38, y + 48, 24, b.shellColor);
+  drawOctopusMini(ctx, x + 38, y + 48, 24, C.BOSS_STYLE[b.style].body);
 
   ctx.textAlign = 'left';
   ctx.fillStyle = '#212121';
@@ -230,6 +231,7 @@ function damageText(d) {
   if (d.wood > 1) parts.push('木×' + d.wood);
   if (d.stone > 1) parts.push('石×' + d.stone);
   if (d.ice > 1) parts.push('冰×' + d.ice);
+  if (d.fire > 1) parts.push('火×' + d.fire);
   return parts.length ? parts.join(' ') : '全材质均衡';
 }
 
@@ -331,5 +333,6 @@ function drawStrokedTitle(ctx, text, x, y) {
 module.exports = {
   HELP_PUFFERS,
   HELP_BOSSES,
+  damageText,
   drawHelp,
 };
