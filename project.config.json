@@ -31,15 +31,42 @@
   "simulatorPluginLibVersion": {},
   "packOptions": {
     "ignore": [
-      { "type": "folder", "value": "outputs" },
-      { "type": "folder", "value": "preview" },
-      { "type": "folder", "value": "tools" },
-      { "type": "folder", "value": "docs" },
-      { "type": "folder", "value": "opendata" },
-      { "type": "file", "value": "build-preview.js" },
-      { "type": "file", "value": "verify-preview.js" },
-      { "type": "file", "value": "overview.md" },
-      { "type": "folder", "value": ".workbuddy" }
+      {
+        "type": "folder",
+        "value": "outputs"
+      },
+      {
+        "type": "folder",
+        "value": "preview"
+      },
+      {
+        "type": "folder",
+        "value": "tools"
+      },
+      {
+        "type": "folder",
+        "value": "docs"
+      },
+      {
+        "type": "folder",
+        "value": "opendata"
+      },
+      {
+        "type": "file",
+        "value": "build-preview.js"
+      },
+      {
+        "type": "file",
+        "value": "verify-preview.js"
+      },
+      {
+        "type": "file",
+        "value": "overview.md"
+      },
+      {
+        "type": "folder",
+        "value": ".workbuddy"
+      }
     ],
     "include": []
   },

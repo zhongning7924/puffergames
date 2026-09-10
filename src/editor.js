@@ -20,14 +20,18 @@ const SOCIAL = require('./social.js');
 // 不可在模块加载期冻结，用到的地方一律实时读 C.GROUND_Y（812 重 init 测试依赖此点）。
 const GRID = CODEC.GRID;
 
-// ==================== 布局常量 ====================
+// ==================== 布局常量（全部逻辑 CSS 像素；y 类几何随 SAFE_* 实时算）====================
 const TOP_CONTENT_H = 48;  // 顶栏内容带高（背景从 y=0 画到 SAFE_TOP+此值，盖住状态栏）
 // 顶栏 4 分类分段控件：x/w/segW 为静态几何，y 是相对 SAFE_TOP 的偏移（真机随刘海下移）
 const SEG = { x: 88, y: 6, w: 184, h: 36, segW: 46 };
-const BAR_H = 84;          // 旧底栏总高（T12-3 将被大卡底栏替换，过渡期保留）
-const TAB_H = 28;
-const CHIP = 64;           // 物料 chip 宽
-const CHIP_GAP = 8;
+// 底栏：材质筛选行（仅 blocks）+ 卡行（锚屏底，含 SAFE_BOTTOM 留白）
+const FILTER_H = 36;       // 材质筛选行高
+const CARD_AREA_H = 64;    // 卡行高
+const CARD_W = 72, CARD_H = 56, CARD_GAP = 8;
+const CARD_PITCH = CARD_W + CARD_GAP;   // 80：大卡横移步距
+const CARD_X = 80;         // 卡行左缘；左 80px = 橡皮槽 + 透明井（露出候飞豚列）
+const FILTER = { x: 80, h: 36 };        // 材质面板几何（宽 = 屏宽-80-8，segW 实时算）
+const ERASER_SLOT = { x: 8, y: 4, w: 56, h: 56 }; // 橡皮固定槽（卡行坐标系，y 相对 cardTop）
 const ZONE_X = C.SCREEN_WIDTH * 0.33; // 弹弓禁放区（与 validateLevel 同公式）
 
 // ==================== 物料表 ====================
@@ -61,13 +65,56 @@ const PALETTE = {
     { id: 'split', kind: 'bird', type: 'split', label: '三丸子' },
   ],
   items: [
-    { id: 'pearl', kind: 'pearl', label: '珍珠' },
-    { id: 'eraser', kind: 'eraser', label: '橡皮' },
+    { id: 'pearl', kind: 'pearl', label: '珍珠' }, // 橡皮已提为卡行固定槽，不在此列
   ],
 };
 
-/** 跨 tab 按 id 查物料定义 */
+// blocks 分类的材质子筛选（木/石/冰各 3 形状；爆裂果单独一组「果」）
+const MAT_GROUPS = {
+  wood: ['wood-b', 'wood-p', 'wood-q'],
+  stone: ['stone-b', 'stone-p', 'stone-q'],
+  ice: ['ice-b', 'ice-p', 'ice-q'],
+  fruit: ['burst'],
+};
+const MATERIALS = [
+  { id: 'wood', label: '木' },
+  { id: 'stone', label: '石' },
+  { id: 'ice', label: '冰' },
+  { id: 'fruit', label: '果' },
+];
+// 橡皮固定槽物料（任何分类常驻卡行最左；不属任何 PALETTE 组）
+const ERASER_ITEM = { id: 'eraser', kind: 'eraser', label: '橡皮' };
+
+/** 当前分类 + 材质筛选下可见的物料卡序列 */
+function visibleItems(d) {
+  if (d.tab === 'blocks') {
+    const ids = MAT_GROUPS[d.matFilter || 'wood'] || MAT_GROUPS.wood;
+    return ids.map(findPalette).filter(Boolean);
+  }
+  return PALETTE[d.tab] || [];
+}
+
+/** 底栏实时几何（随机型 SAFE_TOP/SAFE_BOTTOM 变化，禁止模块期冻结） */
+function barLayout(d) {
+  const cardTop = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - CARD_AREA_H;
+  const showFilter = d.tab === 'blocks';
+  const filterTop = cardTop - FILTER_H;
+  const filterW = C.SCREEN_WIDTH - FILTER.x - 8; // 面板右缘留 8
+  return {
+    topH: C.SAFE_TOP + TOP_CONTENT_H,
+    cardTop,
+    filterTop,
+    cardBottom: cardTop + CARD_AREA_H,
+    showFilter,
+    barTop: showFilter ? filterTop : cardTop,
+    filterW,
+    filterSegW: filterW / MATERIALS.length,
+  };
+}
+
+/** 跨 tab 按 id 查物料定义（'eraser' 命中固定槽） */
 function findPalette(id) {
+  if (id === 'eraser') return ERASER_ITEM;
   for (const t of TABS) {
     const f = PALETTE[t.id].find(i => i.id === id);
     if (f) return f;
@@ -112,16 +159,26 @@ function deriveLevel(draft) {
 
 // ==================== 进出状态 ====================
 
+/** 编辑器交互状态（draft 实体模型在外注入；首次进入/openSlot 共用，杜绝字段漏填） */
+function makeEditorState(draft, proven) {
+  return {
+    draft,
+    tab: 'blocks', matFilter: 'wood', palette: null, eraser: false,
+    selected: null, drag: null, barDrag: null, scrollX: 0,
+    proven: !!proven, issues: [],
+    touchX: 0, touchY: 0, rejectFlash: 0, worldDown: false,
+  };
+}
+
 /** 进入编辑器（保留已有草稿；首次进入初始化空草稿） */
 function enterEditor(game) {
   if (!game.editor || !game.editor.draft) {
-    game.editor = {
-      draft: newDraft(),
-      tab: 'blocks', palette: null, eraser: false,
-      selected: null, drag: null, barDrag: null, scrollX: 0,
-      proven: false, issues: [],
-      touchX: 0, touchY: 0, rejectFlash: 0,
-    };
+    game.editor = makeEditorState(newDraft(), false);
+  } else {
+    // 重入（作者流试玩返回）：清瞬态手势，保留 tab/matFilter/palette/selected 编辑上下文
+    game.editor.drag = null;
+    game.editor.barDrag = null;
+    game.editor.worldDown = false;
   }
   game.isCustom = false;
   game.playOrigin = null;
@@ -339,12 +396,28 @@ function switchTab(d, id) {
   d.palette = null;
   d.barDrag = null;
   d.scrollX = 0;
+  if (id === 'blocks' && !d.matFilter) d.matFilter = 'wood';
+}
+
+/** 切换 blocks 材质子筛选（木/石/冰/果）：清已挂物料、复位横滚，保留 eraser */
+function setMatFilter(d, k) {
+  if (!MAT_GROUPS[k]) return;
+  d.matFilter = k;
+  d.palette = null;
+  d.scrollX = 0;
+}
+
+/** 橡皮固定槽：武装/解除；武装时清已挂物料（进入擦除模式） */
+function toggleEraser(d) {
+  d.eraser = !d.eraser;
+  if (d.eraser) d.palette = null;
 }
 
 function barMaxScroll(d) {
-  const n = (PALETTE[d.tab] || []).length;
-  const contentW = 8 + n * (CHIP + CHIP_GAP) + 8;
-  return Math.max(0, contentW - C.SCREEN_WIDTH);
+  const n = visibleItems(d).length;
+  const contentW = n * CARD_W + Math.max(0, n - 1) * CARD_GAP;
+  const viewW = C.SCREEN_WIDTH - CARD_X - 8; // 卡行视口（左缘 80，右留 8）
+  return Math.max(0, contentW - viewW);
 }
 
 /** 底栏选中物料：河豚直接入队；橡皮切换；其余挂 palette 进入放置模式 */
@@ -359,9 +432,9 @@ function selectPalette(game, item) {
 function onTouchStart(game, x, y) {
   const d = game.editor;
   cacheTouch(d, x, y);
-  const topH = C.SAFE_TOP + TOP_CONTENT_H;
+  const L = barLayout(d);
   // 1. 顶栏带（背景从 y=0 画起盖住状态栏；0..SAFE_TOP 状态栏区只吞不响应）
-  if (y < topH) {
+  if (y < L.topH) {
     // 退出/试玩胶囊
     for (const k of ['editorExit', 'editorPlay']) {
       if (game.buttons[k] && game.buttons[k].contains(x, y)) { game.buttons[k].pressed = true; return; }
@@ -373,18 +446,30 @@ function onTouchStart(game, x, y) {
     }
     return;
   }
-  // 2. 旧底栏（T12-3 将被大卡底栏替换）：tab 行立即切；物料行记手势，抬手未滚动才选 chip
-  if (y > C.SCREEN_HEIGHT - BAR_H) {
-    const barTop = C.SCREEN_HEIGHT - BAR_H;
-    if (y <= barTop + TAB_H) {
-      const i = Math.floor(x / (C.SCREEN_WIDTH / TABS.length));
-      if (TABS[i]) switchTab(d, TABS[i].id);
+  // 2. 底栏区（材质悬浮面板 / 橡皮固定槽 / 大卡行）
+  if (y >= L.barTop) {
+    if (L.showFilter && y >= L.filterTop && y < L.cardTop) {
+      // blocks 材质筛选行：面板缩进 x≥80；x<80 是「透明井」直通世界（不 return）
+      if (x >= FILTER.x) {
+        const i = Math.floor((x - FILTER.x) / L.filterSegW);
+        if (MATERIALS[i]) setMatFilter(d, MATERIALS[i].id);
+        return;
+      }
+    } else if (y >= L.cardTop) {
+      // 卡行：最左橡皮槽常驻；x≥80 记横滚手势（抬手未移动才选卡）；64..80 缝隙吞掉
+      if (x >= ERASER_SLOT.x && x < ERASER_SLOT.x + ERASER_SLOT.w) {
+        toggleEraser(d);
+        return;
+      }
+      if (x >= CARD_X) {
+        d.barDrag = { startX: x, scrollStart: d.scrollX, moved: false };
+        return;
+      }
       return;
     }
-    d.barDrag = { startX: x, scrollStart: d.scrollX, moved: false };
-    return;
   }
-  // 3. 世界区
+  // 3. 世界区（材质行透明井 x<80 的起手也落这里）
+  d.worldDown = true;
   const h = hitTest(game, x, y);
   if (d.eraser) { if (h) removeAt(game, x, y); return; }
   if (h) {
@@ -425,18 +510,19 @@ function onTouchEnd(game) {
   if (game.buttons.editorPlay && game.buttons.editorPlay.pressed) {
     game.buttons.editorPlay.pressed = false; return tryPlay(game);
   }
-  // 底栏 chip 点按（未滚动才触发）
+  // 底栏大卡点按（未滚动才触发；左缘 80、步距 80）
   if (d.barDrag) {
     const bd = d.barDrag;
     d.barDrag = null;
-    if (!bd.moved && bd.startX > 0) {
-      const items = PALETTE[d.tab] || [];
+    if (!bd.moved) {
+      const items = visibleItems(d);
       const localX = bd.startX + bd.scrollStart; // 点击瞬间无滚动，用起始 scroll 反算
       for (let j = 0; j < items.length; j++) {
-        const left = 8 + j * (CHIP + CHIP_GAP);
-        if (localX >= left && localX <= left + CHIP) { selectPalette(game, items[j]); break; }
+        const left = CARD_X + j * CARD_PITCH;
+        if (localX >= left && localX <= left + CARD_W) { selectPalette(game, items[j]); break; }
       }
     }
+    d.worldDown = false;
     return;
   }
   // 世界区拖动收尾
@@ -445,11 +531,12 @@ function onTouchEnd(game) {
     if (wasDrag.moved) { touchStructure(game); revalidate(game); }
     d.drag = null;
   }
-  // 点候飞豚移除（touchend 且未拖动）
-  if (!wasDrag && y != null && y < C.SCREEN_HEIGHT - BAR_H) {
+  // 点候飞豚移除：必须世界区起手且未拖动（透明井内的队列豚可删；卡行背后不误删）
+  if (d.worldDown && !wasDrag && y != null) {
     const h = hitTest(game, x, y);
     if (h && h.kind === 'queuebird') removeBirdAt(game, h.index);
   }
+  d.worldDown = false;
 }
 
 /** 拖动中实体跟手（网格吸附；底不穿海床；禁区/重叠不拦，抬手 revalidate 红圈兜底） */
@@ -528,13 +615,7 @@ function openSlot(game, i) {
   const lv = CODEC.decodeLevel(slots[i].code);
   if (!lv) return;
   // 关键：草稿必须实体实例化，否则 editor-render 调 ent.draw 崩
-  game.editor = {
-    draft: instantiateDraft(lv),
-    tab: 'blocks', palette: null, eraser: false,
-    selected: null, drag: null, barDrag: null, scrollX: 0,
-    proven: !!slots[i].proven, issues: [],
-    touchX: 0, touchY: 0, rejectFlash: 0,
-  };
+  game.editor = makeEditorState(instantiateDraft(lv), slots[i].proven);
   enterEditor(game); // 复用状态设置（草稿已存在，不会被重置）
   revalidate(game);
 }
@@ -640,6 +721,8 @@ module.exports = {
   onTouchStart, onTouchMove, onTouchEnd, update,
   queueBirdPos,
   TABS, PALETTE,
-  // 布局常量（editor-render 共用）
-  TOP_CONTENT_H, SEG, BAR_H, TAB_H, CHIP, CHIP_GAP, ZONE_X,
+  // 布局常量/helper（editor-render 与 e2e 共用，全部实时读 C，禁模块期冻结）
+  TOP_CONTENT_H, SEG, FILTER_H, CARD_AREA_H, CARD_W, CARD_H, CARD_GAP, CARD_PITCH,
+  CARD_X, FILTER, ERASER_SLOT, ZONE_X,
+  barLayout, visibleItems, barMaxScroll, MAT_GROUPS, MATERIALS, ERASER_ITEM,
 };
