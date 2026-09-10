@@ -11,7 +11,7 @@ const E = require('./entities.js');
 const RENDERER = require('./renderer.js');
 const EDITOR = require('./editor.js');
 
-const { TABS, PALETTE, BAR_H, TAB_H, CHIP, CHIP_GAP, ZONE_X } = EDITOR;
+const { TABS, PALETTE, TOP_CONTENT_H, SEG, BAR_H, TAB_H, CHIP, CHIP_GAP, ZONE_X } = EDITOR;
 
 /** 物料 chip 的主题色块（方块按材质、敌人/道具按语义） */
 function chipColor(item) {
@@ -31,6 +31,7 @@ function drawEditor(game) {
   const W = C.SCREEN_WIDTH;
   const H = C.SCREEN_HEIGHT;
   const barTop = H - BAR_H;
+  const topH = C.SAFE_TOP + TOP_CONTENT_H;
 
   // 1. 世界背景（海洋/海床照常用，底栏盖在沙土区上）
   RENDERER.drawBackground(game);
@@ -41,14 +42,14 @@ function drawEditor(game) {
   ctx.lineWidth = 2;
   ctx.setLineDash([8, 6]);
   ctx.beginPath();
-  ctx.moveTo(ZONE_X, 44);
+  ctx.moveTo(ZONE_X, topH);
   ctx.lineTo(ZONE_X, C.GROUND_Y);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = 'rgba(255,120,120,0.7)';
   ctx.font = '12px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('弹弓区·禁放', ZONE_X / 2, 90);
+  ctx.fillText('弹弓区·禁放', ZONE_X / 2, topH + 26);
   ctx.restore();
 
   // 2. 草稿实体（方块/章鱼是实体实例，直接 draw；珍珠用同款 drawPearl）
@@ -67,7 +68,7 @@ function drawEditor(game) {
   }
 
   // 4. 网格吸附预览（选中物料 + 手指在世界区）
-  if (d.palette && d.touchY < barTop && d.touchY > 44) {
+  if (d.palette && d.touchY > topH && d.touchY < barTop) {
     drawSnapPreview(ctx, game);
   }
 
@@ -84,22 +85,18 @@ function drawEditor(game) {
   }
   ctx.restore();
 
-  // 6. 顶栏 44px
+  // 6. 顶栏（0..SAFE_TOP 状态栏盖底 + 48 内容带）
   ctx.save();
   ctx.fillStyle = 'rgba(18,40,66,0.92)';
-  ctx.fillRect(0, 0, W, 44);
-  // 校验灯文案
-  const n = d.issues.length;
-  const issuesBtn = game.buttons.editorIssues;
-  if (issuesBtn) {
-    issuesBtn.text = n ? `🔴 ${n} 个问题` : (d.proven ? '🟢 已通关可分享' : '🟢 可试玩');
-    issuesBtn.color = n ? '#8A3B3B' : '#2F6E55';
-    issuesBtn.draw(ctx);
-  }
+  ctx.fillRect(0, 0, W, topH);
+  drawTopSegmented(ctx, d);
   game.buttons.editorExit && game.buttons.editorExit.draw(ctx);
   const playBtn = game.buttons.editorPlay;
   if (playBtn) {
-    playBtn.locked = n > 0; // 有问题置灰
+    // 三态：有问题红数置灰（仍可点，点击被拒红闪）/ 已通关可分享 / 可试玩
+    const n = d.issues.length;
+    playBtn.locked = n > 0;
+    playBtn.text = n > 0 ? `🔴 ${Math.min(n, 99)}` : (d.proven ? '✓ 可分享' : '▶ 试玩');
     playBtn.draw(ctx);
   }
   ctx.restore();
@@ -174,6 +171,36 @@ function drawEditor(game) {
     ctx.fillText('拖动移动 · 橡皮删除 · 点空白取消', W / 2, barTop - 8);
     ctx.restore();
   }
+}
+
+// 顶栏 4 分类分段控件的激活色条（方块木色 / 章鱼紫 / 河豚橙 / 道具金）
+const SEG_ACTIVE = { blocks: '#C4A88C', enemies: '#CE93D8', birds: '#FFB74D', items: '#F6E08C' };
+
+/** 顶部分段控件：半透容器 + 激活段白底墨字 + 顶部分类色条 */
+function drawTopSegmented(ctx, d) {
+  const top = C.SAFE_TOP + SEG.y;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.14)';
+  roundRect(ctx, SEG.x, top, SEG.w, SEG.h, 10);
+  ctx.fill();
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 13px sans-serif';
+  TABS.forEach((t, i) => {
+    const sx = SEG.x + i * SEG.segW;
+    if (d.tab === t.id) {
+      ctx.fillStyle = '#FFFFFF';
+      roundRect(ctx, sx + 3, top + 3, SEG.segW - 6, SEG.h - 6, 8);
+      ctx.fill();
+      ctx.fillStyle = SEG_ACTIVE[t.id];
+      roundRect(ctx, sx + 12, top + 6, SEG.segW - 24, 3, 1.5);
+      ctx.fill();
+      ctx.fillStyle = '#1F3A5F';
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.62)';
+    }
+    ctx.fillText(t.label, sx + SEG.segW / 2, top + 23);
+  });
+  ctx.restore();
 }
 
 function drawSelection(ctx, d) {

@@ -21,8 +21,10 @@ const SOCIAL = require('./social.js');
 const GRID = CODEC.GRID;
 
 // ==================== 布局常量 ====================
-const TOPBAR_H = 44;
-const BAR_H = 84;          // 底栏总高（tab 行 28 + 物料行 56），落在海床线以下沙土区
+const TOP_CONTENT_H = 48;  // 顶栏内容带高（背景从 y=0 画到 SAFE_TOP+此值，盖住状态栏）
+// 顶栏 4 分类分段控件：x/w/segW 为静态几何，y 是相对 SAFE_TOP 的偏移（真机随刘海下移）
+const SEG = { x: 88, y: 6, w: 184, h: 36, segW: 46 };
+const BAR_H = 84;          // 旧底栏总高（T12-3 将被大卡底栏替换，过渡期保留）
 const TAB_H = 28;
 const CHIP = 64;           // 物料 chip 宽
 const CHIP_GAP = 8;
@@ -117,17 +119,19 @@ function enterEditor(game) {
       draft: newDraft(),
       tab: 'blocks', palette: null, eraser: false,
       selected: null, drag: null, barDrag: null, scrollX: 0,
-      proven: false, issues: [], showIssues: false,
+      proven: false, issues: [],
       touchX: 0, touchY: 0, rejectFlash: 0,
     };
   }
   game.isCustom = false;
   game.playOrigin = null;
   game.buttons = {};
-  // 顶栏按钮（底栏 tab/chip 为横滚自定义绘制，不进 game.buttons）
-  game.buttons.editorExit = new E.Button(8, 7, 64, 30, '‹退出', '#2E5A87', { fontSize: 14 });
-  game.buttons.editorIssues = new E.Button(80, 7, 150, 30, '', '#2E5A87', { fontSize: 13 });
-  game.buttons.editorPlay = new E.Button(C.SCREEN_WIDTH - 88, 7, 80, 30, '▶试玩', '#3D8B6E', { fontSize: 14 });
+  // 顶栏：退出/试玩为马卡龙 sketch 胶囊（热区 ≥36 高，随 SAFE_TOP 避开刘海）；
+  // 中间 4 分类分段为自绘控件（不进 game.buttons，命中走 SEG 几何）。
+  game.buttons.editorExit = new E.Button(8, C.SAFE_TOP + 6, 72, 36, '‹退出', '#5B8DB8',
+    { sketch: true, radius: 18, fontSize: 14, shadowOffset: 3 });
+  game.buttons.editorPlay = new E.Button(C.SCREEN_WIDTH - 95, C.SAFE_TOP + 4, 87, 40, '▶ 试玩', '#57C98E',
+    { sketch: true, radius: 20, fontSize: 14, shadowOffset: 3 });
   // 清空运行时世界（避免上一关残留实体被物理 update / 主渲染画出；编辑器画自己的草稿）
   game.blocks = [];
   game.pigs = [];
@@ -329,6 +333,14 @@ function tryPlay(game) {
 
 function cacheTouch(d, x, y) { d.touchX = x; d.touchY = y; }
 
+/** 切换顶栏分类：清已挂物料、复位横滚；eraser 刻意保留（橡皮跨分类武装，删任意类实体） */
+function switchTab(d, id) {
+  d.tab = id;
+  d.palette = null;
+  d.barDrag = null;
+  d.scrollX = 0;
+}
+
 function barMaxScroll(d) {
   const n = (PALETTE[d.tab] || []).length;
   const contentW = 8 + n * (CHIP + CHIP_GAP) + 8;
@@ -347,22 +359,26 @@ function selectPalette(game, item) {
 function onTouchStart(game, x, y) {
   const d = game.editor;
   cacheTouch(d, x, y);
-  // 1. 顶栏按钮
-  for (const k of ['editorExit', 'editorPlay', 'editorIssues']) {
-    if (game.buttons[k] && game.buttons[k].contains(x, y)) { game.buttons[k].pressed = true; return; }
+  const topH = C.SAFE_TOP + TOP_CONTENT_H;
+  // 1. 顶栏带（背景从 y=0 画起盖住状态栏；0..SAFE_TOP 状态栏区只吞不响应）
+  if (y < topH) {
+    // 退出/试玩胶囊
+    for (const k of ['editorExit', 'editorPlay']) {
+      if (game.buttons[k] && game.buttons[k].contains(x, y)) { game.buttons[k].pressed = true; return; }
+    }
+    // 4 分类分段（命中带放宽到整条内容高度，单段 46×48 好过手指）
+    if (y >= C.SAFE_TOP && x >= SEG.x && x < SEG.x + SEG.w) {
+      const i = Math.floor((x - SEG.x) / SEG.segW);
+      if (TABS[i]) switchTab(d, TABS[i].id);
+    }
+    return;
   }
-  // 2. 底栏区域（tab 行立即切 tab；物料行记录手势，抬手且未滚动才选 chip）
+  // 2. 旧底栏（T12-3 将被大卡底栏替换）：tab 行立即切；物料行记手势，抬手未滚动才选 chip
   if (y > C.SCREEN_HEIGHT - BAR_H) {
     const barTop = C.SCREEN_HEIGHT - BAR_H;
     if (y <= barTop + TAB_H) {
       const i = Math.floor(x / (C.SCREEN_WIDTH / TABS.length));
-      if (TABS[i]) {
-        d.tab = TABS[i].id;
-        d.scrollX = 0;
-        d.barDrag = null;
-        d.palette = null; // 切 tab 清已挂物料/橡皮，防跨 tab 误放
-        d.eraser = false;
-      }
+      if (TABS[i]) switchTab(d, TABS[i].id);
       return;
     }
     d.barDrag = { startX: x, scrollStart: d.scrollX, moved: false };
@@ -408,9 +424,6 @@ function onTouchEnd(game) {
   }
   if (game.buttons.editorPlay && game.buttons.editorPlay.pressed) {
     game.buttons.editorPlay.pressed = false; return tryPlay(game);
-  }
-  if (game.buttons.editorIssues && game.buttons.editorIssues.pressed) {
-    game.buttons.editorIssues.pressed = false; d.showIssues = !d.showIssues; return;
   }
   // 底栏 chip 点按（未滚动才触发）
   if (d.barDrag) {
@@ -460,12 +473,12 @@ function moveEntity(game, drag, x, y) {
   }
 }
 
-/** 每帧：红闪衰减 + 顶栏按钮缩放动画 */
+/** 每帧：红闪衰减 + 顶栏/浮条按钮缩放动画（仅可见按钮） */
 function update(game) {
   const d = game.editor;
   if (!d) return;
   if (d.rejectFlash > 0) d.rejectFlash--;
-  for (const k of ['editorExit', 'editorPlay', 'editorIssues']) {
+  for (const k of ['editorExit', 'editorPlay']) {
     if (game.buttons[k]) game.buttons[k].update();
   }
 }
@@ -519,7 +532,7 @@ function openSlot(game, i) {
     draft: instantiateDraft(lv),
     tab: 'blocks', palette: null, eraser: false,
     selected: null, drag: null, barDrag: null, scrollX: 0,
-    proven: !!slots[i].proven, issues: [], showIssues: false,
+    proven: !!slots[i].proven, issues: [],
     touchX: 0, touchY: 0, rejectFlash: 0,
   };
   enterEditor(game); // 复用状态设置（草稿已存在，不会被重置）
@@ -628,5 +641,5 @@ module.exports = {
   queueBirdPos,
   TABS, PALETTE,
   // 布局常量（editor-render 共用）
-  TOPBAR_H, BAR_H, TAB_H, CHIP, CHIP_GAP, ZONE_X,
+  TOP_CONTENT_H, SEG, BAR_H, TAB_H, CHIP, CHIP_GAP, ZONE_X,
 };
