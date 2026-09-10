@@ -265,6 +265,27 @@ function pigOverlap(ent, pigs) {
 }
 
 /**
+ * 放置前校验（可复用：placeAt / duplicateEntity / 浮条复制）。
+ * ent 为已构造的实体（Block 实例 / Pig 实例 / {x,y,kind:'pearl'}）。
+ * 返回 { ok, reason }，reason 为 'limit'|'zone'|'overlap' 用于决定是否红闪。
+ */
+function canAddEntity(draft, ent) {
+  if (ent.kind === 'block') {
+    if (draft.blocks.length >= CODEC.LIMITS.blocks) return { ok: false, reason: 'limit' };
+    if (zoneBlocked(ent.x)) return { ok: false, reason: 'zone' };
+    if (draft.blocks.some(b => blocksOverlap(ent, b))) return { ok: false, reason: 'overlap' };
+  } else if (ent.kind === 'pig') {
+    if (draft.pigs.length >= CODEC.LIMITS.pigs) return { ok: false, reason: 'limit' };
+    if (zoneBlocked(ent.x, ent.radius)) return { ok: false, reason: 'zone' };
+    if (pigOverlap(ent, draft.pigs)) return { ok: false, reason: 'overlap' };
+  } else if (ent.kind === 'pearl') {
+    if (draft.pearls.length >= CODEC.LIMITS.pearls) return { ok: false, reason: 'limit' };
+    if (zoneBlocked(ent.x, 9)) return { ok: false, reason: 'zone' };
+  }
+  return { ok: true };
+}
+
+/**
  * 物料将落的位置（网格吸附 + 防沉地钳制）。placeAt 与吸附预览共用同一公式，
  * 保证「所见即所放」。悬空不钳（放高空保持原位，试玩时物理下落）；
  * 仅当底边会穿支撑面（柱顶/地面）时抬到支撑面，snap 量化最多再抬 2px。
@@ -295,23 +316,17 @@ function placeAt(game, x, y, item) {
   if (item.kind === 'bird') { addBird(game, item.type); return; }
   const pos = placePosition(d.draft, item, x, y);
   if (!pos) return;
-  if (item.kind === 'block') {
-    if (d.draft.blocks.length >= CODEC.LIMITS.blocks) return;
-    if (zoneBlocked(pos.x)) { flashReject(game); return; }
-    const ent = new E.Block(pos.x, pos.y, item.w, item.h, item.type); // 草稿存实体实例
-    if (d.draft.blocks.some(b => blocksOverlap(ent, b))) { flashReject(game); return; }
-    d.draft.blocks.push(ent);
-  } else if (item.kind === 'pig') {
-    if (d.draft.pigs.length >= CODEC.LIMITS.pigs) return;
-    if (zoneBlocked(pos.x, item.radius)) { flashReject(game); return; }
-    const ent = new E.Pig(pos.x, pos.y, item.radius);
-    if (pigOverlap(ent, d.draft.pigs)) { flashReject(game); return; }
-    d.draft.pigs.push(ent);
-  } else if (item.kind === 'pearl') {
-    if (d.draft.pearls.length >= CODEC.LIMITS.pearls) return;
-    if (zoneBlocked(pos.x, 9)) { flashReject(game); return; }
-    d.draft.pearls.push({ x: pos.x, y: pos.y });
-  }
+  let ent;
+  if (item.kind === 'block') ent = new E.Block(pos.x, pos.y, item.w, item.h, item.type);
+  else if (item.kind === 'pig') ent = new E.Pig(pos.x, pos.y, item.radius);
+  else if (item.kind === 'pearl') ent = { x: pos.x, y: pos.y, kind: 'pearl' };
+  else return;
+  // ↓ canAddEntity 内置禁区/重叠/门限校验，非 limit 类失败红闪反馈
+  const ok = canAddEntity(d.draft, ent);
+  if (!ok.ok) { if (ok.reason !== 'limit') flashReject(game); return; }
+  if (item.kind === 'block') d.draft.blocks.push(ent);
+  else if (item.kind === 'pig') d.draft.pigs.push(ent);
+  else if (item.kind === 'pearl') d.draft.pearls.push(ent);
   touchStructure(game);
   revalidate(game);
 }
@@ -372,6 +387,83 @@ function removeAt(game, x, y) {
   else if (h.kind === 'pig') d.draft.pigs.splice(h.index, 1);
   else if (h.kind === 'pearl') d.draft.pearls.splice(h.index, 1);
   else if (h.kind === 'queuebird') return removeBirdAt(game, h.index);
+  d.selected = null;
+  touchStructure(game);
+  revalidate(game);
+}
+
+// ==================== 选中浮条（T12-4）：复制/删除浮动操作条 ====================
+const FLOAT_BAR = { btnW: 44, btnH: 28, gap: 6, yOff: 10 }; // yOff = 浮条距实体顶的垂直间隙
+
+/** 选中浮条的按钮布局（相对世界坐标；选中失效返回 null） */
+function floatingBarRect(d) {
+  const sel = d.selected;
+  if (!sel) return null;
+  let cx, top;
+  if (sel.kind === 'block') {
+    const b = d.draft.blocks[sel.index]; if (!b) return null;
+    cx = b.x + b.width / 2; top = b.y;
+  } else if (sel.kind === 'pig') {
+    const p = d.draft.pigs[sel.index]; if (!p) return null;
+    cx = p.x; top = p.y - p.radius;
+  } else if (sel.kind === 'pearl') {
+    const p = d.draft.pearls[sel.index]; if (!p) return null;
+    cx = p.x; top = p.y - 9;
+  } else return null;
+  const totalW = FLOAT_BAR.btnW * 2 + FLOAT_BAR.gap;
+  return {
+    x: cx - totalW / 2, y: top - FLOAT_BAR.btnH - FLOAT_BAR.yOff,
+    w: totalW, h: FLOAT_BAR.btnH,
+    copyX: cx - FLOAT_BAR.btnW - FLOAT_BAR.gap / 2,
+    delX: cx + FLOAT_BAR.gap / 2,
+    centerX: cx, topY: top,
+  };
+}
+
+/** 浮条命中测试：返回 'copy' | 'delete' | null */
+function floatingBarHit(d, x, y) {
+  const r = floatingBarRect(d);
+  if (!r) return null;
+  if (y >= r.y && y <= r.y + r.h) {
+    if (x >= r.copyX && x <= r.copyX + FLOAT_BAR.btnW) return 'copy';
+    if (x >= r.delX && x <= r.delX + FLOAT_BAR.btnW) return 'delete';
+  }
+  return null;
+}
+
+/** 复制选中实体（偏移 GRID×1 放置；canAddEntity 复用校验） */
+function duplicateEntity(game) {
+  const d = game.editor;
+  const sel = d.selected;
+  if (!sel) return;
+  const draft = d.draft;
+  let ent;
+  if (sel.kind === 'block') {
+    const src = draft.blocks[sel.index]; if (!src) return;
+    ent = new E.Block(src.x + GRID, src.y + GRID, src.width, src.height, src.type);
+  } else if (sel.kind === 'pig') {
+    const src = draft.pigs[sel.index]; if (!src) return;
+    ent = new E.Pig(src.x + GRID, src.y + GRID, src.radius);
+  } else if (sel.kind === 'pearl') {
+    const src = draft.pearls[sel.index]; if (!src) return;
+    ent = { x: src.x + GRID, y: src.y + GRID, kind: 'pearl' };
+  } else return;
+  if (!canAddEntity(draft, ent).ok) { flashReject(game); return; }
+  if (sel.kind === 'block') { draft.blocks.push(ent); d.selected = { kind: 'block', index: draft.blocks.length - 1 }; }
+  else if (sel.kind === 'pig') { draft.pigs.push(ent); d.selected = { kind: 'pig', index: draft.pigs.length - 1 }; }
+  else if (sel.kind === 'pearl') { draft.pearls.push(ent); d.selected = { kind: 'pearl', index: draft.pearls.length - 1 }; }
+  touchStructure(game);
+  revalidate(game);
+}
+
+/** 直接删除当前选中实体（浮条删除按钮） */
+function deleteSelected(game) {
+  const d = game.editor;
+  const sel = d.selected;
+  if (!sel) return;
+  if (sel.kind === 'block') d.draft.blocks.splice(sel.index, 1);
+  else if (sel.kind === 'pig') d.draft.pigs.splice(sel.index, 1);
+  else if (sel.kind === 'pearl') d.draft.pearls.splice(sel.index, 1);
   d.selected = null;
   touchStructure(game);
   revalidate(game);
@@ -469,7 +561,12 @@ function onTouchStart(game, x, y) {
     }
   }
   // 3. 世界区（材质行透明井 x<80 的起手也落这里）
+  // 3a. 选中浮条优先：复制/删除按钮命中即消费，不走后续拖动/放置
+  const floatAct = floatingBarHit(d, x, y);
+  if (floatAct === 'copy') { duplicateEntity(game); return; }
+  if (floatAct === 'delete') { deleteSelected(game); return; }
   d.worldDown = true;
+  // 3b. 正常世界交互
   const h = hitTest(game, x, y);
   if (d.eraser) { if (h) removeAt(game, x, y); return; }
   if (h) {
@@ -714,15 +811,17 @@ module.exports = {
   enterEditor, editorExit, playCustom, backToEditor, newDraft,
   deriveLevel, instantiateDraft,
   placeAt, placePosition, removeAt, addBird, removeBirdAt,
+  canAddEntity, duplicateEntity, deleteSelected,
   findPalette, hitTest, tryPlay, decodePlayable,
   saveCurrent, listSlots, deleteSlot, openSlot,
   recordPlayed, listPlayed, deletePlayed, openPlayed,
   onSaveShare, handleLaunchQuery, enterFromClipboard,
   onTouchStart, onTouchMove, onTouchEnd, update,
-  queueBirdPos,
+  queueBirdPos, floatingBarRect, floatingBarHit,
   TABS, PALETTE,
   // 布局常量/helper（editor-render 与 e2e 共用，全部实时读 C，禁模块期冻结）
   TOP_CONTENT_H, SEG, FILTER_H, CARD_AREA_H, CARD_W, CARD_H, CARD_GAP, CARD_PITCH,
   CARD_X, FILTER, ERASER_SLOT, ZONE_X,
   barLayout, visibleItems, barMaxScroll, MAT_GROUPS, MATERIALS, ERASER_ITEM,
+  FLOAT_BAR,
 };

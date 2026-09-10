@@ -19,8 +19,8 @@ const {
   CARD_W, CARD_H, CARD_GAP, CARD_PITCH, CARD_X,
   FILTER, FILTER_H, CARD_AREA_H,
   ERASER_SLOT, ZONE_X,
-  barLayout, visibleItems,
-  MATERIALS, ERASER_ITEM,
+  barLayout, visibleItems, floatingBarRect,
+  MATERIALS, ERASER_ITEM, FLOAT_BAR,
 } = EDITOR;
 
 /** 物料卡的主题色块（方块按材质、敌人/道具按语义；橡皮用粉红） */
@@ -81,6 +81,7 @@ function drawEditor(game) {
   // 3. 选中高亮（拖动中半透明）
   if (d.selected && !d.drag) {
     drawSelection(ctx, d);
+    drawFloatingBar(ctx, d);
   }
 
   // 4. 网格吸附预览（选中物料 + 手指在世界区；barTop 以下不预览）
@@ -336,6 +337,57 @@ function drawSelection(ctx, d) {
     const p = d.draft.pearls[h.index];
     if (p) { ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, Math.PI * 2); ctx.stroke(); }
   }
+  ctx.restore();
+}
+
+/** 选中浮条：实体上方浮动 [复制] [删除] 按钮 */
+function drawFloatingBar(ctx, d) {
+  const r = floatingBarRect(d);
+  if (!r) return;
+  ctx.save();
+
+  // 浮条背景
+  ctx.fillStyle = 'rgba(30,50,80,0.92)';
+  roundRect(ctx, r.x - 6, r.y - 5, r.w + 12, FLOAT_BAR.btnH + 10, 8);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, r.x - 6, r.y - 5, r.w + 12, FLOAT_BAR.btnH + 10, 8);
+  ctx.stroke();
+
+  // 复制按钮（绿色调）
+  ctx.fillStyle = 'rgba(87,201,142,0.22)';
+  roundRect(ctx, r.copyX, r.y, FLOAT_BAR.btnW, FLOAT_BAR.btnH, 6);
+  ctx.fill();
+  ctx.fillStyle = '#57C98E';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('复制', r.copyX + FLOAT_BAR.btnW / 2, r.y + FLOAT_BAR.btnH / 2 + 5);
+
+  // 分隔线
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(r.copyX + FLOAT_BAR.btnW + FLOAT_BAR.gap / 2, r.y + 6);
+  ctx.lineTo(r.copyX + FLOAT_BAR.btnW + FLOAT_BAR.gap / 2, r.y + FLOAT_BAR.btnH - 6);
+  ctx.stroke();
+
+  // 删除按钮（红色调）
+  ctx.fillStyle = 'rgba(232,100,100,0.22)';
+  roundRect(ctx, r.delX, r.y, FLOAT_BAR.btnW, FLOAT_BAR.btnH, 6);
+  ctx.fill();
+  ctx.fillStyle = '#E86464';
+  ctx.fillText('删除', r.delX + FLOAT_BAR.btnW / 2, r.y + FLOAT_BAR.btnH / 2 + 5);
+
+  // 三角指示器（指向选中实体）
+  ctx.fillStyle = 'rgba(30,50,80,0.92)';
+  ctx.beginPath();
+  ctx.moveTo(r.centerX - 6, r.y + FLOAT_BAR.btnH + 5);
+  ctx.lineTo(r.centerX + 6, r.y + FLOAT_BAR.btnH + 5);
+  ctx.lineTo(r.centerX, r.y + FLOAT_BAR.btnH + 12);
+  ctx.closePath();
+  ctx.fill();
+
   ctx.restore();
 }
 
