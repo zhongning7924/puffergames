@@ -74,6 +74,8 @@ function installEnv(options = {}) {
     getSystemInfoSync: () => ({
       screenWidth: 375, screenHeight: 667, devicePixelRatio: 2,
       windowWidth: 375, windowHeight: 667,
+      statusBarHeight: 0,
+      safeArea: { top: 0, bottom: 667, left: 0, right: 375 },
     }),
     getStorageSync: (k) => {
       try { return k in storage ? JSON.parse(storage[k]) : null; } catch (e) { return null; }

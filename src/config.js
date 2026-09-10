@@ -6,12 +6,14 @@
 // 屏幕参数 Screen parameters
 // 先给安全默认值，避免模块加载时 jsbridge 未就绪就调用 wx API 报错。
 // 真实值由 init() 在游戏入口中调用后写入。
-let systemInfo = { screenWidth: 375, screenHeight: 667, devicePixelRatio: 2, safeTop: 0 };
+let systemInfo = { screenWidth: 375, screenHeight: 667, devicePixelRatio: 2, safeTop: 0, safeBottom: 0 };
 let SCREEN_WIDTH = systemInfo.screenWidth;
 let SCREEN_HEIGHT = systemInfo.screenHeight;
 let DPR = systemInfo.devicePixelRatio || 1;
 // 顶部安全区（灵动岛/刘海高度）：HUD 内容需整体下移该值，否则真机上被遮挡
 let SAFE_TOP = 0;
+// 底部安全区（Home 指示条高度）：底栏内容需整体上移该值，否则全面屏真机上贴边/被指示条遮挡
+let SAFE_BOTTOM = 0;
 
 /**
  * 功能开关 Feature flags
@@ -65,11 +67,14 @@ function getScreenInfo() {
   try {
     if (typeof wx.getWindowInfo === 'function') {
       const w = wx.getWindowInfo();
+      const sh = w.screenHeight || w.windowHeight || 667;
       return {
         screenWidth: w.screenWidth || w.windowWidth || 375,
-        screenHeight: w.screenHeight || w.windowHeight || 667,
+        screenHeight: sh,
         devicePixelRatio: w.pixelRatio || w.devicePixelRatio || 2,
         safeTop: (w.safeArea && w.safeArea.top) || w.statusBarHeight || 0,
+        // safeArea.bottom 是安全区底边 y（=屏高-底部指示条高）；缺字段按 0 处理（旧机/无指示条）
+        safeBottom: (w.safeArea && w.safeArea.bottom != null) ? sh - w.safeArea.bottom : 0,
       };
     }
   } catch (e) {
@@ -78,17 +83,19 @@ function getScreenInfo() {
   try {
     if (typeof wx.getSystemInfoSync === 'function') {
       const s = wx.getSystemInfoSync();
+      const sh = s.screenHeight || s.windowHeight || 667;
       return {
         screenWidth: s.screenWidth || s.windowWidth || 375,
-        screenHeight: s.screenHeight || s.windowHeight || 667,
+        screenHeight: sh,
         devicePixelRatio: s.devicePixelRatio || 2,
         safeTop: (s.safeArea && s.safeArea.top) || s.statusBarHeight || 0,
+        safeBottom: (s.safeArea && s.safeArea.bottom != null) ? sh - s.safeArea.bottom : 0,
       };
     }
   } catch (e) {
     console.warn('[config] wx.getSystemInfoSync failed, using defaults:', e && e.message);
   }
-  return { screenWidth: 375, screenHeight: 667, devicePixelRatio: 2, safeTop: 0 };
+  return { screenWidth: 375, screenHeight: 667, devicePixelRatio: 2, safeTop: 0, safeBottom: 0 };
 }
 
 /**
@@ -101,6 +108,7 @@ function init() {
   SCREEN_HEIGHT = systemInfo.screenHeight;
   DPR = systemInfo.devicePixelRatio;
   SAFE_TOP = systemInfo.safeTop || 0;
+  SAFE_BOTTOM = systemInfo.safeBottom || 0;
   GROUND_Y = SCREEN_HEIGHT - GROUND_HEIGHT;
   SLINGSHOT_Y = GROUND_Y - 110;
 }
@@ -302,6 +310,7 @@ module.exports = {
   get SCREEN_HEIGHT() { return SCREEN_HEIGHT; },
   get DPR() { return DPR; },
   get SAFE_TOP() { return SAFE_TOP; },
+  get SAFE_BOTTOM() { return SAFE_BOTTOM; },
   get GRAVITY() { return GRAVITY; },
   get AIR_FRICTION() { return AIR_FRICTION; },
   get GROUND_BOUNCE() { return GROUND_BOUNCE; },

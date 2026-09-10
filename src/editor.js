@@ -16,7 +16,8 @@ const VALIDATE = require('./level-validate.js');
 const LEVEL_FLOW = require('./level-flow.js');
 const SOCIAL = require('./social.js');
 
-const GY = C.GROUND_Y;
+// 注意：GROUND_Y 随 C.init() 随机型屏高变化（375×667→577、375×812→722），
+// 不可在模块加载期冻结，用到的地方一律实时读 C.GROUND_Y（812 重 init 测试依赖此点）。
 const GRID = CODEC.GRID;
 
 // ==================== 布局常量 ====================
@@ -172,7 +173,7 @@ function snap(v) { return Math.round(v / GRID) * GRID; }
 
 /** 落点支撑：该 x 处最高（y 最小）的可承托方块顶面；否则海床 */
 function groundYAt(draft, x) {
-  let top = GY;
+  let top = C.GROUND_Y;
   for (const b of draft.blocks) {
     if (x >= b.x - 2 && x <= b.x + b.width + 2 && b.y < top) top = b.y;
   }
@@ -445,12 +446,12 @@ function moveEntity(game, drag, x, y) {
     const b = d.draft.blocks[drag.index];
     if (!b) return;
     b.x = snap(x - drag.offX);
-    b.y = Math.min(snap(y - drag.offY), GY - b.height);
+    b.y = Math.min(snap(y - drag.offY), C.GROUND_Y - b.height);
   } else if (drag.kind === 'pig') {
     const p = d.draft.pigs[drag.index];
     if (!p) return;
     p.x = snap(x - drag.offX);
-    p.y = Math.min(snap(y - drag.offY), GY - p.radius);
+    p.y = Math.min(snap(y - drag.offY), C.GROUND_Y - p.radius);
   } else if (drag.kind === 'pearl') {
     const p = d.draft.pearls[drag.index];
     if (!p) return;
