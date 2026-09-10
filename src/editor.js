@@ -269,16 +269,19 @@ function pigOverlap(ent, pigs) {
  * ent 为已构造的实体（Block 实例 / Pig 实例 / {x,y,kind:'pearl'}）。
  * 返回 { ok, reason }，reason 为 'limit'|'zone'|'overlap' 用于决定是否红闪。
  */
+/**
+ * ent 为已构造实体：Block/Pig 实例无 kind 字段，靠属性特征辨识（width → block, radius → pig, 否则 pearl）。
+ */
 function canAddEntity(draft, ent) {
-  if (ent.kind === 'block') {
+  if (ent.width !== undefined) { // Block
     if (draft.blocks.length >= CODEC.LIMITS.blocks) return { ok: false, reason: 'limit' };
     if (zoneBlocked(ent.x)) return { ok: false, reason: 'zone' };
     if (draft.blocks.some(b => blocksOverlap(ent, b))) return { ok: false, reason: 'overlap' };
-  } else if (ent.kind === 'pig') {
+  } else if (ent.radius !== undefined) { // Pig
     if (draft.pigs.length >= CODEC.LIMITS.pigs) return { ok: false, reason: 'limit' };
     if (zoneBlocked(ent.x, ent.radius)) return { ok: false, reason: 'zone' };
     if (pigOverlap(ent, draft.pigs)) return { ok: false, reason: 'overlap' };
-  } else if (ent.kind === 'pearl') {
+  } else { // Pearl
     if (draft.pearls.length >= CODEC.LIMITS.pearls) return { ok: false, reason: 'limit' };
     if (zoneBlocked(ent.x, 9)) return { ok: false, reason: 'zone' };
   }
@@ -440,13 +443,13 @@ function duplicateEntity(game) {
   let ent;
   if (sel.kind === 'block') {
     const src = draft.blocks[sel.index]; if (!src) return;
-    ent = new E.Block(src.x + GRID, src.y + GRID, src.width, src.height, src.type);
+    ent = new E.Block(src.x + GRID * 8, src.y + GRID, src.width, src.height, src.type);
   } else if (sel.kind === 'pig') {
     const src = draft.pigs[sel.index]; if (!src) return;
-    ent = new E.Pig(src.x + GRID, src.y + GRID, src.radius);
+    ent = new E.Pig(src.x + GRID * 8, src.y + GRID, src.radius);
   } else if (sel.kind === 'pearl') {
     const src = draft.pearls[sel.index]; if (!src) return;
-    ent = { x: src.x + GRID, y: src.y + GRID, kind: 'pearl' };
+    ent = { x: src.x + GRID * 8, y: src.y + GRID };
   } else return;
   if (!canAddEntity(draft, ent).ok) { flashReject(game); return; }
   if (sel.kind === 'block') { draft.blocks.push(ent); d.selected = { kind: 'block', index: draft.blocks.length - 1 }; }
@@ -557,7 +560,7 @@ function onTouchStart(game, x, y) {
         d.barDrag = { startX: x, scrollStart: d.scrollX, moved: false };
         return;
       }
-      return;
+      // 透明井 (64 ≤ x < 80)：不 return，穿透到世界区处理
     }
   }
   // 3. 世界区（材质行透明井 x<80 的起手也落这里）

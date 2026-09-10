@@ -1077,10 +1077,11 @@ test('T12 顶栏：sketch 胶囊退出/试玩就位；旧校验灯按钮与 show
 test('T12 顶栏：4 段分段切换 tab、清 palette/复位 scrollX；橡皮武装跨分类保留、选卡解除', () => {
   const E2 = enterFreshEditor();
   assert.strictEqual(E2.tab, 'blocks');
+  assert.strictEqual(E2.matFilter, 'wood', 'blocks 默认材质木');
   env.fire('touchstart', segX(1), TOP_Y); env.fire('touchend');
   assert.strictEqual(E2.tab, 'enemies');
   // 挂一个章鱼物料再切回 → palette 清
-  env.fire('touchstart', chipX(0), CHIP_Y); env.fire('touchend'); // pig-s
+  env.fire('touchstart', cardX(0), CARD_Y); env.fire('touchend'); // pig-s（大卡 j0）
   assert.ok(E2.palette && E2.palette.kind === 'pig');
   env.fire('touchstart', segX(0), TOP_Y); env.fire('touchend');
   assert.strictEqual(E2.tab, 'blocks');
@@ -1089,17 +1090,15 @@ test('T12 顶栏：4 段分段切换 tab、清 palette/复位 scrollX；橡皮�
   E2.scrollX = 30;
   env.fire('touchstart', segX(2), TOP_Y); env.fire('touchend');
   assert.strictEqual(E2.scrollX, 0);
-  // 武装橡皮（道具 tab 的 eraser chip），跨分类保留
-  env.fire('touchstart', segX(3), TOP_Y); env.fire('touchend');
-  env.fire('touchstart', chipX(1), CHIP_Y); env.fire('touchend'); // items j1=eraser
+  // T12-3 橡皮固定槽：武装/切换（不依赖 tab）
+  env.fire('touchstart', ERASER_SLOT_X, CARD_Y); env.fire('touchend'); // 点橡皮槽
   assert.strictEqual(E2.eraser, true);
-  env.fire('touchstart', segX(0), TOP_Y); env.fire('touchend');
-  assert.strictEqual(E2.tab, 'blocks');
+  env.fire('touchstart', segX(1), TOP_Y); env.fire('touchend'); // 切 enemies
   assert.strictEqual(E2.eraser, true, '橡皮武装跨分类保留');
   // 点物料卡解除橡皮
-  env.fire('touchstart', chipX(0), CHIP_Y); env.fire('touchend'); // wood-b
+  env.fire('touchstart', cardX(0), CARD_Y); env.fire('touchend'); // pig-s（enemies j0）
   assert.strictEqual(E2.eraser, false, '选物料卡解除橡皮');
-  assert.ok(E2.palette && E2.palette.id === 'wood-b');
+  assert.ok(E2.palette && E2.palette.kind === 'pig');
 });
 
 test('T12 顶栏：试玩胶囊三态（红数置灰/可试玩/可分享），有问题点击被拒红闪', () => {
@@ -1124,6 +1123,106 @@ test('T12 顶栏：试玩胶囊三态（红数置灰/可试玩/可分享），�
   env.pump(1);
   assert.strictEqual(play.locked, false, '可分享态不置灰');
   assert.strictEqual(play.text, '✓ 可分享');
+});
+
+test('T12-3 材质筛选：blocks 切材质子筛选清 palette/复位 scrollX，非 blocks 无筛选行', () => {
+  const E2 = enterFreshEditor();
+  assert.strictEqual(E2.matFilter, 'wood');
+  // 材质筛选行点击：seg 宽 = (375-80-8)/4=71.75，木段中心 x≈116
+  const fw = (C.SCREEN_WIDTH - EDITOR.FILTER.x - 8) / 4;
+  const matX = (i) => EDITOR.FILTER.x + i * fw + fw / 2;
+  const FILTER_Y = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - EDITOR.CARD_AREA_H - EDITOR.FILTER_H / 2;
+  // 点「石」段
+  env.fire('touchstart', matX(1), FILTER_Y); env.fire('touchend');
+  assert.strictEqual(E2.matFilter, 'stone', '材质切换到石');
+  assert.strictEqual(E2.palette, null, '切材质清 palette');
+  assert.strictEqual(E2.scrollX, 0, '切材质复位 scrollX');
+  // visibleItems 随材质过滤
+  const vis = EDITOR.visibleItems(E2);
+  assert.ok(vis.length === 3 && vis.every(i => i.type === 'stone'), '可见物料均为石材');
+  // 切到敌人 tab → 无筛选行
+  env.fire('touchstart', segX(1), TOP_Y); env.fire('touchend');
+  assert.strictEqual(E2.matFilter, 'stone', '切 tab 保留 matFilter');
+  assert.strictEqual(EDITOR.barLayout(E2).showFilter, false, '敌人 tab 无材质筛选行');
+  // 切回 blocks → 材质筛选行恢复
+  env.fire('touchstart', segX(0), TOP_Y); env.fire('touchend');
+  assert.strictEqual(EDITOR.barLayout(E2).showFilter, true);
+});
+
+test('T12-3 透明井：底栏 x<80 穿透到世界（worldDown），x≥80 记 barDrag', () => {
+  const E2 = enterFreshEditor();
+  const L = EDITOR.barLayout(E2);
+  const wellY = L.cardTop + 10; // 卡行区域内
+
+  // 透明井 (x=70，橡皮槽 64 右缘与卡行 80 左缘之间) → 不记 barDrag，设 worldDown
+  env.fire('touchstart', 70, wellY);
+  assert.strictEqual(E2.barDrag, null, '透明井不触发卡行横滚');
+  assert.strictEqual(E2.worldDown, true, '透明井穿透到世界区');
+  env.fire('touchend');
+  assert.strictEqual(E2.worldDown, false);
+
+  // 卡行区 (x≥80) → 记 barDrag
+  env.fire('touchstart', cardX(0), wellY);
+  assert.ok(E2.barDrag, '卡行 x≥80 记横滚手势');
+  assert.strictEqual(E2.worldDown, false, '卡行不设 worldDown');
+  env.fire('touchend');
+
+  // 世界区（y 在底栏上方）→ 正常 worldDown
+  env.fire('touchstart', 200, C.GROUND_Y - 40);
+  assert.strictEqual(E2.worldDown, true, '世界区设 worldDown');
+  env.fire('touchend');
+});
+
+test('T12-4 canAddEntity 抽取：block/pig/pearl 禁区/重叠/超限校验一致', () => {
+  const E = require('../src/entities.js');
+  const draft = { blocks: [], pigs: [], pearls: [] };
+
+  // 合法
+  assert.ok(EDITOR.canAddEntity(draft, new E.Block(300, 300, 80, 26, 'wood')).ok);
+  assert.ok(EDITOR.canAddEntity(draft, new E.Pig(300, 300, 17)).ok);
+  assert.ok(EDITOR.canAddEntity(draft, { x: 300, y: 300 }).ok);
+
+  // 禁区
+  assert.strictEqual(EDITOR.canAddEntity(draft, new E.Block(50, 300, 80, 26, 'wood')).reason, 'zone');
+  assert.strictEqual(EDITOR.canAddEntity(draft, new E.Pig(100, 300, 22)).reason, 'zone');
+
+  // 重叠
+  draft.blocks.push(new E.Block(300, 300, 80, 26, 'wood'));
+  assert.strictEqual(EDITOR.canAddEntity(draft, new E.Block(300, 300, 80, 26, 'wood')).reason, 'overlap');
+
+  // 超限
+  const full = { blocks: new Array(100), pigs: new Array(30), pearls: new Array(30) };
+  assert.strictEqual(EDITOR.canAddEntity(full, new E.Block(300, 300, 80, 26, 'wood')).reason, 'limit');
+  assert.strictEqual(EDITOR.canAddEntity(full, new E.Pig(300, 300, 17)).reason, 'limit');
+  assert.strictEqual(EDITOR.canAddEntity(full, { x: 300, y: 300 }).reason, 'limit');
+});
+
+test('T12-4 选中浮条：选中实体后复制/删除可用，浮条按钮点击走 onTouchStart', () => {
+  const E2 = enterFreshEditor();
+  // 放置木柱并选中
+  EDITOR.placeAt(game, 240, C.GROUND_Y - 40, EDITOR.findPalette('wood-p'));
+  const b = E2.draft.blocks[0];
+  env.fire('touchstart', b.x + b.width / 2, b.y + b.height / 2); env.fire('touchend');
+  assert.ok(E2.selected && E2.selected.kind === 'block', '实体已选中');
+
+  // 浮条布局
+  const r = EDITOR.floatingBarRect(E2);
+  assert.ok(r, '浮条布局非空');
+  assert.ok(r.copyX > 0 && r.delX > r.copyX, '复制/删除按钮就位');
+
+  // 点复制按钮
+  env.fire('touchstart', r.copyX + EDITOR.FLOAT_BAR.btnW / 2, r.y + EDITOR.FLOAT_BAR.btnH / 2);
+  env.fire('touchend');
+  assert.strictEqual(E2.draft.blocks.length, 2, '复制增 1');
+  assert.ok(E2.selected, '选中转移到副本');
+  assert.strictEqual(E2.selected.index, 1, '选中索引为新副本');
+
+  // 点删除按钮
+  const r2 = EDITOR.floatingBarRect(E2);
+  env.fire('touchstart', r2.delX + EDITOR.FLOAT_BAR.btnW / 2, r2.y + EDITOR.FLOAT_BAR.btnH / 2);
+  env.fire('touchend');
+  assert.strictEqual(E2.draft.blocks.length, 1, '删除减 1');
+  assert.strictEqual(E2.selected, null, '删除后取消选中');
 });
 
 // =====================================================================
@@ -1217,10 +1316,14 @@ const TOP_Y = 24;
 const segX = (i) => 111 + 46 * i;
 const EXIT_XY = [44, 24];          // 退出胶囊中心
 const PLAY_XY = [280 + 87 / 2, 24]; // 试玩胶囊中心 (323.5,24)
-// 旧底栏 chip 行（T12-3 将被大卡底栏替换；过渡期仍可点）：BAR_TOP=583，物料行中心 639
-const BAR_TOP = 667 - 84;          // 583
-const CHIP_Y = BAR_TOP + 28 + 28;  // 物料行中心 639
-const chipX = (j) => 40 + j * 72;  // chip 宽 64 + 间距 8，左起 8
+// T12-3 大卡底栏：卡中心 y=cardTop+CARD_AREA_H/2=603+32=635，卡左缘 80 步距 80 宽 72
+const CARD_X = 80, CARD_PITCH = 80, CARD_W = 72;
+const CARD_Y = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - EDITOR.CARD_AREA_H + EDITOR.CARD_AREA_H / 2;
+const cardX = (j) => CARD_X + j * CARD_PITCH + CARD_W / 2; // 116 + j*80
+const ERASER_SLOT_X = EDITOR.ERASER_SLOT.x + EDITOR.ERASER_SLOT.w / 2; // 36
+// 旧常量（仅 "编辑器：EDITOR 态渲染冒烟" 仍引用 CHIP_Y；保留兼容）
+const CHIP_Y = CARD_Y; // 过渡别名
+const chipX = cardX;    // 过渡别名
 
 test('编辑器：放置方块/章鱼→草稿增项、校验随动；删空回 no-pig', () => {
   const E2 = enterFreshEditor();
@@ -1284,27 +1387,26 @@ test('编辑器：tryPlay 空草稿拒绝；合法布局进入作者试玩', () 
 
 test('编辑器：底栏切 tab + 选物料；bird 物料直接入队；橡皮模式点实体删除', () => {
   const E2 = enterFreshEditor();
-  // 方块 tab（默认）选木梁
-  env.fire('touchstart', chipX(0), CHIP_Y);
+  // 方块 tab（默认，材质木）：选木梁（可见项 j0=wood-b）
+  env.fire('touchstart', cardX(0), CARD_Y);
   env.fire('touchend');
   assert.strictEqual(E2.palette && E2.palette.id, 'wood-b');
   assert.strictEqual(E2.eraser, false);
-  // 顶栏分段切到「敌人」，选小章鱼
+  // 顶栏分段切到「敌人」，选小章鱼（j0=pig-s）
   env.fire('touchstart', segX(1), TOP_Y); env.fire('touchend');
   assert.strictEqual(E2.tab, 'enemies');
-  env.fire('touchstart', chipX(0), CHIP_Y); env.fire('touchend');
+  env.fire('touchstart', cardX(0), CARD_Y); env.fire('touchend');
   assert.strictEqual(E2.palette && E2.palette.kind, 'pig');
   // 用选中的章鱼物料在世界区放置
   env.fire('touchstart', 300, EDITOR_GY - 17); env.fire('touchend');
   assert.strictEqual(E2.draft.pigs.length, 1);
   // 顶栏分段切「河豚」：点河豚物料直接入队（不进入放置模式）
   env.fire('touchstart', segX(2), TOP_Y); env.fire('touchend');
-  env.fire('touchstart', chipX(1), CHIP_Y); env.fire('touchend'); // dash
+  env.fire('touchstart', cardX(1), CARD_Y); env.fire('touchend'); // j1=dash
   assert.deepStrictEqual(E2.draft.birds, ['normal', 'dash']);
   assert.strictEqual(E2.palette, null, '河豚物料不挂 palette');
-  // 道具 tab：橡皮
-  env.fire('touchstart', segX(3), TOP_Y); env.fire('touchend');
-  env.fire('touchstart', chipX(1), CHIP_Y); env.fire('touchend'); // eraser
+  // T12-3 橡皮固定槽：点橡皮槽武装
+  env.fire('touchstart', ERASER_SLOT_X, CARD_Y); env.fire('touchend');
   assert.strictEqual(E2.eraser, true);
   // 橡皮模式点章鱼 → 删除
   env.fire('touchstart', 300, EDITOR_GY - 17); env.fire('touchend');
