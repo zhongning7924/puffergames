@@ -1455,56 +1455,72 @@ test('自定义关：挑战流通关自动写入挑战记录（settle 挂钩 rec
   assert.ok(played[0].bestStars >= 1);
 });
 
-test('菜单：造关师入口 → 中心页四按钮；输码挑战走剪贴板', () => {
+test('造关师中心页：输码挑战/挑战记录默认隐藏，开关打开后恢复', () => {
   fresh();
   game.goToMenu(); env.pump(2);
   assert.ok(game.buttons.goMaker, '主菜单有【造关师】入口');
-  // 进中心页
+  const code = CODEC.encodeLevel({ birds: ['normal'], blocks: [], pigs: [{ x: 260, y: 560, radius: 17 }], pearls: [] });
+
+  // —— 默认隐藏：中心页只剩「造一关 / 我造的关」两个入口 ——
   game.openLevelList('ugcHome'); env.pump(2);
   assert.strictEqual(game.listView, 'ugcHome');
   assert.ok(game.buttons.goEditor, '【造一关】按钮');
-  assert.ok(game.buttons.goCode, '【输码挑战】按钮');
   assert.ok(game.buttons.goMine, '【我造的关】按钮');
-  assert.ok(game.buttons.goPlayed, '【挑战记录】按钮');
+  assert.ok(!game.buttons.goCode, '【输码挑战】入口应隐藏');
+  assert.ok(!game.buttons.goPlayed, '【挑战记录】入口应隐藏');
   assert.ok(game.buttons.listBack, '中心页有返回');
-  // 剪贴板里是有效码 → 直接进入挑战
-  const code = CODEC.encodeLevel({ birds: ['normal'], blocks: [], pigs: [{ x: 260, y: 560, radius: 17 }], pearls: [] });
-  env.ads.clipboard = code;
-  EDITOR.enterFromClipboard(game);
-  env.pump(2);
-  assert.strictEqual(game.isCustom, true, '剪贴板有效码 → 直达挑战');
-  // 剪贴板坏码 → 错误提示，不崩
-  game.goToMenu();
-  env.ads.clipboard = 'not a code';
-  game.openLevelList('ugcHome'); env.pump(1);
-  EDITOR.enterFromClipboard(game);
-  env.pump(2);
-  assert.strictEqual(game.isCustom, false);
-  assert.ok(game.clipboardError, '坏码置错误提示');
-  assert.ok(game.msgTimer > 0, '错误提示有计时');
+  // 关闭时切 played 会被拉回中心页
+  game.openLevelList('played');
+  assert.strictEqual(game.listView, 'ugcHome', '挑战记录隐藏时不进入 played 页');
+
+  // —— 开关打开后四入口都能恢复（防止隐藏被写成不可逆的删除）——
+  C.FEATURES.ugcCodeChallenge = true;
+  C.FEATURES.ugcChallengeLog = true;
+  try {
+    game.goToMenu(); env.pump(1);
+    game.openLevelList('ugcHome'); env.pump(2);
+    assert.ok(game.buttons.goCode, '开关打开后【输码挑战】应恢复');
+    assert.ok(game.buttons.goPlayed, '开关打开后【挑战记录】应恢复');
+    // 剪贴板有效码 → 直达挑战
+    env.ads.clipboard = code;
+    EDITOR.enterFromClipboard(game);
+    env.pump(2);
+    assert.strictEqual(game.isCustom, true, '剪贴板有效码 → 直达挑战');
+    // 剪贴板坏码 → 错误提示，不崩
+    game.goToMenu();
+    env.ads.clipboard = 'not a code';
+    game.openLevelList('ugcHome'); env.pump(1);
+    EDITOR.enterFromClipboard(game);
+    env.pump(2);
+    assert.strictEqual(game.isCustom, false);
+    assert.ok(game.clipboardError, '坏码置错误提示');
+    assert.ok(game.msgTimer > 0, '错误提示有计时');
+    // played 列表可达
+    EDITOR.recordPlayed(game, code, 3);
+    game.openLevelList('played'); env.pump(2);
+    assert.strictEqual(game.listView, 'played', '开关打开后 played 页可达');
+  } finally {
+    C.FEATURES.ugcCodeChallenge = false;
+    C.FEATURES.ugcChallengeLog = false;
+  }
 });
 
-test('菜单：列表视图（我造的关/挑战记录）可进入、可开档、可返回', () => {
+test('菜单：列表视图（我造的关）可进入、可返回；挑战记录随开关启用', () => {
   fresh();
   game.goToMenu(); env.pump(2);
   // 空列表也能进
   game.openLevelList('mine'); env.pump(2);
   assert.strictEqual(game.listView, 'mine');
   assert.ok(game.buttons.listBack, '列表页有返回按钮');
-  // 造一条挑战记录再看列表
   const code = CODEC.encodeLevel({ birds: ['normal'], blocks: [], pigs: [{ x: 280, y: 560, radius: 17 }], pearls: [] });
   EDITOR.recordPlayed(game, code, 3);
-  game.openLevelList('played'); env.pump(2);
-  assert.ok(game.buttons.slotEnter0, '挑战记录第 1 行有进入按钮');
-  assert.ok(game.buttons.slotDel0, '挑战记录第 1 行有删除按钮');
-  // 进入挑战
-  EDITOR.openPlayed(game, 0);
-  env.pump(2);
-  assert.strictEqual(game.isCustom, true, '挑战记录开档 → 挑战关');
-  // 触摸链路：中心页 → 我造的关 → 返回（验证 listBack 两级回退）
+  // 触摸链路：中心页 → 我造的关（按实际按钮坐标，避免入口增减后坐标漂移）→ 返回（验证两级回退）
   game.goToMenu();
   game.openLevelList('ugcHome'); env.pump(1);
-  env.fire('touchstart', 187, 170 + 2 * 72 + 26); env.fire('touchend'); // goMine（第 3 项）
+  const mineBtn = game.buttons.goMine;
+  assert.ok(mineBtn, '中心页有【我造的关】按钮');
+  env.fire('touchstart', mineBtn.x + mineBtn.width / 2, mineBtn.y + mineBtn.height / 2);
+  env.fire('touchend');
   assert.strictEqual(game.listView, 'mine');
   env.pump(2); // 渲染帧重建 mine 页按钮
   env.fire('touchstart', 187, 667 - 80 + 21); env.fire('touchend');      // listBack → ugcHome
@@ -1513,6 +1529,19 @@ test('菜单：列表视图（我造的关/挑战记录）可进入、可开档�
   env.fire('touchstart', 187, 667 - 86 + 21); env.fire('touchend');      // listBack → 主菜单
   assert.strictEqual(game.listView, null, '中心页返回主菜单');
   assert.strictEqual(game.state, 'MENU');
+  // 挑战记录页随开关启用才可达（默认隐藏时上面只能到 mine）
+  C.FEATURES.ugcChallengeLog = true;
+  try {
+    game.openLevelList('played'); env.pump(2);
+    assert.strictEqual(game.listView, 'played');
+    assert.ok(game.buttons.slotEnter0, '挑战记录第 1 行有进入按钮');
+    assert.ok(game.buttons.slotDel0, '挑战记录第 1 行有删除按钮');
+    EDITOR.openPlayed(game, 0);
+    env.pump(2);
+    assert.strictEqual(game.isCustom, true, '挑战记录开档 → 挑战关');
+  } finally {
+    C.FEATURES.ugcChallengeLog = false;
+  }
 });
 
 // =====================================================================

@@ -27,9 +27,17 @@ let SAFE_TOP = 0;
  *  2. game.json 恢复 "openDataContext": "opendata"；
  *  3. project.config.json 的 packOptions.ignore 移除 opendata 条目（否则开放数据域不进包）；
  *  4. 小程序后台「设置 → 用户隐私保护指引」勾选关系链/好友数据相关条目并通过审核。
+ *
+ * ugcCodeChallenge（输码挑战）/ ugcChallengeLog（挑战记录）默认关闭：
+ *  - 两者是自制关的「分享 → 挑战 → 记分」链路，需要好友/群聊分发才有自然流量，
+ *    首发版本暂不开放，避免玩家进入空有其表的页面；
+ *  - 关闭时不创建按钮（input 层不会命中，入口彻底不可达），也不把 listView 切到 'played'；
+ *  - 恢复：把对应开关改成 true 即可，UI 与逻辑双向可达，无需改动其他文件。
  */
 const FEATURES = {
   leaderboard: false,
+  ugcCodeChallenge: false,
+  ugcChallengeLog: false,
 };
 
 // 物理常量 Physics constants

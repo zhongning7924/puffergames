@@ -330,7 +330,11 @@ class Game {
   editorExit() { EDITOR.editorExit(this); }
   playCustom(level, origin, code) { EDITOR.playCustom(this, level, origin, code); }
   backToEditor() { EDITOR.backToEditor(this); }
-  openLevelList(kind) { this.listView = kind; }
+  /** 打开造关师子页；挑战记录关闭时不允许切到 played（回到中心页） */
+  openLevelList(kind) {
+    if (kind === 'played' && !C.FEATURES.ugcChallengeLog) kind = 'ugcHome';
+    this.listView = kind;
+  }
   handleLaunchQuery() { EDITOR.handleLaunchQuery(this); }
 
   // ==================== 状态转换 ====================

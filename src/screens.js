@@ -314,14 +314,19 @@ function drawLevelList(game) {
     ctx.restore();
   }
 
+  // 开关关闭时不创建按钮（input 层不会命中，入口彻底不可达）；见 config.js FEATURES
+  if (!C.FEATURES.ugcChallengeLog && game.listView === 'played') {
+    game.listView = 'ugcHome'; // 防残留：外部直接切 played 也拉回中心页
+  }
+
   if (game.listView === 'ugcHome') {
     drawStrokedText(ctx, '造关师', cx, 110, 'bold 30px Arial', '#FFD54F', 'rgba(0,0,0,0.5)', 3);
     const items = [
       ['goEditor', '🔨 造一关', UI.mint],
-      ['goCode', '📋 输码挑战', UI.lavender],
+      ['goCode', '📋 输码挑战', UI.lavender, C.FEATURES.ugcCodeChallenge],
       ['goMine', '📦 我造的关', UI.blue],
-      ['goPlayed', '🏆 挑战记录', UI.orange],
-    ];
+      ['goPlayed', '🏆 挑战记录', UI.orange, C.FEATURES.ugcChallengeLog],
+    ].filter((it) => it.length < 4 || it[3]);
     items.forEach(([key, label, color], i) => {
       const y = 170 + i * 72;
       if (!game.buttons[key]) {
@@ -330,6 +335,12 @@ function drawLevelList(game) {
       game.buttons[key].y = y;
       game.buttons[key].draw(ctx);
     });
+    // 关闭的入口若曾创建过（例如运行中改开关），立即回收，避免残留在别的页被命中
+    for (const k of ['goCode', 'goPlayed']) {
+      if (!C.FEATURES[k === 'goCode' ? 'ugcCodeChallenge' : 'ugcChallengeLog']) {
+        delete game.buttons[k];
+      }
+    }
     if (!game.buttons.listBack) {
       game.buttons.listBack = new E.Button(cx - 70, C.SCREEN_HEIGHT - 86, 140, 42, '返回菜单', UI.gray, sketchOpts);
     }
