@@ -310,7 +310,8 @@ test('Boss 怒吼：血量跨阶段阈值才唤醒对应 sleep 阶段物（L32 �
   assert.strictEqual(boss.phase, 1);
   const stones1 = sleepBlocks.filter(b => b.sleepMark === 1);
   assert.strictEqual(stones1.length, 2);
-  assert.ok(stones1.every(b => !b.sleeping && b.dynamic), '阶段1 落石应唤醒坠落');
+  assert.ok(stones1.every(b => b.guard && !b.sleeping && !b.dynamic),
+    '阶段1 护阵石应定点立桩（唤醒但不自由落体）');
   assert.ok(sleepPigs.every(p => p.sleeping), '阶段1 援军仍休眠');
 
   // 阶段 2（health 5 ≤ 5.5）：援军唤醒
@@ -322,11 +323,12 @@ test('Boss 怒吼：血量跨阶段阈值才唤醒对应 sleep 阶段物（L32 �
   assert.ok(adds2.every(p => !p.sleeping && p.dynamic), '阶段2 援军应唤醒落下');
   assert.ok(sleepPigs.filter(p => p.sleepMark === 3).every(p => p.sleeping), '阶段3 援军仍休眠');
 
-  // 阶段 3（health 2 ≤ 2.75）：最后落石与援军唤醒
+  // 阶段 3（health 2 ≤ 2.75）：最后护阵石与援军唤醒
   boss.health = 2;
   game.onPigHurt(boss);
   assert.strictEqual(boss.phase, 3);
-  assert.ok(sleepBlocks.filter(b => b.sleepMark === 3).every(b => !b.sleeping && b.dynamic));
+  assert.ok(sleepBlocks.filter(b => b.sleepMark === 3).every(b => b.guard && !b.sleeping && !b.dynamic),
+    '阶段3 护阵石同样定点立桩');
   assert.ok(sleepPigs.filter(p => p.sleepMark === 3).every(p => !p.sleeping && p.dynamic));
 });
 
@@ -458,38 +460,89 @@ test('方块压章王去重：持续接触只在撞上瞬间掉 1 血，不碾�
   assert.strictEqual(boss.health, hp0 - 2, '腾空分离后再砸算新冲击，应再掉 1 血');
 });
 
-test('章王怒吼天降物只砸空地：唤醒全部 sleep 落石/爆裂果坠落后，结构冻果不被引爆、章王零自伤（修复怒吼自爆）', () => {
-  // 天降落石末速 ~28px/帧，碰 hp1 冻果一碰即碎 → 自爆连锁；唤醒水平速度归零竖直坠落，
-  // 落点由关卡 x 精确控制在阵前空地（只砸地面），不得飘进冻果链/承重柱/章王正上方。
-  const physFrame = () => {
-    for (const b of game.blocks) if (b.alive) b.update();
-    for (const p of game.pigs) if (p.alive && typeof p.update === 'function') p.update();
-    PHYS.checkDynamicCollisions(game);
-    while (game.pendingExplosions.length) {
-      const e = game.pendingExplosions.shift();
-      game.explode(e.x, e.y);
-    }
-  };
-  // [关卡 idx, 结构内（非 sleep）冻果数]
-  const cases = [[15, 4], [23, 5], [31, 5], [39, 12]];
-  for (const [idx, burstN] of cases) {
+test('章王怒吼护阵石：定点立桩于王侧、零动能零旋转、爆裂果零毁、章王零自伤（四关全相位压测）', () => {
+  // guard 石不走自由落体：怒吼当帧由 combat.placeGuardBlock 静态摆放到预定 x 列
+  // （坐该列最高静块顶面，无支撑坐地面），零动能故不砸果/不砸顶/不误伤。
+  // 这里走 harness 真实游戏循环泵到静止（不用手写 physFrame），验证完整时序。
+  // [关卡 idx, guard 石数, 两侧要求]：L16/L40 受屏内几何限制只立弹弓侧，L24/L32 两侧成墙
+  const cases = [[15, 1, 'left'], [23, 4, 'both'], [31, 3, 'both'], [39, 2, 'left']];
+  for (const [idx, guardN, sideReq] of cases) {
     fresh();
     game.loadLevel(idx);
-    for (let i = 0; i < 30; i++) physFrame();
+    env.pump(5);
     const boss = game.pigs.find(p => p.isBoss);
-    const structBursts = game.blocks.filter(b => b.type === 'burst' && !b.sleeping);
-    assert.strictEqual(structBursts.length, burstN, `L${idx + 1} 结构冻果数`);
-    const hp0 = boss.health;
+    const allBursts = game.blocks.filter(b => b.type === 'burst'); // 含休眠天降爆裂果
+    const sleepPigs = game.pigs.filter(p => p.sleeping);
+    const guards = game.blocks.filter(b => b.guard);
+    assert.strictEqual(guards.length, guardN, `L${idx + 1} guard 石数量`);
+    assert.ok(guards.every(b => b.sleeping), `L${idx + 1} guard 开局随相位休眠屏外`);
 
-    // 章王连跨所有阶段怒吼：唤醒全部天降落石/爆裂果/援军（玩家零输出）
-    for (const b of game.blocks) if (b.sleeping) { b.sleeping = false; b.dynamic = true; b.vx = 0; b.angularVelocity = 0; b.stillFrames = 0; }
-    for (const p of game.pigs) if (p.sleeping) { p.sleeping = false; p.dynamic = true; p.vx = 0; p.stillFrames = 0; }
-    for (let i = 0; i < 800; i++) physFrame();
+    // 章王连跨所有阶段怒吼（玩家零输出），真实循环泵到一切静止
+    boss.health = 1;
+    game.onPigHurt(boss);
+    env.pump(900);
 
-    assert.strictEqual(structBursts.filter(b => b.alive).length, burstN, `L${idx + 1} 怒吼后结构冻果一颗不爆`);
-    assert.ok(boss.alive, `L${idx + 1} 章王未被自己的天降物带走`);
-    assert.strictEqual(boss.health, hp0, `L${idx + 1} 章王零自伤（实际掉 ${hp0 - boss.health}）`);
+    for (const g of guards) {
+      assert.ok(g.alive, `L${idx + 1} guard 立桩后存活`);
+      assert.ok(!g.sleeping && !g.dynamic, `L${idx + 1} guard 已唤醒且为静态桩`);
+      assert.ok(Math.abs(g.rotation) < 0.01, `L${idx + 1} guard 零旋转（实际 ${g.rotation.toFixed(3)}）`);
+      assert.ok(g.y + g.height <= C.GROUND_Y + 0.5,
+        `L${idx + 1} guard 底部不穿地（底=${(g.y + g.height).toFixed(1)}）`);
+    }
+    // 两侧立柱：按石中心相对章王圆心判定
+    const hasLeft = guards.some(g => g.x + g.width / 2 < boss.x);
+    const hasRight = guards.some(g => g.x + g.width / 2 > boss.x);
+    assert.ok(hasLeft, `L${idx + 1} 弹弓侧（左）至少立一柱`);
+    if (sideReq === 'both') assert.ok(hasRight, `L${idx + 1} 王右侧也应有护桩`);
+
+    // 初始爆裂果（含休眠天降果）零销毁；爆炸队列排空；休眠援军全部唤醒且章王零自伤
+    assert.strictEqual(allBursts.filter(b => b.alive).length, allBursts.length,
+      `L${idx + 1} 怒吼全程不引爆任何爆裂果`);
+    assert.strictEqual(game.pendingExplosions.length, 0, `L${idx + 1} 爆炸队列最终排空`);
+    assert.ok(sleepPigs.every(p => !p.sleeping), `L${idx + 1} 休眠援军全部唤醒`);
+    assert.ok(boss.alive && boss.health === 1,
+      `L${idx + 1} 章王零自伤（实际血量 ${boss.health}）`);
   }
+});
+
+test('章王在河豚飞行中怒吼：FLYING 时序下护阵石同样静态立桩（不依赖 SETTLING 碰撞）', () => {
+  // 纯坐标天降落石的引擎级缺陷：FLYING 阶段不跑 checkDynamicCollisions，落石会穿结构。
+  // guard 立桩是纯坐标摆放、与游戏状态无关——本用例在鸟仍在场飞行时触发怒吼。
+  fresh();
+  game.loadLevel(23); // L24：4 guard + 5 爆裂果
+  env.pump(5);
+  const boss = game.pigs.find(p => p.isBoss);
+  const allBursts = game.blocks.filter(b => b.type === 'burst');
+  const guards = game.blocks.filter(b => b.guard);
+
+  // 轻拉弓真实发射：鸟进入 FLYING，力弱只落在阵前空地、远够不到结构
+  const bx = game.currentBird.x, by = game.currentBird.y;
+  env.fire('touchstart', bx, by);
+  env.fire('touchmove', bx - 12, by - 8);
+  env.fire('touchend');
+  env.pump(8);
+  assert.strictEqual(game.state, 'FLYING', '怒吼前河豚仍在飞行');
+  assert.ok(game.currentBird, '河豚在场');
+
+  boss.health = 1; // 飞行中连跨全部相位
+  game.onPigHurt(boss);
+  // 立桩是怒吼当帧的纯坐标摆放，不依赖任何物理阶段：当帧即就位
+  assert.ok(guards.every(g => g.alive && !g.sleeping && !g.dynamic && Math.abs(g.rotation) < 0.01),
+    'FLYING 怒吼当帧护阵石即静态立桩');
+
+  // 让这发弱弹出屏自然回收（避免它落地后撞磨阵前新桩、混淆掉落物 settle 断言）
+  game.currentBird.x = 600;
+  game.currentBird.y = 300;
+  env.pump(300);
+
+  // settle 后石墙仍全部存活且静态（援军豚真实天降、FLYING 中无动态碰撞会先穿后挤，
+  // 擦碰掉石桩 1-2 血/带来毫弧级微旋属既有天降机制的合理后果，不致死局、不引爆果）
+  assert.ok(guards.every(g => g.alive && !g.sleeping && !g.dynamic),
+    'FLYING 中怒吼，护阵石 settle 后仍全部存活成墙');
+  assert.strictEqual(allBursts.filter(b => b.alive).length, allBursts.length,
+    'FLYING 怒吼不引爆任何爆裂果');
+  assert.strictEqual(game.pendingExplosions.length, 0, '爆炸队列排空');
+  assert.ok(boss.alive && boss.health === 1, '章王零自伤');
 });
 
 // =====================================================================

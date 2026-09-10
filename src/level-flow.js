@@ -108,7 +108,7 @@ function setupLevel(game, level) {
 
   // 生成方块（章王阶段掉落物：sleep 标记，预置屏幕外，怒吼时唤醒）
   game.blocks = level.blocks.map(b => new E.Block(b.x, b.y, b.width, b.height, b.type,
-    { sleep: b.sleep }));
+    { sleep: b.sleep, guard: b.guard }));
 
   // 生成河豚队列（支持数组豚种队列；兼容旧的数字形式 → 全小青）
   const birdTypes = Array.isArray(level.birds)

@@ -728,6 +728,9 @@ class Block {
     this.alive = true;
     this.sleepMark = opts.sleep || 0;
     this.sleeping = this.sleepMark > 0;
+    // guard：怒吼时「定点立桩」的护阵石——不走自由落体，由 combat.placeGuardBlock
+    // 一次性静态摆放到章王两侧（仅 sleep 块可标记；tools/validate-levels 校验其落位几何）
+    this.guard = !!opts.guard;
     this.rotation = 0;
     this.angularVelocity = 0;
     this.stillFrames = 0;

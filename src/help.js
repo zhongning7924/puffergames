@@ -73,7 +73,7 @@ const HELP_BOSSES = [
     hp: 7,
     shell: '冰壳',
     style: 'ice',
-    trait: '半血触发怒吼，从屏外天降「爆裂果」援军，注意走位躲避。',
+    trait: '半血怒吼：身侧立起护阵石墙，另有爆裂果天降；砰砰可碎墙直取。',
   },
   {
     name: '岩甲章王',
@@ -81,7 +81,7 @@ const HELP_BOSSES = [
     hp: 9,
     shell: '石壳',
     style: 'stone',
-    trait: '两阶段；两度怒吼天降「落石」，用砰砰（克石）破壳最快。',
+    trait: '两阶段怒吼，身侧两度立起石墙封住地面直射；砰砰碎墙、高弧可越。',
   },
   {
     name: '深渊章王',
@@ -89,7 +89,7 @@ const HELP_BOSSES = [
     hp: 11,
     shell: '混合壳',
     style: 'abyss',
-    trait: '石墙 + 木墙 + 冰顶混合壳；三度怒吼，需轮换河豚克制。',
+    trait: '石木冰混合壳；三度怒吼立石墙护阵封直射，需轮换河豚克制。',
   },
   {
     name: '潮汐王座·章王',
@@ -97,7 +97,7 @@ const HELP_BOSSES = [
     hp: 14,
     shell: '王座双层壳',
     style: 'throne',
-    trait: '最终 Boss，血量最高；三度怒吼（落石 + 爆裂果 + 召唤援军）。',
+    trait: '最终 Boss，血量最高；三度怒吼（立石墙护阵 + 爆裂果 + 召唤援军）。',
   },
 ];
 

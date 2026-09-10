@@ -162,6 +162,7 @@ function triggerBossPhase(game, boss, phase) {
   game.addFloatingText(boss.x, boss.y - boss.radius - 26, '章王怒吼！', '#FF8A80', 24);
   for (const b of game.blocks) {
     if (b.sleeping && b.sleepMark === phase) {
+      if (b.guard) { placeGuardBlock(game, b); continue; }
       b.sleeping = false;
       b.dynamic = true;
       // 竖直坠落（vx=0）：随机水平速度会让落石在数百像素下落中漂移 ~70px，
@@ -178,6 +179,50 @@ function triggerBossPhase(game, boss, phase) {
       p.dynamic = true;
       p.stillFrames = 0;
     }
+  }
+}
+
+/**
+ * 护阵石定点立桩：怒吼时把 guard 石一次性静态摆放到预定 x 列——
+ * 坐该列现存最高静态方块顶面（成门垛），无支撑则坐地面（成贴边矮墙）。
+ * 不走自由落体、零坠落动能：与怒吼发生在 FLYING 还是 SETTLING 无关，也绝不会砸爆
+ * hp1 爆裂果/砸塌顶板/误伤哨豚（纯坐标落石方案的三处引擎级隐患全部消除）。
+ * 石墙本身是普通 static 石（hp6）：砰砰近距可一发碎、高弧与空爆可越过，只抬难度。
+ */
+function placeGuardBlock(game, b) {
+  // 支撑扫描：与石墙 x 列相交的在场静态方块，取最高顶面
+  let supportY = C.GROUND_Y;
+  for (const s of game.blocks) {
+    if (s === b || !s.alive || s.sleeping || s.dynamic) continue;
+    if (b.x < s.x + s.width && b.x + b.width > s.x && s.y < supportY) {
+      supportY = s.y;
+    }
+  }
+  const targetY = supportY - b.height;
+  // 运行时保险：就位矩形不得压到任何在场爆裂果（静态校验应已杜绝；违规则放弃立桩，
+  // 留在屏外继续休眠——方块不计通关，不致死局，也好过连锁自爆）
+  for (const s of game.blocks) {
+    if (s === b || !s.alive || s.sleeping || s.type !== 'burst') continue;
+    if (b.x < s.x + s.width && b.x + b.width > s.x
+      && targetY < s.y + s.height && targetY + b.height > s.y) return;
+  }
+  b.sleeping = false;
+  b.dynamic = false;
+  b.vx = 0;
+  b.vy = 0;
+  b.angularVelocity = 0;
+  b.rotation = 0;
+  b.stillFrames = 0;
+  b.y = targetY;
+  // 尘土反馈：石基处向两侧喷碎石色方屑（怒吼本身已有震屏/低频音/飘字）
+  for (let i = 0; i < 10; i++) {
+    const side = i % 2 === 0 ? -1 : 1;
+    game.spawnParticle(
+      b.x + b.width / 2, targetY + b.height,
+      side * (1 + Math.random() * 2.5), -Math.random() * 2.5,
+      i % 3 === 0 ? C.COLORS.stoneDark : C.COLORS.stoneLight,
+      20 + Math.floor(Math.random() * 15), 3 + Math.random() * 3, 'square'
+    );
   }
 }
 

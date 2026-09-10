@@ -66,6 +66,34 @@ function checkGeometry(label, level) {
   pigs.forEach((p, i) => checkSleep('章鱼', i, p));
   blocks.forEach((b, i) => checkSleep('方块', i, b));
 
+  // guard 护阵石：怒吼时由 combat.placeGuardBlock 沿数据 x 列定点立桩（零动能静态就位）。
+  // 出生 y 在屏外、就位 y 运行时沿列扫描，故这里只校验 x 几何，且按「任何时序都安全」从严：
+  const guards = blocks.filter(b => b.guard);
+  guards.forEach((g, gi) => {
+    const tag = `${label} 护阵石#${gi}(sleep${g.sleep})`;
+    if (g.type !== 'stone') fail(`${tag} 必须是 stone（定点立桩只给护阵石用）`);
+    if (!(g.sleep > 0)) fail(`${tag} 必须同时是 sleep 阶段物（怒吼才立桩）`);
+    const gL = g.x, gR = g.x + g.width;
+    if (gL < 0 || gR > C.SCREEN_WIDTH) fail(`${tag} 落位列越屏（[${gL},${gR}]）`);
+    // 与所有爆裂果（含屏外休眠的天降爆裂果）x 间隙 ≥10：立桩/横推都不碰 hp1 果
+    blocks.forEach((b) => {
+      if (b === g || b.type !== 'burst') return;
+      const gap = Math.max(b.x - gR, gL - (b.x + b.width));
+      if (gap < 10) fail(`${tag} 与爆裂果(x ${b.x}..${b.x + b.width}) 间隙仅 ${gap}，需 ≥10`);
+    });
+    // 与章王圆 x 间隙 ≥2（贴边护阵但不与巨躯互嵌）
+    bosses.forEach((p) => {
+      const gap = Math.max(p.x - p.radius - gR, gL - (p.x + p.radius));
+      if (gap < 2) fail(`${tag} 与章王圆心 ${p.x} r${p.radius} 间隙仅 ${gap}，需 ≥2`);
+    });
+    // guard 之间（跨相位也算）x 区间不得重叠：后相位的桩排旁边，任何时序都不互坐/互嵌
+    guards.forEach((o, oi) => {
+      if (oi <= gi) return;
+      const overlap = Math.min(gR, o.x + o.width) - Math.max(gL, o.x);
+      if (overlap > 0) fail(`${tag} 与护阵石#${oi} x 区间重叠 ${overlap}（跨相位也须错线）`);
+    });
+  });
+
   // 几何校验（与编辑器同源；官方关不传 editor，不做计数/禁区检查）
   const { issues } = validateLevel(level);
   issues.forEach((iss) => fail(`${label} ${iss.msg}`));
