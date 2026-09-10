@@ -221,26 +221,36 @@ function drawMenu(game) {
   const btnW = 160;
   const btnH = 50;
   const btnX = cx - btnW / 2;
-  const btnY = C.SCREEN_HEIGHT * 0.5;
+  const btnY = C.SCREEN_HEIGHT * 0.5 - 30; // 按钮组（开始游戏及下方全部入口）整体上移 30px
   const sketchOpts = { sketch: true, strokeWidth: 3, shadowOffset: 4, radius: 14 };
   if (!game.buttons.play) {
     game.buttons.play = new E.Button(btnX, btnY, btnW, btnH, '开始游戏', C.COLORS.buttonBg, sketchOpts);
   }
   game.buttons.play.draw(ctx);
 
+  // 造关师入口（紧跟「开始游戏」下方；UGC 中心：造关/输码挑战/我造的关/挑战记录）
+  const makerY = btnY + 62;
+  if (!game.buttons.goMaker) {
+    game.buttons.goMaker = new E.Button(btnX, makerY, btnW, 42, '🎨 造关师', '#07C160', sketchOpts);
+  }
+  game.buttons.goMaker.y = makerY;
+  game.buttons.goMaker.draw(ctx);
+
   // 排行榜入口（需关系链数据 + 用户隐私保护指引，默认关闭；见 config.js FEATURES）
-  // 关闭时不创建按钮：按钮不存在则 input 层不会命中，入口彻底不可达。
+  // 开启时插在造关师与设置之间；关闭时不创建按钮，input 层不会命中，入口彻底不可达。
   if (C.FEATURES.leaderboard) {
+    const leaderY = makerY + 54;
     if (!game.buttons.leaderboard) {
-      game.buttons.leaderboard = new E.Button(btnX, btnY + 62, btnW, 42, '好友排行榜', '#07C160', sketchOpts);
+      game.buttons.leaderboard = new E.Button(btnX, leaderY, btnW, 42, '好友排行榜', '#07C160', sketchOpts);
     }
+    game.buttons.leaderboard.y = leaderY; // 每帧同步，支持开关切换后重排
     game.buttons.leaderboard.draw(ctx);
   } else if (game.buttons.leaderboard) {
     delete game.buttons.leaderboard; // 开关关闭后清残留（如设置页返回菜单时）
   }
 
   // 设置入口（音效/音乐/震动开关）：排行榜隐藏时上移一位，避免菜单中间留一空格
-  const settingsY = C.FEATURES.leaderboard ? btnY + 116 : btnY + 62;
+  const settingsY = C.FEATURES.leaderboard ? makerY + 108 : makerY + 54;
   if (!game.buttons.settings) {
     game.buttons.settings = new E.Button(btnX, settingsY, btnW, 42, '设置', UI.blue, sketchOpts);
   }
@@ -255,16 +265,8 @@ function drawMenu(game) {
   game.buttons.help.y = helpY; // 跟随设置同步，避免开关切换后留错位
   game.buttons.help.draw(ctx);
 
-  // 造关师入口（UGC 中心：造关/输码挑战/我造的关/挑战记录）
-  const makerY = helpY + 54;
-  if (!game.buttons.goMaker) {
-    game.buttons.goMaker = new E.Button(btnX, makerY, btnW, 42, '🎨 造关师', '#07C160', sketchOpts);
-  }
-  game.buttons.goMaker.y = makerY;
-  game.buttons.goMaker.draw(ctx);
-
-  // 底部两行（星数/珍珠）跟随按钮组下移，保持与新加按钮的间距一致
-  const tailBase = makerY + 64;
+  // 底部两行（星数/珍珠）跟随按钮组下移，保持与最后一个按钮的间距一致
+  const tailBase = helpY + 64;
 
   // 最佳成绩
   let totalStars = 0;

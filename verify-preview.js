@@ -75,8 +75,8 @@ try {
   console.log('✓ 1. bundle 加载 + 首帧 MENU 渲染 OK');
   pump(3);
 
-  fireWx('touchstart', 187, 358);
-  fireWx('touchend', 187, 358);
+  fireWx('touchstart', 187, 328); // 「开始游戏」中心（按钮组整体上移 30px：358→328）
+  fireWx('touchend', 187, 328);
   console.log('✓ 2. 点击「开始」-> 关卡选择 OK');
   pump(3);
 

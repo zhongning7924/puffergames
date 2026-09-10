@@ -858,13 +858,15 @@ test('好友排行榜默认隐藏：无入口、不上传成绩、界面不可�
   game.goToMenu(); env.pump(2);
   assert.ok(!game.buttons.leaderboard, '主菜单不应存在排行榜按钮');
 
-  // (2) 原排行榜按钮位置已由设置按钮接管 → 点它进设置，说明没留下点不动的死区
+  // (2) 原排行榜按钮位置已由【造关师】接管（菜单顺序：开始 → 造关师 → 设置 → 说明）
+  //     点它进造关师中心，说明排行榜隐藏后没留下点不动的死区
   const cxm = C.SCREEN_WIDTH / 2;
-  const cym = C.SCREEN_HEIGHT * 0.5 + 62 + 21; // 设置按钮中心（排行榜隐藏后上移到 btnY+62）
+  const cym = C.SCREEN_HEIGHT * 0.5 - 30 + 62 + 21; // 造关师按钮中心（btnY+62）
   env.fire('touchstart', cxm, cym);
   env.fire('touchend');
   env.pump(2);
-  assert.strictEqual(game.state, 'SETTINGS', '原排行榜位置应命中设置按钮');
+  assert.strictEqual(game.listView, 'ugcHome', '原排行榜位置应命中造关师按钮');
+  game.listView = null; // 等同中心页点「返回」（goToMenu 不清 listView）
   game.goToMenu(); env.pump(2);
 
   // (3) 通关不触发成绩上传（setUserCloudStorage 属用户数据外传，需隐私保护指引）
@@ -921,14 +923,16 @@ test('渲染冒烟：全部界面状态各渲染数帧无异常', () => {
   assert.strictEqual(game.state, 'WIN');
 });
 
-test('主菜单：玩法说明入口在设置下方，标题下方显示出品方', () => {
+test('主菜单：按钮顺序 开始 → 造关师 → 设置 → 玩法说明，标题下方显示出品方', () => {
   fresh();
   game.goToMenu();
   env.pump(3);
   assert.ok(game.buttons.help, '主菜单应显示「玩法说明」按钮');
-  // 按钮顺序：开始游戏 → 设置 → 玩法说明（y 坐标严格递增）
-  assert.ok(game.buttons.play.y < game.buttons.settings.y, '设置按钮应在开始按钮下方');
+  // 按钮顺序：开始游戏 → 造关师 → 设置 → 玩法说明（y 坐标严格递增，统一 54px 行距）
+  assert.ok(game.buttons.play.y < game.buttons.goMaker.y, '造关师按钮应在开始按钮下方');
+  assert.ok(game.buttons.goMaker.y < game.buttons.settings.y, '设置按钮应在造关师按钮下方');
   assert.ok(game.buttons.settings.y < game.buttons.help.y, '玩法说明按钮应在设置按钮下方');
+  assert.strictEqual(game.buttons.goMaker.y - game.buttons.play.y, 62, '造关师紧跟开始按钮（+62）');
 });
 
 test('玩法说明页：主菜单入口可见、可进入、可滚动、可返回菜单', () => {
