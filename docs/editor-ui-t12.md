@@ -9,8 +9,8 @@ T12 将编辑器从硬编码、单层底栏升级为**安全区感知**的现代
 | 子任务 | 内容 | 状态 |
 |--------|------|------|
 | T12.1 | 地基：`C.SAFE_TOP` / `C.SAFE_BOTTOM` 配置，`GROUND_Y` 实时读 | ✅ |
-| T12.2 | 顶栏重做：sketch 胶囊退出/试玩 + 4 分类分段控件 | ✅ |
-| T12.3 | 底栏重做：材质筛选 + 透明井 + 大卡 + 橡皮槽 | ✅ |
+| T12.2 | 顶栏重做：sketch 胶囊退出/试玩 + 4 分类分段控件 | ✅ → 分段已移至底栏 |
+| T12.3 | 底栏重做：材质筛选 + 透明井 + 大卡 + 橡皮槽 + 分段控件 (T12.3 后段) | ✅ |
 | T12.4 | 选中浮条：复制/删除按钮 + `canAddEntity` 抽取 | ✅ |
 
 ## 架构
@@ -30,12 +30,14 @@ src/editor-render.js # 渲染层：读取 editor.js 导出的布局函数和常�
 ┌──────────────────────────────┐ y=0
 │  C.SAFE_TOP (刘海/状态栏)    │
 ├──────────────────────────────┤ SAFE_TOP
-│  顶栏内容带 (48px)           │ exit/play 胶囊 + 4 分段
-├──────────────────────────────┤ SAFE_TOP + 48
+│  顶栏内容带 (40px)           │ exit/play 胶囊
+├──────────────────────────────┤ SAFE_TOP + 40
 │                              │
 │  世界区 (编辑画布)           │ ← 弹弓禁放虚线、候飞豚、草稿实体
 │                              │
-├──────────────────────────────┤ barTop = filterTop (blocks) / cardTop (非 blocks)
+├──────────────────────────────┤ segTop = barTop
+│  分段控件行 (30px)           │ 方块·敌人·河豚·道具 四段
+├──────────────────────────────┤ filterTop
 │  材质筛选行 (36px, 仅blocks) │ 木·石·冰·果 四段，面板 x≥80
 ├──────────────────────────────┤ cardTop = H - SAFE_BOTTOM - 64
 │  [橡皮] [大卡]...[大卡]      │ 卡行：橡皮槽 x8-64 + 72×56 大卡 x≥80
@@ -57,11 +59,12 @@ src/editor-render.js # 渲染层：读取 editor.js 导出的布局函数和常�
 ```js
 // barLayout(d) — 编辑态实时调用，不缓存
 barLayout(d) → {
-  topH,         // SAFE_TOP + 48
+  topH,         // SAFE_TOP + 40
   cardTop,      // H - SAFE_BOTTOM - 64
   filterTop,    // cardTop - 36
+  segTop,       // filterTop - 30
   showFilter,   // d.tab === 'blocks'
-  barTop,       // showFilter ? filterTop : cardTop
+  barTop,       // segTop（面板最顶是分段控件行）
   filterW,      // SCREEN_WIDTH - FILTER.x - 8
   filterSegW,   // filterW / 4
 }
@@ -107,10 +110,11 @@ placeAt, removeAt, canAddEntity, duplicateEntity, deleteSelected
 
 ```
 touchstart(x,y)
-  ├─ y < topH → 顶栏（胶囊 / 分段）
+  ├─ y < topH → 顶栏（胶囊 exit/play）
   ├─ y ≥ barTop → 底栏
-  │   ├─ 筛选行, x ≥ 80 → 材质过滤
-  │   ├─ 筛选行, x < 80  → ▼ 穿透
+  │   ├─ 分段控件行      → tab 切换，return
+  │   ├─ 筛选行, x ≥ 80  → 材质过滤
+  │   ├─ 筛选行, x < 80   → ▼ 穿透
   │   ├─ 卡行, 橡皮槽     → toggleEraser
   │   ├─ 卡行, x ≥ 80    → barDrag（横滚手势）
   │   └─ 卡行, x < 80     → ▼ 穿透到世界区

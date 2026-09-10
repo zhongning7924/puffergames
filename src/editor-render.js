@@ -15,7 +15,7 @@ const EDITOR = require('./editor.js');
 
 const {
   TABS,
-  TOP_CONTENT_H, SEG,
+  TOP_CONTENT_H, SEG, SEG_H,
   CARD_W, CARD_H, CARD_GAP, CARD_PITCH, CARD_X,
   FILTER, FILTER_H, CARD_AREA_H,
   ERASER_SLOT, ZONE_X,
@@ -72,11 +72,6 @@ function drawEditor(game) {
   for (const b of d.draft.blocks) b.draw(ctx);
   for (const p of d.draft.pigs) p.draw(ctx);
   for (const p of d.draft.pearls) E.drawPearl(ctx, p.x, p.y, 9, game.frameCount);
-  // 候飞豚队列（编辑器里全部排队列网格，不站弹弓）
-  for (let i = 0; i < d.draft.birds.length; i++) {
-    const pos = EDITOR.queueBirdPos(i);
-    E.drawBirdMini(ctx, pos.x, pos.y, 15, d.draft.birds[i]);
-  }
 
   // 3. 选中高亮（拖动中半透明）
   if (d.selected && !d.drag) {
@@ -102,11 +97,10 @@ function drawEditor(game) {
   }
   ctx.restore();
 
-  // 6. 顶栏（0..SAFE_TOP 状态栏盖底 + 48 内容带）
+  // 6. 顶栏（0..SAFE_TOP 状态栏盖底 + 40 内容带，仅导航胶囊）
   ctx.save();
   ctx.fillStyle = 'rgba(18,40,66,0.92)';
   ctx.fillRect(0, 0, W, topH);
-  drawTopSegmented(ctx, d);
   game.buttons.editorExit && game.buttons.editorExit.draw(ctx);
   const playBtn = game.buttons.editorPlay;
   if (playBtn) {
@@ -126,8 +120,16 @@ function drawEditor(game) {
     ctx.restore();
   }
 
-  // 7. 底栏：材质筛选行（仅 blocks）+ 大卡行（含橡皮槽）+ SAFE_BOTTOM 留白
+  // 7. 底栏：分段控件 + 材质筛选行 + 大卡行（含橡皮槽）+ SAFE_BOTTOM 留白
   drawBottomBar(ctx, game, L);
+
+  // 8. 候飞豚队列（画在底栏面板之后，确保始终不被面板遮挡）
+  ctx.save();
+  for (let i = 0; i < d.draft.birds.length; i++) {
+    const pos = EDITOR.queueBirdPos(i);
+    E.drawBirdMini(ctx, pos.x, pos.y, 15, d.draft.birds[i]);
+  }
+  ctx.restore();
 
   // 选中态操作提示（底栏上方一行小字）
   if (d.selected) {
@@ -140,7 +142,7 @@ function drawEditor(game) {
   }
 }
 
-/** 底栏：背景 + 材质筛选行 + 橡皮槽 + 大卡行（透明井 x<80 不画任何 UI） */
+/** 底栏：背景 + 分段控件行 + 材质筛选行 + 橡皮槽 + 大卡行（透明井 x<80 不画任何 UI） */
 function drawBottomBar(ctx, game, L) {
   const d = game.editor;
   if (!d) return;
@@ -151,6 +153,9 @@ function drawBottomBar(ctx, game, L) {
   ctx.save();
   ctx.fillStyle = 'rgba(18,40,66,0.96)';
   ctx.fillRect(0, L.barTop, W, H - L.barTop);
+
+  // ---- 分段控件行（方块/敌人/河豚/道具，底栏第一行）----
+  drawSegmented(ctx, d, L.segTop);
 
   // ---- 材质筛选行（仅 blocks 分类显示；面板 x≥80）----
   if (L.showFilter) {
@@ -294,12 +299,12 @@ function drawCardRow(ctx, game, d, L) {
 // 顶栏 4 分类分段控件的激活色条（方块木色 / 章鱼紫 / 河豚橙 / 道具金）
 const SEG_ACTIVE = { blocks: '#C4A88C', enemies: '#CE93D8', birds: '#FFB74D', items: '#F6E08C' };
 
-/** 顶部分段控件：半透容器 + 激活段白底墨字 + 顶部分类色条 */
-function drawTopSegmented(ctx, d) {
-  const top = C.SAFE_TOP + SEG.y;
+/** 分段控件：居中半透容器 + 激活段白底墨字 + 色条；top 由调用方传入（顶栏或底栏） */
+function drawSegmented(ctx, d, top) {
+  const vPad = (SEG_H - SEG.h) / 2; // 段内垂直居中
   ctx.save();
   ctx.fillStyle = 'rgba(255,255,255,0.14)';
-  roundRect(ctx, SEG.x, top, SEG.w, SEG.h, 10);
+  roundRect(ctx, SEG.x, top + vPad, SEG.w, SEG.h, 10);
   ctx.fill();
   ctx.textAlign = 'center';
   ctx.font = 'bold 13px sans-serif';
@@ -307,16 +312,16 @@ function drawTopSegmented(ctx, d) {
     const sx = SEG.x + i * SEG.segW;
     if (d.tab === t.id) {
       ctx.fillStyle = '#FFFFFF';
-      roundRect(ctx, sx + 3, top + 3, SEG.segW - 6, SEG.h - 6, 8);
+      roundRect(ctx, sx + 3, top + vPad + 3, SEG.segW - 6, SEG.h - 6, 8);
       ctx.fill();
       ctx.fillStyle = SEG_ACTIVE[t.id];
-      roundRect(ctx, sx + 12, top + 6, SEG.segW - 24, 3, 1.5);
+      roundRect(ctx, sx + 12, top + vPad + 6, SEG.segW - 24, 3, 1.5);
       ctx.fill();
       ctx.fillStyle = '#1F3A5F';
     } else {
       ctx.fillStyle = 'rgba(255,255,255,0.62)';
     }
-    ctx.fillText(t.label, sx + SEG.segW / 2, top + 23);
+    ctx.fillText(t.label, sx + SEG.segW / 2, top + vPad + 22);
   });
   ctx.restore();
 }

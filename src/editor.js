@@ -21,9 +21,10 @@ const SOCIAL = require('./social.js');
 const GRID = CODEC.GRID;
 
 // ==================== 布局常量（全部逻辑 CSS 像素；y 类几何随 SAFE_* 实时算）====================
-const TOP_CONTENT_H = 48;  // 顶栏内容带高（背景从 y=0 画到 SAFE_TOP+此值，盖住状态栏）
-// 顶栏 4 分类分段控件：x/w/segW 为静态几何，y 是相对 SAFE_TOP 的偏移（真机随刘海下移）
-const SEG = { x: 88, y: 6, w: 184, h: 36, segW: 46 };
+const TOP_CONTENT_H = 40;  // 顶栏内容带高（背景从 y=0 画到 SAFE_TOP+此值，盖住状态栏）
+const SEG_H = 30;          // 分段控件行高（T12-3 后段：下移至底栏面板第一行）
+// 顶栏 4 分类分段控件：x/w/segW 桌面固定，y 段内垂直居中由渲染处理
+const SEG = { x: 96, w: 184, h: 30, segW: 46 };
 // 底栏：材质筛选行（仅 blocks）+ 卡行（锚屏底，含 SAFE_BOTTOM 留白）
 const FILTER_H = 36;       // 材质筛选行高
 const CARD_AREA_H = 64;    // 卡行高
@@ -99,14 +100,16 @@ function barLayout(d) {
   const cardTop = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - CARD_AREA_H;
   const showFilter = d.tab === 'blocks';
   const filterTop = cardTop - FILTER_H;
+  const segTop = filterTop - SEG_H;
   const filterW = C.SCREEN_WIDTH - FILTER.x - 8; // 面板右缘留 8
   return {
     topH: C.SAFE_TOP + TOP_CONTENT_H,
     cardTop,
     filterTop,
+    segTop,
     cardBottom: cardTop + CARD_AREA_H,
     showFilter,
-    barTop: showFilter ? filterTop : cardTop,
+    barTop: segTop, // 面板最顶是分段控件行
     filterW,
     filterSegW: filterW / MATERIALS.length,
   };
@@ -185,9 +188,9 @@ function enterEditor(game) {
   game.buttons = {};
   // 顶栏：退出/试玩为马卡龙 sketch 胶囊（热区 ≥36 高，随 SAFE_TOP 避开刘海）；
   // 中间 4 分类分段为自绘控件（不进 game.buttons，命中走 SEG 几何）。
-  game.buttons.editorExit = new E.Button(8, C.SAFE_TOP + 6, 72, 36, '‹退出', '#5B8DB8',
+  game.buttons.editorExit = new E.Button(8, C.SAFE_TOP + 2, 72, 36, '‹退出', '#5B8DB8',
     { sketch: true, radius: 18, fontSize: 14, shadowOffset: 3 });
-  game.buttons.editorPlay = new E.Button(C.SCREEN_WIDTH - 95, C.SAFE_TOP + 4, 87, 40, '▶ 试玩', '#57C98E',
+  game.buttons.editorPlay = new E.Button(C.SCREEN_WIDTH - 95, C.SAFE_TOP + 0, 87, 40, '▶ 试玩', '#57C98E',
     { sketch: true, radius: 20, fontSize: 14, shadowOffset: 3 });
   // 清空运行时世界（避免上一关残留实体被物理 update / 主渲染画出；编辑器画自己的草稿）
   game.blocks = [];
@@ -534,15 +537,19 @@ function onTouchStart(game, x, y) {
     for (const k of ['editorExit', 'editorPlay']) {
       if (game.buttons[k] && game.buttons[k].contains(x, y)) { game.buttons[k].pressed = true; return; }
     }
-    // 4 分类分段（命中带放宽到整条内容高度，单段 46×48 好过手指）
-    if (y >= C.SAFE_TOP && x >= SEG.x && x < SEG.x + SEG.w) {
-      const i = Math.floor((x - SEG.x) / SEG.segW);
-      if (TABS[i]) switchTab(d, TABS[i].id);
-    }
     return;
   }
-  // 2. 底栏区（材质悬浮面板 / 橡皮固定槽 / 大卡行）
+  // 2. 底栏区（分段控件 / 材质悬浮面板 / 橡皮固定槽 / 大卡行）
   if (y >= L.barTop) {
+    // 2a. 分段控件行
+    if (y >= L.segTop && y < L.segTop + SEG_H) {
+      if (x >= SEG.x && x < SEG.x + SEG.w) {
+        const i = Math.floor((x - SEG.x) / SEG.segW);
+        if (TABS[i]) switchTab(d, TABS[i].id);
+      }
+      return;
+    }
+    // 2b. 材质筛选 / 卡行
     if (L.showFilter && y >= L.filterTop && y < L.cardTop) {
       // blocks 材质筛选行：面板缩进 x≥80；x<80 是「透明井」直通世界（不 return）
       if (x >= FILTER.x) {
@@ -823,7 +830,7 @@ module.exports = {
   queueBirdPos, floatingBarRect, floatingBarHit,
   TABS, PALETTE,
   // 布局常量/helper（editor-render 与 e2e 共用，全部实时读 C，禁模块期冻结）
-  TOP_CONTENT_H, SEG, FILTER_H, CARD_AREA_H, CARD_W, CARD_H, CARD_GAP, CARD_PITCH,
+  TOP_CONTENT_H, SEG, SEG_H, FILTER_H, CARD_AREA_H, CARD_W, CARD_H, CARD_GAP, CARD_PITCH,
   CARD_X, FILTER, ERASER_SLOT, ZONE_X,
   barLayout, visibleItems, barMaxScroll, MAT_GROUPS, MATERIALS, ERASER_ITEM,
   FLOAT_BAR,
