@@ -191,7 +191,7 @@ function drawWaitingBirds(game) {
       ctx.fill();
     }
     // 候飞队列按豚种着色（身体/彩冠来自该豚种的原创配色）
-    E.drawBirdMini(ctx, bird.x, bird.y + oy, bird.radius * 0.85, bird.type);
+    E.drawPufferMini(ctx, bird.x, bird.y + oy, bird.radius * 0.85, bird.type);
   }
 
   // 「点我换豚」教学气泡：首次遇到多豚种队列时出现，换过一次（tutSwap）后永久消失
@@ -488,7 +488,7 @@ function drawUI(game) {
   const birdIconX = C.SCREEN_WIDTH - 14;
   for (let i = 0; i < game.birds.length; i++) {
     const bx = birdIconX - (game.birds.length - 1 - i) * 22;
-    E.drawBirdMini(ctx, bx, hudY, 7, game.birds[i].type);
+    E.drawPufferMini(ctx, bx, hudY, 7, game.birds[i].type);
   }
 
   // 章王血条（Boss 关：顶栏下方居中）

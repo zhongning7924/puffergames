@@ -9,7 +9,7 @@ const T = require('./theme.js');
 
 // ========== 河豚 Bird ==========
 
-class Bird {
+class Puffer {
   constructor(x, y, type = 'normal') {
     this.x = x;
     this.y = y;
@@ -67,7 +67,7 @@ class Bird {
       // 另外两只：直行 + 向下偏转
       const extraBirds = [];
       for (const offset of [0, C.SPLIT_ANGLE]) {
-        const b = new Bird(this.x, this.y, this.type);
+        const b = new Puffer(this.x, this.y, this.type);
         b.vx = Math.cos(angle + offset) * speed;
         b.vy = Math.sin(angle + offset) * speed;
         b.launched = true;
@@ -378,7 +378,7 @@ class Bird {
  * 迷你河豚图标（候飞队列 / HUD / 结算剩豚奖励用），颜色随种类。
  * 独立函数避免为画图标而实例化 Bird。
  */
-function drawBirdMini(ctx, x, y, r, type) {
+function drawPufferMini(ctx, x, y, r, type) {
   const p = C.BIRD_TYPES[type] || C.BIRD_TYPES.normal;
   ctx.save();
   ctx.translate(x, y);
@@ -425,9 +425,9 @@ function drawBirdMini(ctx, x, y, r, type) {
   ctx.restore();
 }
 
-// ========== 章鱼怪 Octopus（类名 Pig 保留，题材已迁移为海洋） ==========
+// ========== 章鱼怪 Octopus ==========
 
-class Pig {
+class Octopus {
   // opts: { boss: 章王, hp: 自定义血量, name: 章王名, sleep: 阶段唤醒标记(1/2) }
   constructor(x, y, radius = 22, opts) {
     opts = opts || {};
@@ -1342,13 +1342,13 @@ function drawPearl(ctx, x, y, r, t) {
 }
 
 module.exports = {
-  Bird,
-  Pig,
+  Puffer,
+  Octopus,
   Block,
   Particle,
   FloatingText,
   Button,
   Bubble,
-  drawBirdMini,
+  drawPufferMini,
   drawPearl,
 };

@@ -251,7 +251,7 @@ test('章王五色差异化：战斗内 bossStyle 五王互异，且与图鉴/�
       `L${idx + 1} 图鉴配色与战斗内不一致`);
   });
   // 未知 style 安全回退深渊紫（旧硬编码色），不炸渲染
-  const fallback = new E.Pig(0, 0, 30, { boss: true });
+  const fallback = new E.Octopus(0, 0, 30, { boss: true });
   assert.strictEqual(fallback.bossStyle, C.BOSS_STYLE.abyss);
 });
 
@@ -417,7 +417,7 @@ test('河豚愤怒膨胀：发射后 puff 0→1 鼓成刺球（视觉放大+全�
   const scaleOf = calls => { const s = calls.find(c => c[0] === 'scale'); return s ? s[1] : null; };
   const lineToCount = calls => calls.filter(c => c[0] === 'lineTo').length;
 
-  const bird = new E.Bird(60, 200, 'normal');
+  const bird = new E.Puffer(60, 200, 'normal');
   assert.strictEqual(bird.puff, 0, '未发射膨胀度为 0');
   assert.strictEqual(bird.radius, C.BIRD_RADIUS);
   let r = rec();
@@ -442,7 +442,7 @@ test('河豚愤怒膨胀：发射后 puff 0→1 鼓成刺球（视觉放大+全�
 
 test('方块压章王去重：持续接触只在撞上瞬间掉 1 血，不碾压（修复一发秒王）', () => {
   // 章王免疫击退不挪窝；石板卡住后重力持续下压 → 旧逻辑每帧掉血，一块板压着就能秒杀
-  const boss = new E.Pig(200, 540, 33, { boss: true, hp: 14 });
+  const boss = new E.Octopus(200, 540, 33, { boss: true, hp: 14 });
   const block = new E.Block(186, 505, 30, 30, 'stone');
   block.dynamic = true;
   const stub = { blocks: [block], pigs: [boss], onPigKilled() {}, onPigHurt() {}, playHitSound() {} };
@@ -1149,21 +1149,26 @@ test('T12-3 材质筛选：blocks 切材质子筛选清 palette/复位 scrollX�
   assert.strictEqual(EDITOR.barLayout(E2).showFilter, true);
 });
 
-test('T12-3 透明井：底栏 x<80 穿透到世界（worldDown），x≥80 记 barDrag', () => {
+test('T12-3 透明井：材质行 x<FILTER.x 穿透到世界，卡行 x≥CARD_X 记 barDrag', () => {
   const E2 = enterFreshEditor();
   const L = EDITOR.barLayout(E2);
-  const wellY = L.cardTop + 10; // 卡行区域内
+  const filterY = L.filterTop + 10; // 材质筛选行区域内（仅 blocks tab）
+  const cardY = L.cardTop + 10;     // 卡行区域内
 
-  // 透明井 (x=70，橡皮槽 64 右缘与卡行 80 左缘之间) → 不记 barDrag，设 worldDown
-  env.fire('touchstart', 70, wellY);
-  assert.strictEqual(E2.barDrag, null, '透明井不触发卡行横滚');
-  assert.strictEqual(E2.worldDown, true, '透明井穿透到世界区');
+  // 材质筛选行透明井 (x=30 < FILTER.x=64) → 穿透设 worldDown
+  env.fire('touchstart', 30, filterY);
+  assert.strictEqual(E2.barDrag, null, '材质行透明井不触发横滚');
+  assert.strictEqual(E2.worldDown, true, '材质行透明井穿透到世界区');
   env.fire('touchend');
   assert.strictEqual(E2.worldDown, false);
 
-  // 卡行区 (x≥80) → 记 barDrag
-  env.fire('touchstart', cardX(0), wellY);
-  assert.ok(E2.barDrag, '卡行 x≥80 记横滚手势');
+  // 材质筛选行面板 (x=190，在石头段) → 材质过滤切换
+  env.fire('touchstart', 190, filterY); env.fire('touchend');
+  assert.strictEqual(E2.matFilter, 'stone', '材质行面板切到石材');
+
+  // 卡行区 (x≥64) → 记 barDrag
+  env.fire('touchstart', cardX(0), cardY);
+  assert.ok(E2.barDrag, '卡行 x≥64 记横滚手势');
   assert.strictEqual(E2.worldDown, false, '卡行不设 worldDown');
   env.fire('touchend');
 
@@ -1179,12 +1184,12 @@ test('T12-4 canAddEntity 抽取：block/pig/pearl 禁区/重叠/超限校验一�
 
   // 合法
   assert.ok(EDITOR.canAddEntity(draft, new E.Block(300, 300, 80, 26, 'wood')).ok);
-  assert.ok(EDITOR.canAddEntity(draft, new E.Pig(300, 300, 17)).ok);
+  assert.ok(EDITOR.canAddEntity(draft, new E.Octopus(300, 300, 17)).ok);
   assert.ok(EDITOR.canAddEntity(draft, { x: 300, y: 300 }).ok);
 
   // 禁区
   assert.strictEqual(EDITOR.canAddEntity(draft, new E.Block(50, 300, 80, 26, 'wood')).reason, 'zone');
-  assert.strictEqual(EDITOR.canAddEntity(draft, new E.Pig(100, 300, 22)).reason, 'zone');
+  assert.strictEqual(EDITOR.canAddEntity(draft, new E.Octopus(100, 300, 22)).reason, 'zone');
 
   // 重叠
   draft.blocks.push(new E.Block(300, 300, 80, 26, 'wood'));
@@ -1193,7 +1198,7 @@ test('T12-4 canAddEntity 抽取：block/pig/pearl 禁区/重叠/超限校验一�
   // 超限
   const full = { blocks: new Array(100), pigs: new Array(30), pearls: new Array(30) };
   assert.strictEqual(EDITOR.canAddEntity(full, new E.Block(300, 300, 80, 26, 'wood')).reason, 'limit');
-  assert.strictEqual(EDITOR.canAddEntity(full, new E.Pig(300, 300, 17)).reason, 'limit');
+  assert.strictEqual(EDITOR.canAddEntity(full, new E.Octopus(300, 300, 17)).reason, 'limit');
   assert.strictEqual(EDITOR.canAddEntity(full, { x: 300, y: 300 }).reason, 'limit');
 });
 
@@ -1322,10 +1327,10 @@ const SEG_Y = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - EDITOR.CARD_AREA_H - EDITOR.FILT
 const segX = (i) => EDITOR.SEG.x + i * EDITOR.SEG.segW + EDITOR.SEG.segW / 2; // 119+46i
 const EXIT_XY = [44, TOP_Y];          // 退出胶囊中心
 const PLAY_XY = [280 + 87 / 2, TOP_Y]; // 试玩胶囊中心 (323.5,20)
-// T12-3 大卡底栏：卡中心 y=cardTop+CARD_AREA_H/2=603+32=635，卡左缘 80 步距 80 宽 72
-const CARD_X = 80, CARD_PITCH = 80, CARD_W = 72;
+// T12-3 大卡底栏：卡中心 y=cardTop+CARD_AREA_H/2=603+32=635，卡左缘 64 步距 80 宽 72
+const CARD_X = 64, CARD_PITCH = 80, CARD_W = 72;
 const CARD_Y = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - EDITOR.CARD_AREA_H + EDITOR.CARD_AREA_H / 2;
-const cardX = (j) => CARD_X + j * CARD_PITCH + CARD_W / 2; // 116 + j*80
+const cardX = (j) => CARD_X + j * CARD_PITCH + CARD_W / 2; // 100 + j*80
 const ERASER_SLOT_X = EDITOR.ERASER_SLOT.x + EDITOR.ERASER_SLOT.w / 2; // 36
 // 旧常量（仅 "编辑器：EDITOR 态渲染冒烟" 仍引用 CHIP_Y；保留兼容）
 const CHIP_Y = CARD_Y; // 过渡别名
@@ -1911,6 +1916,81 @@ test('难度曲线：五章 L33-39 火砖在场 + 必配嘟嘟 + 砰砰稀缺（
     assert.ok(lv.birds.includes('normal'), label + ' 应配嘟嘟铁头碎火砖');
     assert.strictEqual(lv.birds.filter(t => t === 'bomb').length, 1, label + ' 砰砰应稀缺（1 发）');
   }
+});
+
+test('编辑器：章鱼王物料放置→草稿增项，isBoss/hp 正确', () => {
+  const E2 = enterFreshEditor();
+  // 切到敌人 tab，选章鱼王（enemies j2=pig-boss）
+  env.fire('touchstart', segX(1), SEG_Y); env.fire('touchend');
+  env.fire('touchstart', cardX(2), CARD_Y); env.fire('touchend');
+  assert.strictEqual(E2.palette && E2.palette.id, 'pig-boss');
+  // 在世界区放置章鱼王
+  env.fire('touchstart', 300, WY); env.fire('touchend');
+  assert.strictEqual(E2.draft.pigs.length, 1);
+  const boss = E2.draft.pigs[0];
+  assert.strictEqual(boss.isBoss, true, '放置物应为章王');
+  assert.strictEqual(boss.maxHealth, 5, '默认 hp=5');
+  assert.strictEqual(boss.radius, 28, '章王半径=28');
+  assert.ok(boss.bossName, '章王应有名字');
+});
+
+test('编辑器：复制章鱼王保留 boss 属性；deriveLevel→instantiateDraft 往返不丢', () => {
+  const E2 = enterFreshEditor();
+  // 放置一只章鱼王
+  EDITOR.placeAt(game, 280, WY, EDITOR.findPalette('pig-boss'));
+  assert.strictEqual(E2.draft.pigs.length, 1);
+  // 选中并复制
+  env.fire('touchstart', 280, WY); env.fire('touchend');
+  assert.ok(E2.selected && E2.selected.kind === 'pig');
+  EDITOR.duplicateEntity(game);
+  assert.strictEqual(E2.draft.pigs.length, 2, '复制后应有 2 只章鱼');
+  const copy = E2.draft.pigs[1];
+  assert.strictEqual(copy.isBoss, true, '复制的章鱼保留 boss 标记');
+  assert.strictEqual(copy.maxHealth, 5, '复制的章鱼保留 hp');
+  // deriveLevel → instantiateDraft 往返
+  const level = EDITOR.deriveLevel(E2.draft);
+  const pigData = level.pigs.filter(p => p.boss);
+  assert.strictEqual(pigData.length, 2, 'deriveLevel 输出 2 只 boss');
+  const restored = EDITOR.instantiateDraft(level);
+  assert.strictEqual(restored.pigs.length, 2);
+  assert.ok(restored.pigs.every(p => p.isBoss), 'instantiateDraft 还原 boss 标记');
+});
+
+test('codec：章王关卡码编解码往返 boss/hp 不丢失', () => {
+  const lv = {
+    birds: ['normal'],
+    blocks: [],
+    pigs: [
+      { x: 200, y: 560, radius: 17 },
+      { x: 300, y: 560, radius: 22 },
+      { x: 240, y: 540, radius: 28, boss: true, hp: 5, name: '章鱼王' },
+    ],
+    pearls: [],
+  };
+  const code = CODEC.encodeLevel(lv);
+  assert.ok(code.startsWith('PG1'), '前缀 PG1');
+  const back = CODEC.decodeLevel(code);
+  assert.ok(back, '解码应成功');
+  assert.strictEqual(back.pigs.length, 3);
+  // 普豚不变
+  assert.deepStrictEqual(back.pigs[0], { x: 200, y: 560, radius: 17 });
+  assert.deepStrictEqual(back.pigs[1], { x: 300, y: 560, radius: 22 });
+  // 章王：boss/hp/name 完整
+  assert.strictEqual(back.pigs[2].radius, 28);
+  assert.strictEqual(back.pigs[2].boss, true);
+  assert.strictEqual(back.pigs[2].hp, 5);
+  assert.strictEqual(back.pigs[2].name, '章鱼王');
+});
+
+test('codec：旧码（无章王）解码不受新 boss 格式影响', () => {
+  // 仅单豚的旧格式：PG1 前缀 + 1 只普通豚 + 0 方块 + 1 只小章鱼 + 0 珍珠
+  const oldLv = { birds: ['normal'], blocks: [],
+    pigs: [{ x: 200, y: 600, radius: 17 }], pearls: [] };
+  const code = CODEC.encodeLevel(oldLv);
+  const back = CODEC.decodeLevel(code);
+  assert.ok(back);
+  assert.deepStrictEqual(back.pigs[0], { x: 200, y: 600, radius: 17 });
+  assert.strictEqual(back.pigs[0].boss, undefined, '旧码豚不应有 boss 标记');
 });
 
 run();

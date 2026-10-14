@@ -16,8 +16,8 @@ const BLOCK_TYPES = { w: 'wood', t: 'stone', i: 'ice', f: 'burst' };
 const SIZES = { b: [80, 26], p: [28, 80], q: [28, 28], f: [26, 26] };
 const SIZE_KEY = (w, h, type) =>
   type === 'burst' ? 'f' : (w === 80 ? 'b' : h === 80 ? 'p' : 'q');
-const PIG_CHARS = { 17: 's', 22: 'l' };
-const PIG_RADII = { s: 17, l: 22 };
+const PIG_CHARS = { 17: 's', 22: 'l', 28: 'b' };
+const PIG_RADII = { s: 17, l: 22, b: 28 };
 
 function enc(n) { // 非负整数 → 1~2 字符；低位数字 0..31，高位标记 32..63，上限 1023（网格坐标 max ~167，够用）
   if (n < 0 || n > 1023) throw new Error('codec 数值越界');
@@ -57,7 +57,9 @@ function encodeLevel(level) {
   for (const p of pigs) {
     const pc = PIG_CHARS[p.radius];
     if (!pc) throw new Error('codec 未知章鱼半径: ' + p.radius);
-    out += pc + enc(Math.round(p.x / GRID)) + enc(Math.round(p.y / GRID));
+    out += pc;
+    if (p.boss) out += enc(p.hp || 5);
+    out += enc(Math.round(p.x / GRID)) + enc(Math.round(p.y / GRID));
   }
   out += enc(pearls.length);
   for (const p of pearls) out += enc(Math.round(p.x / GRID)) + enc(Math.round(p.y / GRID));
@@ -95,8 +97,12 @@ function decodeLevel(code) {
     for (let k = 0; k < nPigs; k++) {
       const radius = PIG_RADII[s[i++]];
       if (!radius) return null;
+      const pig = { x: 0, y: 0, radius };
+      if (radius === 28) { pig.boss = true; pig.hp = read(); pig.name = '章鱼王'; }
       const gx = read(), gy = read();
-      pigs.push({ x: gx * GRID, y: gy * GRID, radius });
+      pig.x = gx * GRID;
+      pig.y = gy * GRID;
+      pigs.push(pig);
     }
     const pearls = [];
     const nPearls = read();

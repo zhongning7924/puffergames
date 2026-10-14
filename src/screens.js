@@ -1134,12 +1134,12 @@ function drawWinScreen(game) {
         ctx.save();
         ctx.translate(bx, by);
         ctx.scale(s, s);
-        E.drawBirdMini(ctx, 0, 0, 10, type);
+        E.drawPufferMini(ctx, 0, 0, 10, type);
         ctx.restore();
       } else {
         ctx.save();
         ctx.globalAlpha = 0.25;
-        E.drawBirdMini(ctx, bx, by, 10, type);
+        E.drawPufferMini(ctx, bx, by, 10, type);
         ctx.restore();
       }
     }

@@ -30,8 +30,8 @@ const FILTER_H = 36;       // 材质筛选行高
 const CARD_AREA_H = 64;    // 卡行高
 const CARD_W = 72, CARD_H = 56, CARD_GAP = 8;
 const CARD_PITCH = CARD_W + CARD_GAP;   // 80：大卡横移步距
-const CARD_X = 80;         // 卡行左缘；左 80px = 橡皮槽 + 透明井（露出候飞豚列）
-const FILTER = { x: 80, h: 36 };        // 材质面板几何（宽 = 屏宽-80-8，segW 实时算）
+const CARD_X = 64;         // 卡行紧挨橡皮槽右缘 (8+56=64)；透明井消隐
+const FILTER = { x: 64, h: 36 };        // 材质面板几何（宽 = 屏宽-64-8，segW 实时算）
 const ERASER_SLOT = { x: 8, y: 4, w: 56, h: 56 }; // 橡皮固定槽（卡行坐标系，y 相对 cardTop）
 const ZONE_X = C.SCREEN_WIDTH * 0.33; // 弹弓禁放区（与 validateLevel 同公式）
 
@@ -58,6 +58,7 @@ const PALETTE = {
   enemies: [
     { id: 'pig-s', kind: 'pig', radius: 17, label: '小章鱼' },
     { id: 'pig-l', kind: 'pig', radius: 22, label: '大章鱼' },
+    { id: 'pig-boss', kind: 'pig', radius: 28, label: '章鱼王', boss: true, hp: 5 },
   ],
   birds: [
     { id: 'normal', kind: 'bird', type: 'normal', label: '嘟嘟' },
@@ -136,7 +137,8 @@ function newDraft() {
 function instantiateDraft(data) {
   return {
     blocks: (data.blocks || []).map(b => new E.Block(b.x, b.y, b.width, b.height, b.type)),
-    pigs: (data.pigs || []).map(p => new E.Pig(p.x, p.y, p.radius)),
+    pigs: (data.pigs || []).map(p => new E.Octopus(p.x, p.y, p.radius,
+      (p.boss) ? { boss: true, hp: p.hp, name: p.name } : undefined)),
     pearls: (data.pearls || []).map(p => ({ x: p.x, y: p.y })),
     birds: (data.birds && data.birds.length) ? data.birds.slice() : ['normal'],
   };
@@ -152,7 +154,11 @@ function deriveLevel(draft) {
     blocks: draft.blocks.map(b => ({
       x: Math.round(b.x), y: Math.round(b.y), width: b.width, height: b.height, type: b.type,
     })),
-    pigs: draft.pigs.map(p => ({ x: Math.round(p.x), y: Math.round(p.y), radius: p.radius })),
+    pigs: draft.pigs.map(p => {
+      const obj = { x: Math.round(p.x), y: Math.round(p.y), radius: p.radius };
+      if (p.isBoss) { obj.boss = true; obj.hp = p.maxHealth; if (p.bossName) obj.name = p.bossName; }
+      return obj;
+    }),
     pearls: draft.pearls.map(p => ({ x: Math.round(p.x), y: Math.round(p.y), reward: true })),
   };
   const base = level.pigs.length * 1000 + level.blocks.length * 250;
@@ -324,7 +330,11 @@ function placeAt(game, x, y, item) {
   if (!pos) return;
   let ent;
   if (item.kind === 'block') ent = new E.Block(pos.x, pos.y, item.w, item.h, item.type);
-  else if (item.kind === 'pig') ent = new E.Pig(pos.x, pos.y, item.radius);
+  else if (item.kind === 'pig') {
+    const pigOpts = {};
+    if (item.boss) { pigOpts.boss = true; pigOpts.hp = item.hp || 5; pigOpts.name = item.label; }
+    ent = new E.Octopus(pos.x, pos.y, item.radius, pigOpts);
+  }
   else if (item.kind === 'pearl') ent = { x: pos.x, y: pos.y, kind: 'pearl' };
   else return;
   // ↓ canAddEntity 内置禁区/重叠/门限校验，非 limit 类失败红闪反馈
@@ -356,7 +366,7 @@ function removeBirdAt(game, queueIndex) {
 function queueBirdPos(i) {
   return {
     x: C.SLINGSHOT_X - 35 - (i % 3) * 21,
-    y: C.GROUND_Y - C.BIRD_RADIUS - Math.floor(i / 3) * 28,
+    y: C.GROUND_Y - 130 - Math.floor(i / 3) * 28,
   };
 }
 
@@ -449,7 +459,11 @@ function duplicateEntity(game) {
     ent = new E.Block(src.x + GRID * 8, src.y + GRID, src.width, src.height, src.type);
   } else if (sel.kind === 'pig') {
     const src = draft.pigs[sel.index]; if (!src) return;
-    ent = new E.Pig(src.x + GRID * 8, src.y + GRID, src.radius);
+    const pigOpts = {};
+    if (src.isBoss) { pigOpts.boss = true; pigOpts.hp = src.maxHealth; if (src.bossName) pigOpts.name = src.bossName; }
+    // 偏移量须 > 2*radius 避免重叠；章王半径 28 需要更大步距
+    const offX = Math.max(GRID * 8, src.radius * 2 + GRID * 2);
+    ent = new E.Octopus(src.x + offX, src.y + GRID, src.radius, pigOpts);
   } else if (sel.kind === 'pearl') {
     const src = draft.pearls[sel.index]; if (!src) return;
     ent = { x: src.x + GRID * 8, y: src.y + GRID };
@@ -551,14 +565,14 @@ function onTouchStart(game, x, y) {
     }
     // 2b. 材质筛选 / 卡行
     if (L.showFilter && y >= L.filterTop && y < L.cardTop) {
-      // blocks 材质筛选行：面板缩进 x≥80；x<80 是「透明井」直通世界（不 return）
+      // blocks 材质筛选行：面板 x≥FILTER.x；x<FILTER.x 直通世界（不 return）
       if (x >= FILTER.x) {
         const i = Math.floor((x - FILTER.x) / L.filterSegW);
         if (MATERIALS[i]) setMatFilter(d, MATERIALS[i].id);
         return;
       }
     } else if (y >= L.cardTop) {
-      // 卡行：最左橡皮槽常驻；x≥80 记横滚手势（抬手未移动才选卡）；64..80 缝隙吞掉
+      // 卡行：最左橡皮槽常驻；x≥CARD_X 记横滚手势（抬手未移动才选卡）
       if (x >= ERASER_SLOT.x && x < ERASER_SLOT.x + ERASER_SLOT.w) {
         toggleEraser(d);
         return;
@@ -567,10 +581,10 @@ function onTouchStart(game, x, y) {
         d.barDrag = { startX: x, scrollStart: d.scrollX, moved: false };
         return;
       }
-      // 透明井 (64 ≤ x < 80)：不 return，穿透到世界区处理
+      // 橡皮-卡缝间不 return，穿透到世界区
     }
   }
-  // 3. 世界区（材质行透明井 x<80 的起手也落这里）
+  // 3. 世界区（材质行透明井 x<FILTER.x 的起手也落这里）
   // 3a. 选中浮条优先：复制/删除按钮命中即消费，不走后续拖动/放置
   const floatAct = floatingBarHit(d, x, y);
   if (floatAct === 'copy') { duplicateEntity(game); return; }
@@ -638,7 +652,7 @@ function onTouchEnd(game) {
     if (wasDrag.moved) { touchStructure(game); revalidate(game); }
     d.drag = null;
   }
-  // 点候飞豚移除：必须世界区起手且未拖动（透明井内的队列豚可删；卡行背后不误删）
+  // 点候飞豚移除：必须世界区起手且未拖动
   if (d.worldDown && !wasDrag && y != null) {
     const h = hitTest(game, x, y);
     if (h && h.kind === 'queuebird') removeBirdAt(game, h.index);

@@ -103,7 +103,7 @@ function setupLevel(game, level) {
     .map(p => ({ ...p, collected: !!game.progress.pearls[p.id] }));
 
   // 生成章鱼（章王：boss/hp/name；阶段援军：sleep 标记）
-  game.pigs = level.pigs.map(p => new E.Pig(p.x, p.y, p.radius,
+  game.pigs = level.pigs.map(p => new E.Octopus(p.x, p.y, p.radius,
     { boss: p.boss, hp: p.hp, name: p.name, sleep: p.sleep, style: p.style }));
 
   // 生成方块（章王阶段掉落物：sleep 标记，预置屏幕外，怒吼时唤醒）
@@ -117,7 +117,7 @@ function setupLevel(game, level) {
   game.birdsRemaining = birdTypes.length;
   game.birds = birdTypes.map((t, i) => {
     const pos = queuePosition(i);
-    return new E.Bird(pos.x, pos.y, t);
+    return new E.Puffer(pos.x, pos.y, t);
   });
 
   spawnBird(game);

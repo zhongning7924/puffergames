@@ -173,7 +173,7 @@ function drawPufferCard(ctx, x, y, w, p) {
   ctx.stroke();
 
   // 左：河豚图标
-  E.drawBirdMini(ctx, x + 38, y + 48, 24, p.type);
+  E.drawPufferMini(ctx, x + 38, y + 48, 24, p.type);
 
   // 右：名称（粗体）
   ctx.textAlign = 'left';

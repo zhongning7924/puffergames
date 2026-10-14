@@ -62,7 +62,7 @@ function watchAdRevive(game) {
     game.reviveUsed = true;
     game.birdsRemaining += 1;
     const pos = game.queuePosition(game.birds.length);
-    game.birds.push(new E.Bird(pos.x, pos.y, 'normal'));
+    game.birds.push(new E.Puffer(pos.x, pos.y, 'normal'));
     game.buttons = {};
     game.spawnBird();
     game.state = 'READY';
@@ -157,6 +157,16 @@ function skipWinAnim(game) {
 /** 胜负判定：章鱼全灭→胜利；豚尽→失败；否则出下一只豚 */
 function checkWinLose(game) {
   const alivePigs = game.pigs.filter(p => p.alive && !p.dying);
+
+  // 自制关调试：存活章鱼 > 0 时打印状态，帮助定位"看不见的活猪"
+  if (game.isCustom && alivePigs.length > 0) {
+    console.warn('[checkWinLose] 自制关仍有 ' + alivePigs.length + ' 只活章鱼（alive && !dying）：');
+    alivePigs.forEach((p, i) => {
+      console.warn(`  [${i}] x=${Math.round(p.x)} y=${Math.round(p.y)} r=${p.radius} ` +
+        `isBoss=${p.isBoss} sleeping=${p.sleeping} dynamic=${p.dynamic} hp=${p.health}/${p.maxHealth} ` +
+        `onGround=${p.onGround} stillFrames=${p.stillFrames}`);
+    });
+  }
 
   if (alivePigs.length === 0) {
     // 胜利

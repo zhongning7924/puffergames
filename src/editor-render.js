@@ -28,7 +28,7 @@ function cardColor(item) {
   if (item.kind === 'block') {
     return { wood: '#B07A4A', stone: '#8A8F98', ice: '#9FD8E8', burst: '#E8654B' }[item.type] || '#B07A4A';
   }
-  if (item.kind === 'pig') return '#B76BD6';   // 章鱼紫
+  if (item.kind === 'pig') return item.boss ? '#FFB74D' : '#B76BD6';   // 章王金 / 章鱼紫
   if (item.kind === 'bird') return '#F2A03D';  // 河豚橙
   if (item.kind === 'pearl') return '#F6E7A1'; // 珍珠金
   if (item.kind === 'eraser') return '#E87A7A';// 橡皮粉红
@@ -127,7 +127,7 @@ function drawEditor(game) {
   ctx.save();
   for (let i = 0; i < d.draft.birds.length; i++) {
     const pos = EDITOR.queueBirdPos(i);
-    E.drawBirdMini(ctx, pos.x, pos.y, 15, d.draft.birds[i]);
+    E.drawPufferMini(ctx, pos.x, pos.y, 15, d.draft.birds[i]);
   }
   ctx.restore();
 
@@ -142,7 +142,7 @@ function drawEditor(game) {
   }
 }
 
-/** 底栏：背景 + 分段控件行 + 材质筛选行 + 橡皮槽 + 大卡行（透明井 x<80 不画任何 UI） */
+/** 底栏：背景 + 分段控件行 + 材质筛选行 + 橡皮槽 + 大卡行 */
 function drawBottomBar(ctx, game, L) {
   const d = game.editor;
   if (!d) return;
@@ -171,7 +171,7 @@ function drawBottomBar(ctx, game, L) {
   ctx.restore();
 }
 
-/** blocks 材质子筛选：木/石/冰/果 四段，面板缩进 x≥80 */
+/** blocks 材质子筛选：木/石/冰/果 四段，面板缩进 x≥FILTER.x */
 function drawFilterRow(ctx, d, L) {
   const top = L.filterTop;
   const h = FILTER_H;
@@ -240,7 +240,7 @@ function drawEraserSlot(ctx, d, L) {
   ctx.restore();
 }
 
-/** 大卡行：72×56 物料卡，x≥80 横滚裁剪，透明井 x<80 留空 */
+/** 大卡行：72×56 物料卡，x≥64 横滚裁剪 */
 function drawCardRow(ctx, game, d, L) {
   const items = visibleItems(d);
   if (!items.length) return;
@@ -270,7 +270,7 @@ function drawCardRow(ctx, game, d, L) {
     // 图标（居中偏上）
     const iconCY = cy - 8;
     if (item.kind === 'bird') {
-      E.drawBirdMini(ctx, cx, iconCY, 14, item.type);
+      E.drawPufferMini(ctx, cx, iconCY, 14, item.type);
     } else if (item.kind === 'pearl') {
       E.drawPearl(ctx, cx, iconCY, 10, game.frameCount);
     } else if (item.kind === 'pig') {
@@ -278,6 +278,18 @@ function drawCardRow(ctx, game, d, L) {
       ctx.beginPath();
       ctx.arc(cx, iconCY, 14, 0, Math.PI * 2);
       ctx.fill();
+      if (item.boss) {
+        // 王冠小三角
+        ctx.fillStyle = '#5D4037';
+        ctx.beginPath();
+        ctx.moveTo(cx - 5, iconCY - 12);
+        ctx.lineTo(cx - 2, iconCY - 18);
+        ctx.lineTo(cx, iconCY - 14);
+        ctx.lineTo(cx + 2, iconCY - 18);
+        ctx.lineTo(cx + 5, iconCY - 12);
+        ctx.closePath();
+        ctx.fill();
+      }
     } else {
       // 方块/橡皮：色块
       ctx.fillStyle = cardColor(item);
