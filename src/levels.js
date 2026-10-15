@@ -900,53 +900,60 @@ function getLevels() {
       ],
     },
 
-    // ====== 第32关：深渊章王（新）—— 章节收官：Boss 战，混合壳三阶段（护阵石墙+召唤） ======
+    // ====== 第32关：深渊章王（v2「三吼深渊」）—— 章节收官：Boss 战，磨血三阶段 ======
+    // 【为什么重做】v1 首发 dash 即 -7 血（hp11 的 64%）：闸下 3 颗 + 贴脸 2 颗冻果全落在同
+    // 一个连锁半径（122px）内，一发串爆整条链 ⇒ 王成了"一发皮纳塔"，4/6 鸟通关（W=2）。
+    //
+    // 【v2 设计原则：伤害分源 + 时空分离】
+    //   1. 贴脸果从 5 颗砍到 2 颗，拆成「王座盖顶 / 阵前侧果」两组——相距 169px，
+    //      远大于连锁半径 122px，**物理上无法一发串爆**，每组各需一发 ⇒ 单发对王 ≤4。
+    //      两颗皆距王心 ≤90（hug 保底 ≥2，满足 level-sim 王关规则），连锁末段稳定啃王血。
+    //   2. 伤害预算：6 发直击（砰1+裂3+嘟1+砰1+裂3+普1=10）+ 2 果（2）= 12 vs hp11，
+    //      容错仅 1 点 ⇒ 贪心解必须用满 6 发（W=0，综合 5.0）。
+    //   3. 三层石檐改承重柱支撑：断左柱 → 王座盖塌落砸王（坍塌伤），结构可读且可拆。
+    //      注：改柱前曾把三层檐做成"王头顶垂直堆叠"，结果一发打中中檐整摞砸王 -4
+    //      （4/6 鸟通关，W=2）；加承重柱 + 果源分离后才压回 6/6。
+    //   4. 单发伤害实测序列 4/2/1/2/2/0（v1 是 7/1/3/0），节奏从"一发定乾坤"变成"六发磨王"。
     {
       name: '第 32 关',
-      flavor: '双塔悬闸',
+      flavor: '三吼深渊',
       birds: ['bomb', 'split', 'dash', 'bomb', 'split', 'normal'],
       trajectory: 16,
       stars: [12800, 20500, 27000],
       pigs: [
-        // 深渊章王（Boss）：悬闸正下方，hp11，三度怒吼（护阵石墙 guard + 召唤援军）
+        // 深渊章王（Boss）：王座盖正下方，hp11，三度怒吼（阈值 ≤8 / ≤5 / ≤2）
         { x: STRUCT_BASE_X + 98, y: GROUND_Y - 33, radius: 33, boss: true, hp: 11, name: '深渊章王', style: 'abyss' },
-        // 悬闸顶哨章鱼（站闸面上）
-        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 198, radius: 13 },
-        // 阵前地面章鱼
-        { x: STRUCT_BASE_X - 46, y: GROUND_Y - 16, radius: 16 },
-        // 阶段 2 召唤：援军小章鱼 ×2（phase2 怒吼短距秒落、分列章王两侧，皆在砰㿡爆波区内）。
+        // 哨兵 A：外檐顶面（y=347 顶 → 站 y=333），需高弧精准射
+        { x: 300, y: 333, radius: 14 },
+        // 哨兵 B：中檐顶面（y=407 顶 → 站 y=393）
+        { x: 250, y: 393, radius: 14 },
+        // 阶段 2 召唤：援军小章鱼 ×2（e2e 要求 sleep:2 援军恰 2 只）
         { x: STRUCT_BASE_X + 70, y: -160, radius: 14, sleep: 2 },
         { x: STRUCT_BASE_X + 130, y: -170, radius: 14, sleep: 2 },
-        // 阶段 3 召唤：援军 ×1（phase3 怒吼落下，落点正压章王身上 rel98、短距秒落——
-        // phase3 即终局，章王低血挨杀时同体爆波/裂弹把援军一并收掉，不留漏豚）。
+        // 阶段 3 召唤：援军 ×1（终局怒吼落下，低血章王挨杀时同体爆波一并收掉）
         { x: STRUCT_BASE_X + 98, y: -150, radius: 15, sleep: 3 },
       ],
       blocks: [
-        // 悬闸：巨型石板横空（双塔齐断才整面平落）
-        { x: STRUCT_BASE_X + 16, y: GROUND_Y - 185, width: 150, height: 28, type: 'stone' },
-        // 闸下悬空冻果 ×3（悬在闸下、双塔之间，鸟打不进）：悬闸平落压碎即连锁，
-        // 炸塔冲击波扫到也提前连锁；引爆点距章王头顶 ~60px，逐颗各扣 1 血
-        { x: STRUCT_BASE_X + 50, y: GROUND_Y - 107, width: 26, height: 26, type: 'burst' },
-        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 107, width: 26, height: 26, type: 'burst' },
-        { x: STRUCT_BASE_X + 106, y: GROUND_Y - 107, width: 26, height: 26, type: 'burst' },
-        // 贴脸冻果 ×2（连锁从闸下传到章王头顶/左脸，稳定固定伤害，不靠方块碾压）：
-        // 头顶果骑章王额、左脸果贴腮（block 贴猪合法）；间距 <118，闸下果一爆即串到
-        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 72, width: 26, height: 26, type: 'burst' },
-        { x: STRUCT_BASE_X + 54, y: GROUND_Y - 48, width: 26, height: 26, type: 'burst' },
-        // 双承重塔（皆木两段；砰砰炸基即断）：悬闸须双塔齐断才整面平落，故承重塔一律用木——
-        // 若用石 hp6，砰砰一发炸不断右塔、悬闸不落，闸顶哨豚（G-198）悬高不可达即成死局。
-        // 悬闸本体仍是石 hp6（密度2.0 重板，只需失撑后塌落碾压冻果/章王，不靠打碎）。
-        { x: STRUCT_BASE_X + 22, y: GROUND_Y - 78, width: 28, height: 78, type: 'wood' },
-        { x: STRUCT_BASE_X + 22, y: GROUND_Y - 156, width: 28, height: 78, type: 'wood' },
-        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 78, width: 28, height: 78, type: 'wood' },
-        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 156, width: 28, height: 78, type: 'wood' },
-        // 怒吼护阵石（guard：定点立桩，零动能——不砸悬闸石板/木塔，不碰冻果链）：
-        // 阶段 1：左外线落地矮墙（左木塔被毁后的补防线，与悬闸 x 相切不坐闸面避免悬空）
-        //   + 右线坐右木塔顶门垛（塔毁则逐级落地面）
-        // 阶段 3：左外线补一根窄桩（与 phase1 矮墙相切错线，任何时序不互叠）
-        { x: STRUCT_BASE_X - 12, y: -380, width: 28, height: 40, type: 'stone', sleep: 1, guard: true },
-        { x: STRUCT_BASE_X + 142, y: -440, width: 24, height: 40, type: 'stone', sleep: 1, guard: true },
-        { x: STRUCT_BASE_X - 28, y: -300, width: 16, height: 38, type: 'stone', sleep: 3, guard: true },
+        // —— 三层石檐：外檐 / 中檐 / 王座盖（收窄到 x≤340，右侧让出 35px 空档给护阵石）——
+        { x: STRUCT_BASE_X + 20, y: 347, width: 114, height: 26, type: 'stone' },   // 外檐 [226,340]
+        { x: STRUCT_BASE_X + 30, y: 407, width: 104, height: 26, type: 'stone' },   // 中檐 [236,340]
+        // 王座盖：罩住章王头顶（王顶 y=511，盖底 496，留 15px 顶缝）
+        { x: STRUCT_BASE_X + 40, y: 470, width: 94, height: 26, type: 'stone' },
+        // 左承重柱：撑王座盖左端，断柱即塌盖砸王。王 box [271.25,337.25]，柱 [240,266] 贴边不压王
+        { x: STRUCT_BASE_X + 33.75, y: 496, width: 26, height: 81, type: 'stone' },
+        // —— 果组 ①：骑王座盖顶（中心 296,457，距王心 87.4 ≤100 → 计入 hug 保底）——
+        { x: 283, y: 444, width: 26, height: 26, type: 'burst' },
+        // —— 果组 ②：阵前左侧贴地（中心 219,564，距王心 85.3 ≤100 → hug）——
+        // 与顶组相距 169 > 连锁半径 122 ⇒ **两组物理上不可串爆**，各需一发
+        { x: 206, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
+        // —— 怒吼护阵石（guard 定点立桩、零动能，绝不砸果/塌顶/自伤）——
+        // ⚠ CLI 硬约束：与任一爆裂果 x 间隙 ≥10、与章王圆 x 间隙 ≥2、跨相位互不重叠。
+        // 阶段 1 ×2（e2e 要求恰 2 根）：左侧空档立桩成矮墙，卡住侧果射界
+        //   （[154,176]/[178,196]，距侧果左沿 206 分别有 30/10，间距 2 互不叠）
+        { x: 154, y: -380, width: 22, height: 40, type: 'stone', sleep: 1, guard: true },
+        { x: 178, y: -440, width: 18, height: 42, type: 'stone', sleep: 1, guard: true },
+        // 阶段 3 ×1：王右侧落地桩（[341,364]，离王圆 337.25 有 3.75；与外檐右端 340.25 不相交）
+        { x: 341, y: -300, width: 23, height: 40, type: 'stone', sleep: 3, guard: true },
       ],
     },
 
@@ -1178,64 +1185,56 @@ function getLevels() {
       ],
     },
 
-    // ====== 第40关：王座终焉（锚点）—— 终极 Boss：潮汐王座·章王，三阶段收官 ======
+    // ====== 第40关：王座终焉（v2「三吼王座」）—— 终极 Boss，磨血三阶段收官 ======
+    // 【为什么重做】v1 首发 split 一枪 -12 血（hp14 的 86%）：12 颗冻果排成"多米诺链"，
+    // 相邻间距全在连锁半径 122px 内，打中链腰即双向引爆全链 ⇒ 3/6 鸟通关（W=3），
+    // 王连一次怒吼都没来得及放完就蒸发，三阶段形同虚设。
+    //
+    // 【v2 设计原则：伤害分源 + 时空分离】
+    //   1. 贴脸果从 10 颗砍到 3 颗，拆成「左果柱 1 / 右果柱 2」——两列中心相距 185px，
+    //      **物理上无法一发串爆**（需 ≥122px 才断链），每列各需一发 ⇒ 单发对王 ≤3。
+    //   2. 伤害预算：6 发直击（砰1+裂3+嘟1+砰1+裂3+普1=10）+ 3 果（3）+ 坍塌（1+）= 14
+    //      vs hp14，容错≈0 ⇒ 贪心解必须用满 6 发（W=0，综合 5.0）。
+    //      旁证：把 hp 加到 15 即成死关，说明 14 正好卡在可通/不可通边界上。
+    //   3. 三层石檐改承重柱支撑：断左柱 → 王座盖塌落砸王，坍塌从"随机副产品"变成可拆解目标。
+    //   4. 单发伤害实测序列 3/3/3/1/3/1（v1 是 12/1/1），六发各有其职，三度怒吼全程可见。
     {
       name: '第 40 关',
-      flavor: '多米诺王座',
+      flavor: '三吼王座',
       birds: ['bomb', 'split', 'dash', 'bomb', 'split', 'normal'],
       trajectory: 12,
       stars: [16000, 25000, 34000],
       pigs: [
-        // 潮汐王座·章王（最终 Boss）：三层石堡王座下，hp14，三度怒吼（护阵石墙＋爆裂果＋援军）
+        // 潮汐王座·章王（最终 Boss）：王座盖下，hp14，三度怒吼（阈值 ≤10 / ≤7 / ≤3）
         { x: STRUCT_BASE_X + 96, y: GROUND_Y - 34, radius: 34, boss: true, hp: 14, name: '潮汐王座·章王', style: 'throne' },
-        // 王座外层哨章鱼（站最高石檐上）
-        { x: STRUCT_BASE_X + 140, y: GROUND_Y - 244, radius: 14 },
-        // 阵前地面章鱼
-        { x: STRUCT_BASE_X - 56, y: GROUND_Y - 16, radius: 16 },
-        // 阶段 2 召唤：援军小章鱼 ×2（被逐层坍塌的石堡碾压）
+        // 哨兵 A：外檐顶面（y=347 顶 → 站 y=333）
+        { x: 300, y: 333, radius: 14 },
+        // 哨兵 B：中檐顶面（y=407 顶 → 站 y=393）
+        { x: 250, y: 393, radius: 14 },
+        // 阶段 2 召唤：援军小章鱼 ×2
         { x: STRUCT_BASE_X + 69, y: -260, radius: 14, sleep: 2 },
         { x: STRUCT_BASE_X + 124, y: -330, radius: 15, sleep: 2 },
-        // 阶段 3 召唤：援军小章鱼 ×1
+        // 阶段 3 召唤：援军 ×1
         { x: STRUCT_BASE_X + 94, y: -380, radius: 16, sleep: 3 },
       ],
       blocks: [
-        // —— 三层石堡：外/中石檐悬空逐级抬高，内层王座盖由双石柱落地 ——
-        // 内层王座盖（章王头顶）
-        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 110, width: 120, height: 26, type: 'stone' },
-        // 王座双石柱（落地门柱）
-        { x: STRUCT_BASE_X + 44, y: GROUND_Y - 84, width: 26, height: 84, type: 'stone' },
-        { x: STRUCT_BASE_X + 130, y: GROUND_Y - 84, width: 26, height: 84, type: 'stone' },
-        // 中层石檐（悬空）
-        { x: STRUCT_BASE_X + 30, y: GROUND_Y - 170, width: 130, height: 26, type: 'stone' },
-        // 外层石檐（悬空）
-        { x: STRUCT_BASE_X + 20, y: GROUND_Y - 230, width: 140, height: 26, type: 'stone' },
-        // —— 冻果多米诺链：一发引爆，从外檐逐级连爆到王座盖、再传到章王头顶 ——
-        // b0 外檐顶（高抛触发点）
-        { x: STRUCT_BASE_X + 40, y: GROUND_Y - 256, width: 26, height: 26, type: 'burst' },
-        // b1 中檐顶
-        { x: STRUCT_BASE_X + 52, y: GROUND_Y - 196, width: 26, height: 26, type: 'burst' },
-        // 王座盖顶一排冻果（链腰，平射可及；打中即双向引爆全链；贴王 ~90，各扣 1 血）
-        { x: STRUCT_BASE_X + 38, y: GROUND_Y - 136, width: 26, height: 26, type: 'burst' },
-        { x: STRUCT_BASE_X + 64, y: GROUND_Y - 136, width: 26, height: 26, type: 'burst' },
-        { x: STRUCT_BASE_X + 94, y: GROUND_Y - 136, width: 26, height: 26, type: 'burst' },
-        { x: STRUCT_BASE_X + 120, y: GROUND_Y - 136, width: 26, height: 26, type: 'burst' },
-        // 章王头顶贴果（王座盖下悬挂）
-        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 84, width: 26, height: 26, type: 'burst' },
-        { x: STRUCT_BASE_X + 98, y: GROUND_Y - 84, width: 26, height: 26, type: 'burst' },
-        // 章王身侧 / 脚边贴脸果（连锁末段贴脸爆，固定伤害，少靠坍塌随机）
-        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 58, width: 26, height: 26, type: 'burst' },
-        { x: STRUCT_BASE_X + 104, y: GROUND_Y - 58, width: 26, height: 26, type: 'burst' },
-        { x: STRUCT_BASE_X + 72, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
-        { x: STRUCT_BASE_X + 104, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
-        // 怒吼掉落物：guard 护阵石定点立桩（零动能，不碰三层石檐/多米诺冻果链），
-        // 爆裂果仍是自由落体放最左空地竖线（离王座冻果 > 连锁距离）。
-        // 阶段 1：护阵石 ×2——左外线落地矮墙；内列与三层檐同列，檐在坐最高檐顶、
-        //   逐层被炸则逐级下落、最终成地面桩（右屏边被果链 x 占满且无射界，不布右桩）
-        { x: STRUCT_BASE_X - 38, y: -400, width: 24, height: 42, type: 'stone', sleep: 1, guard: true },
-        { x: STRUCT_BASE_X + 2, y: -470, width: 24, height: 42, type: 'stone', sleep: 1, guard: true },
-        // 阶段 2：天降爆裂果 ×1（最左空地，落地只在空地爆、不连王座链）
-        { x: STRUCT_BASE_X - 100, y: -340, width: 28, height: 28, type: 'burst', sleep: 2 },
-        // 阶段 3：仅召唤援军（无护阵石——左区合法列已被 phase1 占满，右区无屏内空间）
+        // —— 三层石檐：外檐 / 中檐 / 王座盖（收窄到 x≤340，右侧让出 35px 给右果柱）——
+        { x: STRUCT_BASE_X + 20, y: 347, width: 114, height: 26, type: 'stone' },   // 外檐 [226,340]
+        { x: STRUCT_BASE_X + 30, y: 407, width: 104, height: 26, type: 'stone' },   // 中檐 [236,340]
+        // 王座盖：罩住章王头顶（王顶 y=509，盖底 496）
+        { x: STRUCT_BASE_X + 40, y: 470, width: 94, height: 26, type: 'stone' },
+        // 左承重柱：撑王座盖左端，断柱即塌盖砸王。王 box [268.25,336.25]，柱 [240,266] 贴边不压王
+        { x: STRUCT_BASE_X + 33.75, y: 496, width: 26, height: 81, type: 'stone' },
+        // —— 左果柱（中心 x=173，距王心 130.7 < 爆波伤王半径 144）——
+        { x: 160, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
+        // —— 右果柱 ×2（中心 x=358；两柱相距 185 > 122，**不可串爆**）——
+        { x: 345, y: GROUND_Y - 26, width: 26, height: 26, type: 'burst' },
+        { x: 345, y: GROUND_Y - 52, width: 26, height: 26, type: 'burst' },
+        // —— 阶段 1 护阵石 ×2（guard 定点立桩、零动能）——
+        // 立左侧空档成矮墙，卡住左果柱射界（e2e 要求 L40 两根 guard 皆在弹弓侧）。
+        // ⚠ CLI 硬约束：与爆裂果 x 间隙 ≥10 ⇒ 左果 [160,186] 之后须从 196 起排
+        { x: 196, y: -400, width: 20, height: 40, type: 'stone', sleep: 1, guard: true },
+        { x: 218, y: -470, width: 22, height: 42, type: 'stone', sleep: 1, guard: true },
       ],
     },
   ];
