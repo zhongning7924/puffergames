@@ -289,18 +289,21 @@ function getLevels() {
       ],
     },
 
-    // ====== 第11关：海葵冰堡（4 豚）—— 木冰对半：前排一根冰高柱、两座棚（木柱冰顶 / 全冰棚） ======
+    // ====== 第11关：海葵冰堡（4 豚）—— 木冰对半 + 分裂教学：前冰高柱、木柱冰顶棚、三冰帽顶棚 ======
+    // 分裂教学关（技能课从章王关前置到本章课幕）：棚B 顶是三冰帽横排，三丸子近垂直下落横散、
+    // 一发各碎一帽 → 棚塌豚压；normal 一发一帽 → 对照明显（克制自解释）。
     {
       name: '第 11 关',
       flavor: '海葵冰堡',
-      birds: ['normal', 'dash', 'normal', 'normal'],
+      hint: '新技能：三丸子空中点击一分为三！', // 分裂教学（v2 难度模型：课幕单一变量）
+      birds: ['split', 'normal', 'dash', 'normal', 'normal'],
       trajectory: 46,
       stars: [4700, 9400, 14000],
       pigs: [
         { x: STRUCT_BASE_X - 81, y: GROUND_Y - 101, radius: 13 },           // 前冰高柱顶
         { x: STRUCT_BASE_X - 44, y: GROUND_Y - 16, radius: 16 },            // 裸猪
         { x: STRUCT_BASE_X + 30, y: GROUND_Y - 12, radius: 12 },            // 木柱冰顶棚内
-        { x: STRUCT_BASE_X + 132, y: GROUND_Y - 12, radius: 12 },           // 全冰棚内
+        { x: STRUCT_BASE_X + 132, y: GROUND_Y - 12, radius: 12 },           // 三冰帽棚内
       ],
       blocks: [
         // 前冰高柱
@@ -309,10 +312,12 @@ function getLevels() {
         { x: STRUCT_BASE_X - 6, y: GROUND_Y - 64, width: 24, height: 64, type: 'wood' },
         { x: STRUCT_BASE_X + 42, y: GROUND_Y - 64, width: 24, height: 64, type: 'wood' },
         { x: STRUCT_BASE_X - 12, y: GROUND_Y - 88, width: 80, height: 24, type: 'ice' },
-        // 棚 B：全冰
+        // 棚 B：全冰双柱 + 三冰帽横排顶（split 一发三碎 → 棚塌豚压；normal 一发一帽 → 对照）
         { x: STRUCT_BASE_X + 96, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
         { x: STRUCT_BASE_X + 144, y: GROUND_Y - 64, width: 24, height: 64, type: 'ice' },
-        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 88, width: 78, height: 24, type: 'ice' },
+        { x: STRUCT_BASE_X + 92, y: GROUND_Y - 88, width: 24, height: 24, type: 'ice' },
+        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 88, width: 24, height: 24, type: 'ice' },
+        { x: STRUCT_BASE_X + 144, y: GROUND_Y - 88, width: 24, height: 24, type: 'ice' },
       ],
     },
 
@@ -426,11 +431,10 @@ function getLevels() {
       ],
     },
 
-    // ====== 第16关：冰壳章王（锚点）—— 三丸子分裂教学 + 章末 Boss：冰壳 ======
+    // ====== 第16关：冰壳章王（锚点）—— 章末 Boss：冰壳（分裂已在第11关学会，本关为综合考） ======
     {
       name: '第 16 关',
       flavor: '冻果冰穹',   // 风味名（HUD 与关卡主题）
-      hint: '新技能：三丸子空中点击一分为三！', // 首次进入显示技能教学
       birds: ['normal', 'split', 'dash', 'bomb', 'normal'],
       trajectory: 30,
       stars: [8000, 14000, 21000],
@@ -744,7 +748,8 @@ function getLevels() {
     },
 
     // ====== 第26关：绝渊礁柱（石）—— 高墙石堡 3 豚（砰㿡爆波一发三杀，高墙窄缝非砰㿡难进），
-    // 1 孤豚远在爆波+碎块净空外。比 L25 墙更高（h108），非砰㿡鸟高弧吊入更难 → 砰砰必修。3 鸟 4 豚。
+    // 远左孤豚 + 右墙顶冰帽（split 可清、点缀冰火过渡）。比 L25 墙更高（h108）→ 吊射窗口更窄，
+    // 幸存目标仍是地面孤豚（爆波/碎块净空外）。3 鸟 4 豚。 ======
     {
       name: '第 26 关',
       flavor: '绝渊礁柱',
@@ -752,7 +757,7 @@ function getLevels() {
       trajectory: 22,
       stars: [8500, 13500, 18500],
       pigs: [
-        { x: STRUCT_BASE_X - 95, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左安全区，距碎块落点 ~50px）
+        { x: STRUCT_BASE_X - 90, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左安全区，距碎块落点 ~50px）
         { x: STRUCT_BASE_X + 90, y: GROUND_Y - 13, radius: 10 },            // 石堡内豚（左）
         { x: STRUCT_BASE_X + 112, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（中，爆心）
         { x: STRUCT_BASE_X + 134, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（右）
@@ -762,6 +767,8 @@ function getLevels() {
         // 砰㿡高弧吊入引爆三杀；墙高缝窄（内净 ~52px），梭梭/三丸子/嘟嘟直撞石墙刮痧、高弧难穿。
         { x: STRUCT_BASE_X + 62, y: GROUND_Y - 108, width: 26, height: 108, type: 'stone' },
         { x: STRUCT_BASE_X + 140, y: GROUND_Y - 108, width: 26, height: 108, type: 'stone' },
+        // 右墙顶冰帽（骑墙顶、有支撑；碎块仅在墙顶附近，碰不到孤豚；split 克冰可清）
+        { x: STRUCT_BASE_X + 141, y: GROUND_Y - 108 - 24, width: 26, height: 24, type: 'ice' },
       ],
     },
 
@@ -809,7 +816,9 @@ function getLevels() {
       ],
     },
 
-    // ====== 第29关：断崖炮台（锚点·石）—— 高墙石堡三豚（砰㿡三杀），墙头冻果连锁增爆，1 孤豚远置 ======
+    // ====== 第29关：断崖炮台（锚点·石）—— 高墙石堡三豚（砰㿡三杀），墙头双冻果连锁增爆，1 孤豚远置 ======
+    // 与 L27（单冻果）递进：左右墙顶各一颗，链长 +1（间距 83 < 118 可连锁）；砰砰爆波即触发，
+    // 连锁只覆盖墙头上方空地，伤不到远左孤豚（距左果 ~150px）。
     {
       name: '第 29 关',
       flavor: '断崖炮台',
@@ -826,52 +835,68 @@ function getLevels() {
         // 高墙（全石）
         { x: STRUCT_BASE_X + 60, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
         { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
-        // 墙头冻果（骑右墙顶、有支撑；砰㿡爆波连锁扩伤，碎块只在墙顶附近）
+        // 墙头冻果 ×2（骑左右墙顶、有支撑；砰砰爆波连锁扩伤，碎块只在墙顶附近）
         { x: STRUCT_BASE_X + 141, y: GROUND_Y - 96 - 26, width: 26, height: 26, type: 'burst' },
+        { x: STRUCT_BASE_X + 59, y: GROUND_Y - 96 - 26, width: 26, height: 26, type: 'burst' },
       ],
     },
 
-    // ====== 第30关：冰火长城（石）—— 高墙石堡三豚（砰㿡三杀），墙头冰帽点缀「冰火」，1 孤豚远置 ======
+    // ====== 第30关：冰火长城（石·练）—— 高墙石堡三豚（砰㿡三杀）+ 冰帽豚（split 参与）+ 火台点缀 ======
+    // 次决策「冰火复合」：远左冰帽豚头戴冰帽（flat 弹道必先撞帽→破帽后第二发补刀；
+    // split 三散近垂直下落可一发放倒帽+豚）——把冰材料与 split 克制带进石章做过渡。
+    // 火台（石座+火柱）贴堡左墙摆放：爆波 reach~123 即毁两砖、不抛飞成抛射体伤及冰帽豚
+    // （豚距爆心 ~133px 净空）；同时是第五章「火砖唯嘟嘟可破」的预告点缀。
+    // 石 4 块占主体 67%。3 鸟 4 豚：砰㿡拿堡 3 + 冰帽豚 1~2 发。
     {
       name: '第 30 关',
       flavor: '冰火长城',
       birds: ['bomb', 'split', 'normal'],
-      trajectory: 18,
+      trajectory: 16,
       stars: [9000, 14000, 19000],
       pigs: [
-        { x: STRUCT_BASE_X - 95, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左安全区）
-        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 13, radius: 10 },            // 石堡内豚（左）
-        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（中）
-        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（右）
+        { x: STRUCT_BASE_X - 83, y: GROUND_Y - 13, radius: 10 },            // 冰帽豚（头戴冰帽，flat 弹道先撞帽）
+        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 13, radius: 10 },            // 石堡内豚（左）
+        { x: STRUCT_BASE_X + 116, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（中）
+        { x: STRUCT_BASE_X + 136, y: GROUND_Y - 13, radius: 10 },           // 石堡内豚（右）
       ],
       blocks: [
-        // 高墙（全石，主体）
+        // 冰帽（骑豚头顶静态贴放：帽底 554 = 豚顶 554 零重叠；flat 弹道先撞帽）
+        { x: STRUCT_BASE_X - 90, y: GROUND_Y - 37, width: 26, height: 14, type: 'ice' },
+        // 火台（石座 + 火柱）：贴堡左墙，爆波即毁不抛飞；第五章火砖预告
+        { x: STRUCT_BASE_X - 6, y: GROUND_Y - 16, width: 26, height: 16, type: 'stone' },
+        { x: STRUCT_BASE_X - 6, y: GROUND_Y - 72, width: 24, height: 56, type: 'fire' },
+        // 高墙石堡（全石，无压顶板：宽板被炸成推土铲横扫，避之）
         { x: STRUCT_BASE_X + 60, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
         { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
-        // 墙头冰帽（骑左墙顶、有支撑；点「冰火长城」主题，石仍占 67% 主体）
-        { x: STRUCT_BASE_X + 58, y: GROUND_Y - 96 - 22, width: 30, height: 22, type: 'ice' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96 - 26, width: 26, height: 26, type: 'stone' },
       ],
     },
 
-    // ====== 第31关：赤渊门阵（石·章末前哨）—— 双柱石门夹三豚（砰㿡三杀），柱顶石垛压阵，1 孤豚远置。
-    // 砰㿡配队稀有化：每关 ≤1（旧版双砰㿡违背石章约束）。弹道提示收窄到 18，末关最需精准吊射。
+    // ====== 第31关：赤渊门阵（石·章末考）—— 纯柱无垛·窗口顶点：h112 双柱 + 阵前孤豚 + 右墙顶冻果 ======
+    // 章末综合考：全游戏最高双柱（h112）——吊射窗口最窄、弹道提示收到 16 最需精准；
+    // 纯柱不设垛（垛石会在最低弹道下把砰砰挡在墙外、爆波被墙吃掉三杀失败）。
+    // 冻果骑右墙顶（同 L27 型但墙更高）：砰㿡爆波杀左/中两豚、连锁补刀远右豚
+    // （爆波 127px 够不到）；连锁中心在右墙顶，左界够不到阵前孤豚（距 ~271px）。
+    // 注意：冻果不可放阵前地面——瞄它引爆时爆心会左移到距孤豚 ~118px（<122 击杀半径）。
+    // 3 鸟 4 豚：砰㿡+连锁拿堡 3 + 孤豚 1 发，W=1。
     {
       name: '第 31 关',
       flavor: '赤渊门阵',
       birds: ['bomb', 'split', 'dash'],
-      trajectory: 18,
+      trajectory: 16,
       stars: [9000, 14000, 19000],
       pigs: [
-        { x: STRUCT_BASE_X - 95, y: GROUND_Y - 16, radius: 16 },            // 孤豚（远左安全区）
-        { x: STRUCT_BASE_X + 90, y: GROUND_Y - 13, radius: 10 },            // 石门内豚（左）
-        { x: STRUCT_BASE_X + 112, y: GROUND_Y - 13, radius: 10 },           // 石门内豚（中）
-        { x: STRUCT_BASE_X + 134, y: GROUND_Y - 13, radius: 10 },           // 石门内豚（右）
+        { x: STRUCT_BASE_X - 95, y: GROUND_Y - 16, radius: 16 },            // 阵前孤豚（直射；爆波/连锁双净空）
+        { x: STRUCT_BASE_X + 96, y: GROUND_Y - 13, radius: 10 },            // 石门内豚（左）
+        { x: STRUCT_BASE_X + 116, y: GROUND_Y - 13, radius: 10 },           // 石门内豚（中）
+        { x: STRUCT_BASE_X + 136, y: GROUND_Y - 13, radius: 10 },           // 石门内豚（右，靠连锁补刀）
       ],
       blocks: [
-        // 石门双柱（全石 h100）：不设柱顶垛——垛石会在最低弹道下把砰㿡挡在墙外、爆波被墙吃掉三杀失败。
-        // 纯双柱留出吊射通道，砰㿡高弧吊入爆波三杀。
-        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
-        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 100, width: 26, height: 100, type: 'stone' },
+        // 纯双柱 h112（无垛）
+        { x: STRUCT_BASE_X + 60, y: GROUND_Y - 112, width: 26, height: 112, type: 'stone' },
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 112, width: 26, height: 112, type: 'stone' },
+        // 右墙顶冻果（骑墙顶、有支撑；爆波即触发，连锁补刀右豚；左界够不到孤豚）
+        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 112 - 26, width: 26, height: 26, type: 'burst' },
       ],
     },
 
@@ -1042,9 +1067,9 @@ function getLevels() {
       ],
     },
 
-    // ====== 第37关：潮汐要塞（新）—— 高石堡 + 近侧 r24 大豚 + 远火台高豚 ======
-    // 砰㿧 1 发清右石堡 4 豚；近侧 r24 大豚（贴弹弓短打）+ 远左火台高豚独立。
-    // 4 鸟 6 豚 ratio 0.67。
+    // ====== 第37关：潮汐要塞（新）—— 高石堡 3 豚(砰砰三杀) + 远左火台高豚 + 阵前孤豚 ======
+    // 与 L34（r24 大猪两击）/L35（高墙哨豚四杀）/L36（石楣复合）逐关换决策：本关双幸存弹道分离
+    //（火台高豚唯嘟嘟破火 + 阵前孤豚直射），堡内无哨——砰砰三杀而非四杀。4 鸟 5 豚 ratio 0.8。
     {
       name: '第 37 关',
       flavor: '潮汐要塞',
@@ -1055,9 +1080,8 @@ function getLevels() {
         { x: STRUCT_BASE_X + 94, y: GROUND_Y - 12, radius: 12 },
         { x: STRUCT_BASE_X + 118, y: GROUND_Y - 12, radius: 12 },
         { x: STRUCT_BASE_X + 142, y: GROUND_Y - 12, radius: 12 },
-        { x: STRUCT_BASE_X + 91, y: GROUND_Y - 96 - 12, radius: 12 },
-        { x: STRUCT_BASE_X - 102, y: GROUND_Y - 24, radius: 24 },             // 近侧 r24 大豚
-        { x: STRUCT_BASE_X - 66, y: GROUND_Y - 90 - 13, radius: 13 },
+        { x: STRUCT_BASE_X - 102, y: GROUND_Y - 16, radius: 16 },             // 阵前孤豚
+        { x: STRUCT_BASE_X - 66, y: GROUND_Y - 90 - 13, radius: 13 },         // 远左火台顶高豚
       ],
       blocks: [
         { x: STRUCT_BASE_X - 78, y: GROUND_Y - 90, width: 24, height: 90, type: 'fire' },
@@ -1094,30 +1118,63 @@ function getLevels() {
       ],
     },
 
-    // ====== 第39关：王庭之门（新·终章前哨）—— 右石堡 4 豚 + 双火台两高豚 + 阵前孤豚 ======
-    // 全游戏最多豚数 7：砰㿧 1 发清右石堡 4 豚；双火台高豚两发高弧 + 阵前孤豚一发。
-    // 4 鸟 7 豚 ratio 0.57（资源偏紧、逼分弹精确）。
+    // ====== 第39关：王庭之门（考幕·七豚极限 W=0）—— 城堡3豚 + 冠台豚 + 冰台豚 + 滩前双豚 ======
+    // v2 重排 v38（2026-10-15）：v5~v37 实证死因全归档：
+    //   v5 碑顶豚被堡爆波连坐；v6 双豚 70px 滚球双杀；v7 左豚 x=60 弹弓后（死关）；
+    //   v8 冠石击退飞落砸死背豚 + 滩涂果链爆加速火柱撞杀背豚；v9 堡顶豚不可隔离；
+    //   v10 尖塔豚 (330,284) 高弧不可达（顶点速度归零，实测最远 x=300 卡 y=358）；
+    //   v11 崖前座果被城堡爆波卷入三级链爆一枪7杀；v12 断柱距滩前爆心 128px 被毁
+    //       残骸补刀 A3；v13~v15 B 冠豚与 A3 被同一爆心覆盖（B 距右垣 201<244 双杀阈）；
+    //   v16~v20 高柱 B 全灭于「柱被爆波毁→残骸飞行砸豚」与「爆心跨盖」；
+    //   v21~v28 B (342,300) 凌空柱实测不可达（高弧顶点限高 x≤300）致 AI 未解；
+    //   v29~v31 小冻果链爆吞 DE、饰柱/左冠挡 B 弹道一枪7杀；v32 一枪清场 W=3；
+    //   v33~v36 B (361,331) 只能 bomb abx 狙杀——但 e2e 硬规则「Ch5 砰砰每关恰 1 发」，
+    //       bomb×2 违令；v37 bomb×1 后 B 成遗孤（normal/dash 抛物线不可达 x=361）。
+    // v38 设计原理（bomb×1 硬约束下的四组硬隔离，全部基于实测可达域与爆心域）：
+    //   ① 城堡组 A3（门前/门内/右垣）——唯一一发砰嗔瞄左/右墙 abx：高弧越顶撞墙脸，
+    //      爆心 ~(274,505)：三豚距 65/78/95 全 <122 一发清；左墙贴地矮垛化（y=517）
+    //      使瞄左墙的 abx 爆心落位 ~(284,530)，同样只覆盖 A3（距 B 冠石心 145>138）；
+    //   ② 冠台豚 B (290,313)（中空冠石上）——高冠石 (277,326) 心距 A 爆心 148>138
+    //       永不坠；豚高出 normal 包络 46px（>29）不可直瞄，只能由 normal/dash 瞄冠石
+    //       (290,358)（在包络上）撞柱爆炸杀（爆心距豚 45<122）；**块序冠石(2)在冰台柱(5)
+    //       前，同分时 B 候选胜出**；距其余组全 >142，独立 1 杀组；
+    //   ③ 冰台豚 C (150,380)（左中凌空石柱上）——高出 bomb/normal 包络 36px（>29）
+    //       不可直瞄；normal/dash 瞄柱 (150,406)（包络内）撞柱爆炸杀（距豚 26px）；
+    //       柱为石（不毁不链爆），距 A 爆心 158>138 不被误毁；
+    //   ④ 滩前双豚 DE（x104/x140 贴地，proven 滚球双杀位 ≤60px）——normal 撞一只
+    //      反弹滚球连坐另一只，1 枪 2 豚。
+    // 方差三果：贴滩小冻果 (124,543)（DE 发毁它链爆只吞 DE 组内，距 A 爆心 147>123
+    //   不误毁）+ 高位饵果 (280,240)（高出包络 107px 永不可瞄，纯 P5 源）+ 檐角饵果
+    //   (60,240)（x<95 弹弓后永不可瞄，纯 P5 源）→ P5=3。
+    // 火砖 (150,543) x=162：abx 爆心右移只吞 DE（204 分 < A3 的 300+），不会喧宾夺主。
+    // 4 鸟（砰砰×1 + 普通×2 + 嘟嘟）7 豚 ratio 0.571∈[0.55,0.88]；
+    // 主材石 6/10=60%≥55%（Ch5 允许 stone）；火砖在场供嘟嘟主场。
     {
       name: '第 39 关',
       flavor: '王庭之门',
-      birds: ['bomb', 'normal', 'split', 'normal'],
+      birds: ['bomb', 'normal', 'normal', 'dash'],
       trajectory: 12,
       stars: [15500, 24000, 33000],
       pigs: [
-        { x: STRUCT_BASE_X + 94, y: GROUND_Y - 12, radius: 12 },
-        { x: STRUCT_BASE_X + 118, y: GROUND_Y - 12, radius: 12 },
-        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 12, radius: 12 },
-        { x: STRUCT_BASE_X + 91, y: GROUND_Y - 96 - 12, radius: 12 },
-        { x: STRUCT_BASE_X - 74, y: GROUND_Y - 60 - 13, radius: 13 },         // 近矮火台顶豚
-        { x: STRUCT_BASE_X - 50, y: GROUND_Y - 100 - 13, radius: 13 },        // 远高火台顶豚
-        { x: STRUCT_BASE_X - 108, y: GROUND_Y - 15, radius: 15 },             // 阵前最左孤豚
+        { x: 300, y: GROUND_Y - 12, radius: 12 },           // 门前豚（堡前哨）
+        { x: 324, y: GROUND_Y - 12, radius: 12 },           // 门内豚（首发靶）
+        { x: 348, y: GROUND_Y - 12, radius: 12 },           // 右垣豚（嵌右墙基）
+        { x: 290, y: 313, radius: 13 },                     // 冠台豚（中空冠石上，B组）
+        { x: 150, y: 380, radius: 13 },                     // 冰台豚（左中凌空果座上，C组）
+        { x: 104, y: 561, radius: 16 },                     // 滩前豚·左（DE组）
+        { x: 140, y: 561, radius: 16 },                     // 滩前豚·右（DE组）
       ],
       blocks: [
-        { x: STRUCT_BASE_X - 86, y: GROUND_Y - 60, width: 24, height: 60, type: 'fire' },
-        { x: STRUCT_BASE_X - 62, y: GROUND_Y - 100, width: 24, height: 100, type: 'fire' },
-        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
-        { x: STRUCT_BASE_X + 142, y: GROUND_Y - 96, width: 26, height: 96, type: 'stone' },
-        { x: STRUCT_BASE_X + 78, y: GROUND_Y - 96 - 26, width: 90, height: 26, type: 'stone' },
+        { x: 284, y: 517, width: 26, height: 60, type: 'stone' },    // 左墙（贴地矮垛，abx 爆心低位）
+        { x: 348, y: 441, width: 26, height: 136, type: 'stone' },   // 右墙
+        { x: 277, y: 326, width: 26, height: 64, type: 'stone' },    // 冠石（凌空驮冠台豚，距一切爆心 >148）
+        { x: 60, y: 300, width: 24, height: 40, type: 'stone' },     // 凌空饰柱（左下空域，弹弓后永不可瞄，主材占比）
+        { x: 96, y: 300, width: 24, height: 40, type: 'stone' },     // 贴弓岩（发射点正上方，一切弹道够不着，主材占比）
+        { x: 138, y: 393, width: 24, height: 26, type: 'stone' },    // 冰台石柱（驮冰台豚，爆波/撞爆即杀背豚；不毁不链爆）
+        { x: 150, y: 543, width: 24, height: 34, type: 'fire' },      // 火砖（滩涂中部，x=162 使 abx 爆心右移只吞 DE）
+        { x: 124, y: 543, width: 24, height: 26, type: 'burst' },    // 贴滩小冻果（贴 DE 左豚，DE 发毁它链爆只吞 DE；距 A 爆心 135>123）
+        { x: 280, y: 240, width: 26, height: 26, type: 'burst' },    // 高位饵果（高出包络 107px 永不可瞄，纯 P5 源）
+        { x: 60, y: 240, width: 26, height: 26, type: 'burst' },     // 檐角饵果（x<95 弹弓后永不可瞄，纯 P5 源）
       ],
     },
 

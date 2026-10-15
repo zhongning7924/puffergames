@@ -152,7 +152,7 @@ test('harness：分享/启动/剪贴板 mock 齐备，social.available() 为 tru
 // 2. 技能教学提示（D 组修正回归）
 // =====================================================================
 
-test('技能教学：第3/5/16 关首次进入显示对应提示，二次进入不显示', () => {
+test('技能教学：第3/5/11 关首次进入显示对应提示，二次进入不显示', () => {
   fresh();
   game.loadLevel(2);
   assert.strictEqual(game.hintText, '新技能：梭梭空中点击极速冲刺！');
@@ -165,8 +165,14 @@ test('技能教学：第3/5/16 关首次进入显示对应提示，二次进入�
   game.loadLevel(4);
   assert.strictEqual(game.hintText, '新技能：砰砰空中点击范围爆炸！');
   env.pump(3);
-  game.loadLevel(15);
+  game.loadLevel(10);
   assert.strictEqual(game.hintText, '新技能：三丸子空中点击一分为三！');
+  env.pump(3);
+  game.loadLevel(10);
+  assert.strictEqual(game.hintText, null, '二次进入不再显示技能教学');
+  // L16 章王关不再兼任分裂教学（v2：一课一考分离），无技能 hint
+  game.loadLevel(15);
+  assert.strictEqual(game.hintText, null, '第16关章王关不弹技能教学 hint');
 });
 
 test('教学提示：L1 默认拖拽教学每次显示；每日挑战不弹技能教学', () => {
