@@ -5,6 +5,8 @@
  * T12-1 地基：GROUND_Y / SAFE_* 实时读 C。
  * T12-2 顶栏：sketch 胶囊退出/试玩 + 4 分类分段控件。
  * T12-3 底栏重做：材质筛选行（blocks 专属）+ 透明井 + 橡皮固定槽 + 72×56 大卡行。
+ * T14 策略视角：击杀组叠加层 / 爆裂果链爆圈 / 顶栏工具组（撤销重做+AI 试解+抽屉）
+ *      + 难度徽章 + 策略抽屉（五维横条/指纹/击杀组/预警）。
  */
 'use strict';
 
@@ -19,7 +21,8 @@ const {
   CARD_W, CARD_H, CARD_GAP, CARD_PITCH, CARD_X,
   FILTER, FILTER_H, CARD_AREA_H,
   ERASER_SLOT, ZONE_X,
-  barLayout, visibleItems, floatingBarRect,
+  TB, TB_KEYS, DRAWER,
+  barLayout, visibleItems, floatingBarRect, drawerRect,
   MATERIALS, ERASER_ITEM, FLOAT_BAR,
 } = EDITOR;
 
@@ -73,6 +76,9 @@ function drawEditor(game) {
   for (const p of d.draft.pigs) p.draw(ctx);
   for (const p of d.draft.pearls) E.drawPearl(ctx, p.x, p.y, 9, game.frameCount);
 
+  // 2b. T14 击杀组叠加层（同爆波连通分量豚虚线连 + 组号徽章；👁 可关）
+  if (d.overlay && d.strategy) drawKillGroups(ctx, d);
+
   // 3. 选中高亮（拖动中半透明）
   if (d.selected && !d.drag) {
     drawSelection(ctx, d);
@@ -82,6 +88,8 @@ function drawEditor(game) {
   // 4. 网格吸附预览（选中物料 + 手指在世界区；barTop 以下不预览）
   if (d.palette && d.touchY > topH && d.touchY < L.barTop) {
     drawSnapPreview(ctx, game);
+    // 4b. T14 瞄具预览：挂载爆裂果时显示链爆传导圈（R=118 实证半径）
+    drawChainPreview(ctx, game);
   }
 
   // 5. 问题红圈（常显；闪烁由 frameCount 驱动）
@@ -109,6 +117,8 @@ function drawEditor(game) {
     playBtn.text = n > 0 ? `🔴 ${Math.min(n, 99)}` : (d.proven ? '✓ 可分享' : '▶ 试玩');
     playBtn.draw(ctx);
   }
+  // 6b. T14 策略工具组（↶ ↷ 👁 🤖 📊）+ 难度徽章 + AI 进度
+  drawTopTools(ctx, game, d);
   ctx.restore();
 
   // 非法操作红闪（屏缘红光）
@@ -140,6 +150,9 @@ function drawEditor(game) {
     ctx.fillText('拖动移动 · 橡皮删除 · 点空白取消', W / 2, L.barTop - 8);
     ctx.restore();
   }
+
+  // 9. T14 策略抽屉（最上层；打开时盖世界区，底栏仍可编辑）
+  if (d.drawer) drawStrategyDrawer(ctx, game, drawerRect(d));
 }
 
 /** 底栏：背景 + 分段控件行 + 材质筛选行 + 橡皮槽 + 大卡行 */
@@ -426,6 +439,314 @@ function drawSnapPreview(ctx, game) {
   } else if (item.kind === 'pearl') {
     if (pos.x - 9 < ZONE_X) ctx.fillStyle = '#E86060';
     ctx.beginPath(); ctx.arc(pos.x, pos.y, 9, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ==================== T14 策略视角渲染 ====================
+
+// 击杀组配色（5 色循环；同组豚虚线连 + 组号徽章）
+const GROUP_COLORS = ['#E86464', '#5B8DB8', '#57C98E', '#B07A4A', '#9B6BD6'];
+const CHAIN_R = 118;   // T6 实证：爆裂果心间距 ≤~118 可链爆传导
+const DIM_LABELS = [['P1', '弹药'], ['P2', '识别'], ['P3', '精度'], ['P4', '序列'], ['P5', '方差']];
+
+/** 字符宽度估算（全角 ≈ fs、ASCII ≈ 0.56fs；harness 的 measureText 恒返回 10，禁依赖） */
+function textW(s, fs) {
+  let w = 0;
+  for (const ch of String(s)) w += ch.charCodeAt(0) > 255 ? fs : fs * 0.56;
+  return w;
+}
+
+/** 按估算宽度折行（中文无空格，逐字断行） */
+function wrapCn(text, fs, maxW) {
+  const lines = [];
+  let line = '';
+  for (const ch of String(text)) {
+    if (line && textW(line + ch, fs) > maxW) { lines.push(line); line = ch; }
+    else line += ch;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/** hex → rgba（难度徽章/横条按章级取色） */
+function hexA(hex, a) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/** 击杀组叠加层：同爆波连通分量豚两两虚线 + 质心组号徽章（孤豚不画） */
+function drawKillGroups(ctx, d) {
+  const st = d.strategy;
+  const pigs = d.draft.pigs;
+  if (!st || !st.groups) return;
+  ctx.save();
+  for (const g of st.groups) {
+    if (g.members.length < 2) continue;
+    const pts = g.members.map(i => pigs[i]).filter(Boolean);
+    if (pts.length < 2) continue;
+    const color = GROUP_COLORS[(g.id - 1) % GROUP_COLORS.length];
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 5]);
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        ctx.beginPath();
+        ctx.moveTo(pts[i].x, pts[i].y);
+        ctx.lineTo(pts[j].x, pts[j].y);
+        ctx.stroke();
+      }
+    }
+    const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+    const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+    ctx.globalAlpha = 0.92;
+    ctx.setLineDash([]);
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(g.id), cx, cy + 0.5);
+  }
+  ctx.restore();
+}
+
+/** 瞄具预览：挂载爆裂果 → 链爆传导圈（与吸附预览同落位） */
+function drawChainPreview(ctx, game) {
+  const d = game.editor;
+  const item = d.palette;
+  if (!item || item.kind !== 'block' || item.type !== 'burst') return;
+  const pos = EDITOR.placePosition(d.draft, item, d.touchX, d.touchY);
+  if (!pos) return;
+  const cx = pos.x + item.w / 2, cy = pos.y + item.h / 2;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(232,100,100,0.85)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.arc(cx, cy, CHAIN_R, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+/** 顶栏策略工具组：置灰态维护 + 激活白环 + 难度徽章 + AI 进度/结果 */
+function drawTopTools(ctx, game, d) {
+  const b = game.buttons;
+  if (b.editorUndo) b.editorUndo.locked = !(d.undoStack && d.undoStack.length);
+  if (b.editorRedo) b.editorRedo.locked = !(d.redoStack && d.redoStack.length);
+  if (b.editorSim) b.editorSim.locked = d.issues.length > 0;
+  for (const k of TB_KEYS) if (b[k]) b[k].draw(ctx);
+
+  // 激活态白环（叠加层常显 / 抽屉打开）
+  const ring = (k) => {
+    const btn = b[k];
+    if (!btn) return;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, btn.x - 2, btn.y - 2, btn.width + 4, btn.height + 4, btn.radius + 3);
+    ctx.stroke();
+    ctx.restore();
+  };
+  if (d.overlay) ring('editorOverlay');
+  if (d.drawer) ring('editorDrawer');
+
+  drawCompBadge(ctx, d);
+  drawSimStatus(ctx, game, d);
+}
+
+/** 难度徽章：comp 一位小数 + 章级取色（无豚显示 —） */
+function drawCompBadge(ctx, d) {
+  const st = d.strategy;
+  const w = 22, h = 20;
+  const x = TB.x0 + TB_KEYS.length * (TB.size + TB.gap) + 4;
+  const y = C.SAFE_TOP + TB.yOff + (TB.size - h) / 2;
+  const hasPigs = !!(st && st.analyze && st.analyze.awake > 0);
+  const tier = st ? st.tier : null;
+  ctx.save();
+  ctx.fillStyle = hasPigs && tier ? hexA(tier.color, 0.28) : 'rgba(255,255,255,0.12)';
+  roundRect(ctx, x, y, w, h, 10); ctx.fill();
+  ctx.fillStyle = hasPigs && tier ? tier.color : 'rgba(255,255,255,0.5)';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(hasPigs ? st.five.comp.toFixed(1) : '—', x + w / 2, y + h / 2 + 0.5);
+  ctx.restore();
+}
+
+/** AI 试解状态：协程跑时 🤖 下方 2px 进度条；结束后右上角结果点（绿 WIN/红未解） */
+function drawSimStatus(ctx, game, d) {
+  const btn = game.buttons.editorSim;
+  if (!btn) return;
+  const sim = d.sim;
+  ctx.save();
+  if (sim && sim.running) {
+    const p = sim.total ? Math.min(1, sim.done / sim.total) : 0;
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    roundRect(ctx, btn.x, btn.y + btn.height + 2, btn.width, 3, 1.5); ctx.fill();
+    ctx.fillStyle = '#FFD54F';
+    roundRect(ctx, btn.x, btn.y + btn.height + 2, Math.max(2, btn.width * p), 3, 1.5); ctx.fill();
+  } else if (sim && sim.result) {
+    ctx.fillStyle = sim.result.won ? '#57C98E' : '#E86464';
+    ctx.beginPath(); ctx.arc(btn.x + btn.width - 1, btn.y + 1, 4, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** 抽屉小节标题 */
+function sectionLabel(ctx, x, y, text, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(text, x, y + 11);
+  ctx.restore();
+}
+
+/** 策略抽屉：难度块 + 五维横条 + AI 试解 + 指纹 + 击杀组 + 滚球 + 设计预警 */
+function drawStrategyDrawer(ctx, game, r) {
+  const d = game.editor;
+  const st = d.strategy;
+  ctx.save();
+  // 奶白玻璃面板
+  ctx.fillStyle = 'rgba(245,248,252,0.97)';
+  roundRect(ctx, r.x, r.y, r.w, r.h, 14); ctx.fill();
+  ctx.strokeStyle = 'rgba(18,40,66,0.28)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, r.x, r.y, r.w, r.h, 14); ctx.stroke();
+  ctx.beginPath();
+  ctx.rect(r.x, r.y, r.w, r.h);
+  ctx.clip();
+
+  const pad = DRAWER.pad;
+  const cw = r.w - pad * 2;
+  const ink = '#1F3A5F', sub = '#5A6B82', line = 'rgba(18,40,66,0.12)';
+  let y = r.y + 10 - d.drawerScroll;
+  ctx.textBaseline = 'alphabetic';
+
+  // —— 头部：标题 + 关闭（命中区见 editor.js onTouchStart）——
+  ctx.fillStyle = ink;
+  ctx.font = 'bold 15px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('🧭 策略视角', r.x + pad, y + 16);
+  ctx.fillStyle = sub;
+  ctx.font = '14px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('✕', r.x + r.w - pad - 8, y + 16);
+  y += 26;
+  ctx.strokeStyle = line;
+  ctx.beginPath(); ctx.moveTo(r.x + pad, y); ctx.lineTo(r.x + r.w - pad, y); ctx.stroke();
+  y += 10;
+
+  if (!st) { ctx.restore(); return; }
+  const five = st.five, tier = st.tier;
+
+  // —— 难度块 ——
+  ctx.fillStyle = '#FFFFFF';
+  roundRect(ctx, r.x + pad, y, cw, 62, 10); ctx.fill();
+  ctx.strokeStyle = line;
+  roundRect(ctx, r.x + pad, y, cw, 62, 10); ctx.stroke();
+  ctx.fillStyle = tier.color;
+  ctx.font = 'bold 26px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(five.comp.toFixed(1), r.x + pad + 12, y + 38);
+  ctx.fillStyle = sub;
+  ctx.font = '10px sans-serif';
+  ctx.fillText('综合难度', r.x + pad + 12, y + 53);
+  ctx.fillStyle = ink;
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillText(`相当于官方「${tier.name}」章`, r.x + pad + 68, y + 22);
+  const sim = d.sim;
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = sub;
+  let aiLine = '点顶栏 🤖 让 AI 试解';
+  if (sim && sim.running) {
+    aiLine = `AI 试解中… ${sim.total ? Math.round(sim.done / sim.total * 100) : 0}%`;
+  } else if (sim && sim.result) {
+    aiLine = sim.result.won
+      ? `AI 用鸟 ${sim.result.used}/${sim.result.birdsN} · 剩余 W=${five.W}`
+      : `AI 未通关（用鸟 ${sim.result.used}/${sim.result.birdsN}）`;
+  }
+  ctx.fillText(aiLine, r.x + pad + 68, y + 40);
+  ctx.fillText(`豚 ${st.analyze.awake} · 鸟 ${st.analyze.birdsN} · 砰 ${st.analyze.bombN}`,
+    r.x + pad + 68, y + 54);
+  y += 62 + 12;
+
+  // —— 五维横条 ——
+  DIM_LABELS.forEach(([k, label]) => {
+    const v = five[k];
+    ctx.fillStyle = sub;
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${k} ${label}`, r.x + pad, y + 13);
+    const bx = r.x + pad + 56, bw = cw - 56 - 26;
+    ctx.fillStyle = '#E3E8F0';
+    roundRect(ctx, bx, y + 3, bw, 10, 5); ctx.fill();
+    if (v != null) {
+      ctx.fillStyle = tier.color;
+      roundRect(ctx, bx, y + 3, Math.max(4, bw * v / 5), 10, 5); ctx.fill();
+    }
+    ctx.fillStyle = v != null ? ink : '#9AA7B8';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(v != null ? String(v) : '—', r.x + r.w - pad, y + 13);
+    y += 26;
+  });
+  y += 6;
+
+  // —— 指纹 ——
+  sectionLabel(ctx, r.x + pad, y, '指纹', sub); y += 16;
+  ctx.fillStyle = sub;
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'left';
+  for (const ln of wrapCn(st.fingerprint, 10, cw)) {
+    ctx.fillText(ln, r.x + pad, y + 10);
+    y += 14;
+  }
+  y += 8;
+
+  // —— 击杀组 ——
+  sectionLabel(ctx, r.x + pad, y, '击杀组（爆波连通）', sub); y += 16;
+  const multi = st.groups.filter(g => g.members.length >= 2);
+  if (!multi.length) {
+    ctx.fillStyle = sub; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('无多豚组：每只章鱼都需单独击杀', r.x + pad, y + 11);
+    y += 18;
+  } else {
+    for (const g of multi) {
+      ctx.fillStyle = GROUP_COLORS[(g.id - 1) % GROUP_COLORS.length];
+      ctx.beginPath(); ctx.arc(r.x + pad + 5, y + 6, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = ink; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(`组${g.id}：${g.members.length} 豚可被一发砰砰覆盖`, r.x + pad + 16, y + 10);
+      y += 18;
+    }
+  }
+  y += 6;
+
+  // —— 滚球连坐 ——
+  if (st.rollPairs.length) {
+    sectionLabel(ctx, r.x + pad, y, '滚球连坐', sub); y += 16;
+    for (const [i, j] of st.rollPairs) {
+      ctx.fillStyle = ink; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(`豚${i} × 豚${j} 贴地 ≤60px → 一鸟连坐`, r.x + pad, y + 10);
+      y += 18;
+    }
+    y += 6;
+  }
+
+  // —— 设计预警 ——
+  if (st.warnings.length) {
+    sectionLabel(ctx, r.x + pad, y, '设计预警', sub); y += 16;
+    for (const w of st.warnings) {
+      ctx.fillStyle = '#C0392B';
+      ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText('⚠', r.x + pad, y + 10);
+      ctx.fillStyle = '#7B3A32';
+      ctx.font = '11px sans-serif';
+      for (const ln of wrapCn(w.msg, 11, cw - 18)) {
+        ctx.fillText(ln, r.x + pad + 18, y + 10);
+        y += 15;
+      }
+      y += 6;
+    }
   }
   ctx.restore();
 }

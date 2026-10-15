@@ -31,10 +31,11 @@ let passed = 0, failed = 0;
 function test(name, fn) { tests.push({ name, fn }); }
 function run() {
   for (const t of tests) {
+    const fc0 = game.frameCount;
     try {
       t.fn();
       passed++;
-      console.log('✓ ' + t.name);
+      console.log('✓ ' + t.name + (game.frameCount === fc0 ? '  [无帧推进]' : ''));
     } catch (e) {
       failed++;
       console.error('✗ ' + t.name + '\n    ' + (e && e.message ? e.message : e));
@@ -1997,6 +1998,229 @@ test('codec：旧码（无章王）解码不受新 boss 格式影响', () => {
   assert.ok(back);
   assert.deepStrictEqual(back.pigs[0], { x: 200, y: 600, radius: 17 });
   assert.strictEqual(back.pigs[0].boss, undefined, '旧码豚不应有 boss 标记');
+});
+
+// =====================================================================
+// 造关师 T14：策略视角（纯函数 + 撤销重做 + AI 试解协程 + 抽屉 UI）
+// 验收依据 docs/editor-redesign-t14.md §9；纯函数与 level-sim 静态尺子的
+// 全 40 关一致性在 tools 外一次性核对（level-sim require 会重装 env，禁入 e2e）。
+// =====================================================================
+
+const STRATEGY = require('../src/editor-strategy.js');
+
+test('T14 策略纯函数：击杀组判据（36px 三豚同组 / 300px 三豚异组）', () => {
+  const mk = xs => ({ birds: ['bomb'], blocks: [], pearls: [],
+    pigs: xs.map(x => ({ x, y: 560, radius: 17 })) });
+  const g1 = STRATEGY.strategyRead(mk([200, 236, 272])).groups.map(g => g.members.length);
+  assert.deepStrictEqual(g1, [3], '间距 36px < 2*(110+17)=254 → 一发爆波可全覆盖');
+  const g2 = STRATEGY.strategyRead(mk([150, 450, 750])).groups.map(g => g.members.length);
+  assert.deepStrictEqual(g2, [1, 1, 1], '间距 300px > 254 → 各自独立');
+});
+
+test('T14 策略纯函数：滚球对判据（贴地 50px 成对 / 100px 不成对）', () => {
+  const mk = xs => ({ birds: ['normal'], blocks: [], pearls: [],
+    pigs: xs.map(x => ({ x, y: 560, radius: 17 })) });
+  assert.deepStrictEqual(STRATEGY.strategyRead(mk([200, 250])).rollPairs, [[0, 1]]);
+  assert.deepStrictEqual(STRATEGY.strategyRead(mk([200, 300])).rollPairs, []);
+  // 高置不成对（判据要求两豚都贴地）
+  const air = STRATEGY.strategyRead({ birds: ['normal'], blocks: [], pearls: [],
+    pigs: [{ x: 200, y: 400, radius: 17 }, { x: 250, y: 400, radius: 17 }] });
+  assert.deepStrictEqual(air.rollPairs, [], '悬空豚不触发滚球连坐');
+});
+
+test('T14 策略纯函数：五维读数（P1 待试解为 null；预警与 issues 分离）', () => {
+  const lv = { birds: ['normal'], blocks: [], pearls: [],
+    pigs: [{ x: 200, y: 560, radius: 17 }, { x: 236, y: 560, radius: 17 }] };
+  const st = STRATEGY.strategyRead(lv);
+  assert.strictEqual(st.five.P1, null, '未试解时 P1/W 为 null');
+  assert.ok(st.five.comp > 0 && st.five.comp <= 5, 'comp 由静态四维均值给出');
+  assert.ok(st.warnings.some(w => w.kind === 'roll-risk'), '贴地近距双豚出滚球预警');
+  const st2 = STRATEGY.strategyRead(lv, { won: true, used: 1, birdsN: 2 });
+  assert.strictEqual(st2.five.W, 1, '试解回填 W');
+  assert.strictEqual(st2.five.P1, 4, 'W=1 → P1=4');
+});
+
+test('T14 撤销/重做：放置 3 → ↶×3 回空 → ↷×3 复原', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 240, WY, EDITOR.findPalette('wood-p'));
+  EDITOR.placeAt(game, 280, WY, EDITOR.findPalette('pig-s'));
+  EDITOR.placeAt(game, 320, WY, EDITOR.findPalette('stone-p'));
+  assert.strictEqual(E2.draft.blocks.length, 2);
+  assert.strictEqual(E2.draft.pigs.length, 1);
+  assert.strictEqual(E2.undoStack.length, 3, '每次结构变异压栈');
+  for (let i = 0; i < 3; i++) EDITOR.undo(game);
+  assert.strictEqual(E2.draft.blocks.length + E2.draft.pigs.length, 0, '撤销回空');
+  assert.strictEqual(E2.redoStack.length, 3);
+  for (let i = 0; i < 3; i++) EDITOR.redo(game);
+  assert.strictEqual(E2.draft.blocks.length, 2, '重做复原');
+  assert.strictEqual(E2.draft.pigs.length, 1);
+  // 变异清重做栈
+  EDITOR.undo(game);
+  EDITOR.placeAt(game, 200, WY, EDITOR.findPalette('wood-q'));
+  assert.strictEqual(E2.redoStack.length, 0, '新变异清空重做栈');
+});
+
+test('T14 拖动撤销：拖动移位松手后 ↶ 回原位', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 260, WY, EDITOR.findPalette('wood-p'));
+  const x0 = E2.draft.blocks[0].x; // placeAt 过 snap（260→248），以放置后实际坐标为准
+  const y0 = E2.draft.blocks[0].y;
+  env.fire('touchstart', 260, y0 + 13);   // 抓住柱心
+  env.fire('touchmove', 300, WY);         // 拖到右侧
+  env.fire('touchend');
+  assert.notStrictEqual(E2.draft.blocks[0].x, x0, '拖动已移位');
+  EDITOR.undo(game);
+  assert.strictEqual(E2.draft.blocks[0].x, x0, '撤销回原位');
+  assert.strictEqual(E2.draft.blocks[0].y, y0);
+});
+
+test('T14 影子对局：1 豚 + 1 普通豚 → 一击 WIN，编辑器上下文完整恢复', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 260, 600, EDITOR.findPalette('pig-s')); // 落点 ≥ 地面 → 贴地
+  assert.strictEqual(E2.issues.length, 0);
+  assert.ok(EDITOR.startSim(game), '试解启动');
+  let guard = 0;
+  while (E2.sim && E2.sim.running && guard++ < 600) EDITOR.simStep(game);
+  const r = E2.sim && E2.sim.result;
+  assert.ok(r && r.won, 'AI 应一击通关');
+  assert.strictEqual(r.used, 1, '只用 1 发');
+  assert.strictEqual(r.birdsN, 1);
+  // 上下文完整恢复：状态/按钮/草稿实体都不被影子对局污染
+  assert.strictEqual(game.state, 'EDITOR', '恢复 EDITOR 态');
+  assert.ok(game.buttons.editorExit && game.buttons.editorPlay, '顶栏按钮恢复');
+  assert.strictEqual(E2.draft.pigs.length, 1, '草稿豚数不变');
+  assert.strictEqual(E2.draft.blocks.length, 0, '草稿块数不变');
+  assert.strictEqual(E2.proven, false, 'AI 试解不构成通关证明');
+  // P1/W 回填策略读数
+  assert.strictEqual(E2.strategy.five.W, 0, 'W=0 回填');
+  assert.strictEqual(E2.strategy.five.P1, 5, 'P1=5 回填');
+});
+
+test('T14 悬空放置可解：瞄准起点修正回归（豚悬空仍一击 WIN）', () => {
+  // 弹道预告/真实发射均从拖动位起算；simAim 曾从弹弓锚点起算带 ≤95px 偏移，悬空豚必歪
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 260, WY, EDITOR.findPalette('pig-s'));
+  assert.ok(E2.draft.pigs[0].y < C.GROUND_Y - 40, '确认悬空放置');
+  EDITOR.startSim(game);
+  let guard = 0;
+  while (E2.sim && E2.sim.running && guard++ < 600) EDITOR.simStep(game);
+  assert.ok(E2.sim.result && E2.sim.result.won, '悬空豚也应一击 WIN');
+});
+
+test('T14 协程分帧 + 变异作废：试解中放置 → 中止恢复且草稿不丢', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 260, 600, EDITOR.findPalette('pig-s'));
+  EDITOR.placeAt(game, 300, 600, EDITOR.findPalette('pig-l'));
+  EDITOR.addBird(game, 'bomb');
+  EDITOR.startSim(game);
+  EDITOR.simStep(game); // 推进一帧（240 物理步预算，远未跑完 4 候选）
+  assert.ok(E2.sim && E2.sim.running, '协程仍在跑');
+  EDITOR.placeAt(game, 200, 600, EDITOR.findPalette('wood-q')); // 结构变异
+  assert.strictEqual(E2.sim, null, '变异立即使试解作废');
+  assert.strictEqual(game.state, 'EDITOR', '影子世界被恢复，无半程污染');
+  assert.strictEqual(E2.draft.blocks.length, 1, '新放置的块在');
+  assert.strictEqual(E2.draft.pigs.length, 2, '原豚不丢');
+});
+
+test('T14 顶栏工具组：5 按钮创建 + ↶↷👁📊 触摸路由', () => {
+  const E2 = enterFreshEditor();
+  const TB = EDITOR.TB;
+  for (const k of EDITOR.TB_KEYS) assert.ok(game.buttons[k], `${k} 已创建`);
+  const cx = i => TB.x0 + i * (TB.size + TB.gap) + TB.size / 2;
+  const cy = C.SAFE_TOP + TB.yOff + TB.size / 2;
+  // 放置 2 实体 → ↶ 撤 1 → ↷ 回 1
+  EDITOR.placeAt(game, 240, WY, EDITOR.findPalette('wood-p'));
+  EDITOR.placeAt(game, 280, WY, EDITOR.findPalette('pig-s'));
+  game.render(); // locked 由 drawTopTools 每帧维护：放置后补一帧，↶ 置灰态才刷新为可点
+  env.fire('touchstart', cx(0), cy); env.fire('touchend'); // ↶
+  assert.strictEqual(E2.draft.pigs.length, 0, '↶ 撤销生效');
+  assert.strictEqual(E2.draft.blocks.length, 1);
+  game.render(); // ↷ 的 locked 同样依赖刷新（撤销后栈空→置灰，重做后有点）
+  env.fire('touchstart', cx(1), cy); env.fire('touchend'); // ↷
+  assert.strictEqual(E2.draft.pigs.length, 1, '↷ 重做生效');
+  // 👁 叠加层开关（默认开）
+  assert.strictEqual(E2.overlay, true);
+  env.fire('touchstart', cx(2), cy); env.fire('touchend');
+  assert.strictEqual(E2.overlay, false, '👁 关闭叠加层');
+  env.fire('touchstart', cx(2), cy); env.fire('touchend');
+  assert.strictEqual(E2.overlay, true, '👁 再点恢复');
+  // 📊 抽屉开关
+  env.fire('touchstart', cx(4), cy); env.fire('touchend');
+  assert.strictEqual(E2.drawer, true, '📊 开抽屉');
+  env.fire('touchstart', cx(4), cy); env.fire('touchend');
+  assert.strictEqual(E2.drawer, false, '📊 关抽屉');
+});
+
+test('T14 🤖 置灰门：issues>0 时点击无响应', () => {
+  const E2 = enterFreshEditor();
+  E2.issues.push({ kind: 'no-pig', x: 0, y: 0, msg: '假问题' });
+  game.update(); game.render(); // 直接驱动一帧 → drawTopTools 维护 locked 态（不依赖 rAF 链存活）
+  assert.strictEqual(game.buttons.editorSim.locked, true, '有问题时 🤖 置灰');
+  const TB = EDITOR.TB;
+  env.fire('touchstart', TB.x0 + 3 * (TB.size + TB.gap) + TB.size / 2, C.SAFE_TOP + TB.yOff + TB.size / 2);
+  env.fire('touchend');
+  assert.strictEqual(E2.sim, null, '置灰点击不启动试解');
+  assert.strictEqual(EDITOR.startSim(game), false, 'startSim 双门拒绝');
+});
+
+test('T14 策略抽屉：开关命中 + 滚动钳制 + 高内容渲染冒烟', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 260, 600, EDITOR.findPalette('pig-s'));
+  EDITOR.placeAt(game, 300, 600, EDITOR.findPalette('pig-s'));
+  EDITOR.topBarAction(game, 'editorDrawer');
+  assert.ok(E2.drawer);
+  // 抽屉面板区触摸不穿透世界（不起手拖动）
+  env.fire('touchstart', 300, 200);
+  assert.ok(E2.drawerDrag, '抽屉内起滚动手势');
+  assert.strictEqual(E2.worldDown, false, '不穿透到世界区');
+  env.fire('touchend');
+  // 高内容策略读数 → 滚动钳制
+  E2.strategy = {
+    five: { P1: 5, P2: 5, P3: 1, P4: 3, P5: 5, W: 0, comp: 3.8 },
+    groups: [{ id: 1, members: [0, 1], maxR: 17 }], groupOf: [1, 1], rollPairs: [[0, 1]],
+    warnings: Array.from({ length: 8 }, (_, i) => ({ kind: 'x', msg: `预警${i}：长文案测试折行` })),
+    fingerprint: '3鸟/2豚/砰1', tier: { name: '潮汐王座', color: '#FFCC80' },
+    analyze: { awake: 2, birdsN: 3, bombN: 1 },
+  };
+  const maxScroll = EDITOR.drawerMaxScroll(E2);
+  assert.ok(maxScroll > 0, '内容超高才有滚动');
+  E2.drawerScroll = maxScroll;
+  env.fire('touchstart', 300, 300); env.fire('touchmove', 300, 180); env.fire('touchend'); // 上拖 → 钳底
+  assert.strictEqual(E2.drawerScroll, maxScroll, '上拖到底钳住');
+  env.fire('touchstart', 300, 180); env.fire('touchmove', 300, 320); env.fire('touchend'); // 下拖 140
+  assert.strictEqual(E2.drawerScroll, maxScroll - 140, '下拖精确减 140');
+  // 关闭按钮命中
+  const dr = EDITOR.drawerRect(E2);
+  env.fire('touchstart', dr.x + dr.w - 20, dr.y + 20); env.fire('touchend');
+  assert.strictEqual(E2.drawer, false, '✕ 关闭抽屉');
+  // 高内容 + 打开态渲染 3 帧无异常
+  EDITOR.topBarAction(game, 'editorDrawer');
+  env.pump(3);
+});
+
+test('T14 渲染冒烟：击杀组叠加层 + 链爆圈 + 试解进度条 + 难度徽章', () => {
+  const E2 = enterFreshEditor();
+  EDITOR.placeAt(game, 260, 600, EDITOR.findPalette('pig-s'));
+  EDITOR.placeAt(game, 300, 600, EDITOR.findPalette('pig-s')); // 40px → 同组（叠加层画连线）
+  EDITOR.placeAt(game, 260, WY, EDITOR.findPalette('wood-p'));
+  EDITOR.placeAt(game, 320, 400, EDITOR.findPalette('burst'));
+  EDITOR.addBird(game, 'bomb');
+  E2.overlay = true;
+  E2.palette = EDITOR.findPalette('burst'); // 挂爆裂果 → 链爆圈
+  E2.touchX = 300; E2.touchY = 400;
+  E2.selected = { kind: 'block', index: 0 };  // 选中浮条
+  env.pump(3);
+  // 试解中（进度条路径）+ 抽屉打开（策略面板路径）
+  E2.issues.length = 0;
+  EDITOR.startSim(game);
+  EDITOR.simStep(game);
+  EDITOR.topBarAction(game, 'editorDrawer');
+  env.pump(3);
+  EDITOR.topBarAction(game, 'editorDrawer');
+  let guard = 0;
+  while (E2.sim && E2.sim.running && guard++ < 600) EDITOR.simStep(game);
+  env.pump(2);
+  assert.strictEqual(game.state, 'EDITOR');
 });
 
 run();

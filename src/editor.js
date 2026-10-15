@@ -15,6 +15,7 @@ const CODEC = require('./level-codec.js');
 const VALIDATE = require('./level-validate.js');
 const LEVEL_FLOW = require('./level-flow.js');
 const SOCIAL = require('./social.js');
+const STRATEGY = require('./editor-strategy.js');
 
 // 注意：GROUND_Y 随 C.init() 随机型屏高变化（375×667→577、375×812→722），
 // 不可在模块加载期冻结，用到的地方一律实时读 C.GROUND_Y（812 重 init 测试依赖此点）。
@@ -34,6 +35,13 @@ const CARD_X = 64;         // 卡行紧挨橡皮槽右缘 (8+56=64)；透明井�
 const FILTER = { x: 64, h: 36 };        // 材质面板几何（宽 = 屏宽-64-8，segW 实时算）
 const ERASER_SLOT = { x: 8, y: 4, w: 56, h: 56 }; // 橡皮固定槽（卡行坐标系，y 相对 cardTop）
 const ZONE_X = C.SCREEN_WIDTH * 0.33; // 弹弓禁放区（与 validateLevel 同公式）
+// T14 顶栏策略按钮组（中段：退出 8..80 → ↶ ↷ 👁 🤖 📊 + 难度徽章 → 试玩 280..367）
+const TB = { size: 32, gap: 2, x0: 84, yOff: 4 };
+const TB_KEYS = ['editorUndo', 'editorRedo', 'editorOverlay', 'editorSim', 'editorDrawer'];
+// T14 策略抽屉（右滑面板；只盖世界区，底栏常驻可继续编辑）
+const DRAWER = { w: 300, headH: 40, pad: 12 };
+// T14 AI 试解协程：每渲染帧物理 update 预算（分帧推进，防长帧卡顿）
+const SIM_FRAME_BUDGET = 240;
 
 // ==================== 物料表 ====================
 const TABS = [
@@ -168,7 +176,11 @@ function deriveLevel(draft) {
 
 // ==================== 进出状态 ====================
 
-/** 编辑器交互状态（draft 实体模型在外注入；首次进入/openSlot 共用，杜绝字段漏填） */
+/**
+ * 编辑器交互状态（draft 实体模型在外注入；首次进入/openSlot 共用，杜绝字段漏填）
+ * T14 增量：undoStack/redoStack（撤销重做）、overlay（击杀组叠加层开关）、
+ * drawer（策略抽屉）、sim（AI 试解协程）、strategy（静态策略读数缓存）。
+ */
 function makeEditorState(draft, proven) {
   return {
     draft,
@@ -176,6 +188,12 @@ function makeEditorState(draft, proven) {
     selected: null, drag: null, barDrag: null, scrollX: 0,
     proven: !!proven, issues: [],
     touchX: 0, touchY: 0, rejectFlash: 0, worldDown: false,
+    undoStack: [], redoStack: [],
+    pendingUndo: null,          // 拖动前快照：松手时真移动了才压撤销栈
+    drawerDrag: null,           // 抽屉内滚动手势
+    overlay: true, drawer: false, drawerScroll: 0,
+    sim: null,
+    strategy: null,
   };
 }
 
@@ -198,6 +216,19 @@ function enterEditor(game) {
     { sketch: true, radius: 18, fontSize: 14, shadowOffset: 3 });
   game.buttons.editorPlay = new E.Button(C.SCREEN_WIDTH - 95, C.SAFE_TOP + 0, 87, 40, '▶ 试玩', '#57C98E',
     { sketch: true, radius: 20, fontSize: 14, shadowOffset: 3 });
+  // T14 策略按钮组（顶栏中段）：撤销/重做/叠加层/AI 试解/策略抽屉
+  const tbY = C.SAFE_TOP + TB.yOff;
+  const tbDef = [
+    ['editorUndo', '↶', '#5B8DB8'],
+    ['editorRedo', '↷', '#5B8DB8'],
+    ['editorOverlay', '👁', '#7E57C2'],
+    ['editorSim', '🤖', '#F2A03D'],
+    ['editorDrawer', '📊', '#57C98E'],
+  ];
+  tbDef.forEach(([k, txt, color], i) => {
+    game.buttons[k] = new E.Button(TB.x0 + i * (TB.size + TB.gap), tbY, TB.size, TB.size, txt, color,
+      { sketch: true, radius: 10, fontSize: 16, shadowOffset: 2 });
+  });
   // 清空运行时世界（避免上一关残留实体被物理 update / 主渲染画出；编辑器画自己的草稿）
   game.blocks = [];
   game.pigs = [];
@@ -250,13 +281,383 @@ function groundYAt(draft, x) {
   return top;
 }
 
-/** 重新跑编辑器校验，问题红圈由渲染层常显 */
+/** 重新跑编辑器校验 + 刷新策略读数（静态五维/击杀组/滚球对/预警；P1 待 sim 回填） */
 function revalidate(game) {
-  game.editor.issues = VALIDATE.validateLevel(deriveLevel(game.editor.draft), { editor: true }).issues;
+  const d = game.editor;
+  const level = deriveLevel(d.draft);
+  d.issues = VALIDATE.validateLevel(level, { editor: true }).issues;
+  const solved = (d.sim && d.sim.result && d.sim.result.won) ? d.sim.result : null;
+  d.strategy = STRATEGY.strategyRead(level, solved);
 }
 
 /** 任何结构变异：通关证明作废（须重新试玩取胜才能分享） */
 function touchStructure(game) { game.editor.proven = false; }
+
+// ==================== 撤销 / 重做（T14）====================
+const UNDO_MAX = 50;
+
+/** draft 深拷贝快照（实体实例重建，渲染/校验可直接消费） */
+function snapshotDraft(draft) {
+  return {
+    blocks: draft.blocks.map(b => new E.Block(b.x, b.y, b.width, b.height, b.type)),
+    pigs: draft.pigs.map(p => {
+      const opts = p.isBoss ? { boss: true, hp: p.maxHealth, name: p.bossName } : undefined;
+      return new E.Octopus(p.x, p.y, p.radius, opts);
+    }),
+    pearls: draft.pearls.map(p => ({ x: p.x, y: p.y, kind: 'pearl' })),
+    birds: draft.birds.slice(),
+  };
+}
+
+function pushUndo(game) {
+  const d = game.editor;
+  if (!d) return;
+  d.undoStack.push(snapshotDraft(d.draft));
+  if (d.undoStack.length > UNDO_MAX) d.undoStack.shift();
+}
+
+/** 结构变异前置：压撤销栈、清重做栈、作废进行中的 AI 试解 */
+function beginMutation(game) {
+  const d = game.editor;
+  if (!d) return;
+  pushUndo(game);
+  d.redoStack.length = 0;
+  cancelSim(game);
+}
+
+/** 结构变异收尾：通关证明作废 + 重新校验 + 策略刷新 */
+function endMutation(game) {
+  const d = game.editor;
+  if (!d) return;
+  touchStructure(game);
+  revalidate(game);
+}
+
+/** 应用快照为当前草稿（清瞬态选中/挂载/横滚） */
+function applyDraftSnapshot(game, snap) {
+  const d = game.editor;
+  d.draft = snap;
+  d.selected = null;
+  d.drag = null;
+  d.palette = null;
+  d.eraser = false;
+  d.scrollX = 0;
+  d.pendingUndo = null;
+  d.drawerDrag = null;
+}
+
+/** 拖动松手时提交撤销（pendingUndo 是拖动前快照；仅真移动了才压栈） */
+function commitDragUndo(game) {
+  const d = game.editor;
+  if (d.pendingUndo) {
+    d.undoStack.push(d.pendingUndo);
+    if (d.undoStack.length > UNDO_MAX) d.undoStack.shift();
+    d.redoStack.length = 0;
+    cancelSim(game); // 结构变异 → AI 试解结果作废
+  }
+  d.pendingUndo = null;
+}
+
+// ==================== 策略抽屉（T14）====================
+
+/** 抽屉面板矩形（右滑入；只盖世界区，底栏常驻可编辑） */
+function drawerRect(d) {
+  const L = barLayout(d);
+  return { x: C.SCREEN_WIDTH - DRAWER.w, y: L.topH, w: DRAWER.w, h: Math.max(120, L.barTop - L.topH) };
+}
+
+/** 抽屉内容总高（渲染层同款分段；用于滚动钳制） */
+function drawerContentH(d) {
+  const st = d.strategy;
+  let h = DRAWER.headH + 16 + 64;            // 标题 + 难度块
+  h += 5 * 26 + 8;                            // 五维横条
+  h += 30;                                    // AI 试解行
+  h += 22;                                    // 指纹
+  const groups = st ? st.groups.filter(g => g.members.length >= 2) : [];
+  h += 20 + groups.length * 18;
+  const rolls = st ? st.rollPairs : [];
+  h += 20 + rolls.length * 18;
+  const warns = st ? st.warnings : [];
+  h += 20 + warns.length * 34;
+  return h;
+}
+
+function drawerMaxScroll(d) {
+  return Math.max(0, drawerContentH(d) - drawerRect(d).h);
+}
+
+/** 顶栏策略按钮动作（undo/redo/overlay/sim/drawer） */
+function topBarAction(game, k) {
+  const d = game.editor;
+  if (!d) return;
+  if (k === 'editorUndo') undo(game);
+  else if (k === 'editorRedo') redo(game);
+  else if (k === 'editorOverlay') d.overlay = !d.overlay;
+  else if (k === 'editorSim') startSim(game);
+  else if (k === 'editorDrawer') { d.drawer = !d.drawer; d.drawerScroll = 0; }
+}
+
+function undo(game) {
+  const d = game.editor;
+  if (!d || !d.undoStack.length) return false;
+  d.redoStack.push(snapshotDraft(d.draft));
+  if (d.redoStack.length > UNDO_MAX) d.redoStack.shift();
+  applyDraftSnapshot(game, d.undoStack.pop());
+  touchStructure(game);
+  revalidate(game);
+  return true;
+}
+
+function redo(game) {
+  const d = game.editor;
+  if (!d || !d.redoStack.length) return false;
+  d.undoStack.push(snapshotDraft(d.draft));
+  if (d.undoStack.length > UNDO_MAX) d.undoStack.shift();
+  applyDraftSnapshot(game, d.redoStack.pop());
+  touchStructure(game);
+  revalidate(game);
+  return true;
+}
+
+// ==================== AI 试解：影子对局（T14）====================
+// 在编辑器内复用真实物理重放草稿：保存编辑器上下文 → setupLevel 装载 →
+// 网格瞄准发射（复刻 input.js 拉弓/发射/abx 主动引爆）→ game.update() 推进 →
+// 恢复上下文。solve 循环与 tools/level-sim.js 同构（鸟种×目标点贪心），
+// 以「每帧一个候选」的协程方式推进，不卡 UI；结构变异立即使本次结果作废。
+
+/** 影子对局前的编辑器上下文快照（setupLevel/settle 会重置的字段全集） */
+function captureEditorCtx(game) {
+  return {
+    state: game.state, buttons: game.buttons,
+    isCustom: game.isCustom, playOrigin: game.playOrigin,
+    isDaily: game.isDaily, isBonus: game.isBonus,
+    customLevel: game.customLevel, dailyLevel: game.dailyLevel, bonusLevel: game.bonusLevel,
+    currentLevelIndex: game.currentLevelIndex, settleTimer: game.settleTimer,
+    failCounts: game.failCounts,
+    score: game.score, combo: game.combo, maxCombo: game.maxCombo,
+    extraBirds: game.extraBirds, pendingExplosions: game.pendingExplosions,
+    particles: game.particles, floatingTexts: game.floatingTexts,
+    particlePool: game.particlePool, textPool: game.textPool,
+    shakeAmount: game.shakeAmount, hintAlpha: game.hintAlpha, hintText: game.hintText,
+    winAnim: game.winAnim, reviveUsed: game.reviveUsed, adDoubleUsed: game.adDoubleUsed,
+    trajectoryBoost: game.trajectoryBoost, lastTrail: game.lastTrail,
+    newPearlAwarded: game.newPearlAwarded,
+    pearls: game.pearls, pigs: game.pigs, blocks: game.blocks,
+    birds: game.birds, birdsRemaining: game.birdsRemaining,
+    currentBird: game.currentBird,
+  };
+}
+
+/** 影子装载前置：把 game 切成「自制关试玩」上下文（settle 的 getCurrentLevel/stars 才能work） */
+function simEnterLevel(game, level) {
+  game.isCustom = true;
+  game.isDaily = false;
+  game.isBonus = false;
+  game.customLevel = level;
+  game.playOrigin = 'sim'; // 非 author：影子 WIN 不得误置 proven（settle.js 门）
+}
+
+function restoreEditorCtx(game, ctx) {
+  for (const k of Object.keys(ctx)) game[k] = ctx[k];
+}
+
+/** 影子发射准备：换鸟/网格瞄准/拉弓/发射（复刻 input.js READY→AIMING→FLYING 全链路） */
+function simFirePrepare(game, shot) {
+  if (!game.currentBird || game.currentBird.type !== shot.type) {
+    const i = game.birds.findIndex(b => b.type === shot.type);
+    if (i < 0) return false;
+    game.swapBird(i);
+  }
+  const cb = game.currentBird;
+  if (!cb || game.state !== 'READY') return false;
+  const aim = STRATEGY.simAim(game, shot.tx, shot.ty);
+  if (!aim) return false;
+  // 拉弓（钳制与 input.js onTouchMove 一致：MAX_DRAG + 只向后拉）
+  let dx = aim.px - C.SLINGSHOT_X;
+  let dy = aim.py - (C.SLINGSHOT_Y - 15);
+  const dist = Math.hypot(dx, dy);
+  if (dist > C.MAX_DRAG) { dx = (dx / dist) * C.MAX_DRAG; dy = (dy / dist) * C.MAX_DRAG; }
+  if (dx > 0) dx = 0;
+  cb.x = C.SLINGSHOT_X + dx;
+  cb.y = (C.SLINGSHOT_Y - 15) + dy;
+  // 发射（与 input.js onTouchEnd 的 AIMING 分支一致）
+  const rx = C.SLINGSHOT_X - cb.x;
+  const ry = (C.SLINGSHOT_Y - 15) - cb.y;
+  if (Math.hypot(rx, ry) <= C.MIN_DRAG) return false;
+  cb.launch(rx * C.POWER_FACTOR, ry * C.POWER_FACTOR);
+  game.birdsRemaining--;
+  game.state = 'FLYING';
+  game.lastTrail = [];
+  game.combo = 0;
+  return true;
+}
+
+/**
+ * 推进当前一发：最多消耗 budget 个 game.update() 步（分帧协程的核心）。
+ * st.phase：'fly'（飞行+结算等待）→ 'settle'（静止 30 帧）→ 'done'。
+ * 返回实际消耗步数（0 = 已 done，无需再推）。
+ */
+function simShotAdvance(game, shot, st, budget) {
+  let used = 0;
+  while (used < budget && st.phase !== 'done') {
+    if (st.phase === 'fly') {
+      while (used < budget && st.phase === 'fly') {
+        game.update(); used++;
+        if (shot.abx != null && game.currentBird && !game.currentBird.abilityUsed &&
+            game.currentBird.x >= shot.abx) {
+          game.tryActivateAbility();
+        }
+        if (game.state !== 'FLYING' && game.state !== 'SETTLING') st.phase = 'settle';
+      }
+      if (st.phase === 'settle') st.f = 0;
+    } else { // settle：飞行结束再推 30 帧让物理完全静止（与 level-sim replay 同预算）
+      while (used < budget && st.f < 30) { game.update(); used++; st.f++; }
+      if (st.f >= 30) st.phase = 'done';
+    }
+  }
+  return used;
+}
+
+/** 候选重放的结算度量（与 tools/level-sim.js replay 同评分公式） */
+function simMetrics(game, pigs0, blocks0, bossMax) {
+  const boss = game.pigs.find(p => p.isBoss);
+  const pigsAlive = game.pigs.filter(p => p.alive && !p.dying).length;
+  const blocksGone = blocks0 - game.blocks.filter(b => b.alive).length;
+  const bossDmg = !bossMax ? 0 : (!boss ? bossMax : (boss.alive && !boss.dying ? bossMax - boss.health : bossMax));
+  return {
+    won: game.state === 'WIN',
+    state: game.state,
+    pigsDead: pigs0 - pigsAlive,
+    bossDmg, blocksGone,
+    birdsLeft: game.birds.length,
+    score: (pigs0 - pigsAlive) * 100 + bossDmg * 30 + blocksGone * 2,
+  };
+}
+
+/** 当前步候选队列：剩余鸟种 × 智能目标点（bomb 对非猪目标设 abx 主动引爆） */
+function buildCandidates(sim) {
+  const targets = STRATEGY.simTargets(sim.level);
+  const avail = Object.keys(sim.stock).filter(t => sim.stock[t] > 0);
+  const cands = [];
+  for (const type of avail) {
+    for (const t of targets) {
+      const abx = (type === 'bomb' && t.kind !== 'pig') ? t.x : null;
+      cands.push({ type, tx: t.x, ty: t.y, abx });
+    }
+  }
+  return cands;
+}
+
+/** 启动 AI 试解协程（结构有问题拒绝并红闪） */
+function startSim(game) {
+  const d = game.editor;
+  if (!d) return false;
+  if (d.issues.length) { flashReject(game); return false; }
+  cancelSim(game);
+  const level = deriveLevel(d.draft);
+  const stock = {};
+  for (const t of level.birds) stock[t] = (stock[t] || 0) + 1;
+  const pending = buildCandidates({ level, stock });
+  d.sim = {
+    ctx: captureEditorCtx(game),
+    level, stock,
+    shots: [], pending, pi: 0, best: null, last: null,
+    run: null,                       // 正在重放的候选（可跨帧恢复）
+    done: 0, total: level.birds.length * Math.max(1, pending.length),
+    running: true, result: null,
+  };
+  return true;
+}
+
+/**
+ * 协程步进：本帧最多消耗 SIM_FRAME_BUDGET 个物理 update 步。
+ * 结构：候选队列贪心 —— 每步枚举「剩余鸟种 × 智能目标点」全候选，
+ * 逐个跨帧重放（run），本步候选跑完取最高分者为该步射击，直至 WIN/鸟尽。
+ */
+function simStep(game) {
+  const d = game.editor;
+  const sim = d && d.sim;
+  if (!sim || !sim.running) return false;
+  let budget = SIM_FRAME_BUDGET;
+  while (budget > 0) {
+    if (!sim.run) {
+      if (sim.pi >= sim.pending.length) {
+        // 本步候选全部跑完 → 贪心选定最优
+        if (!sim.best) {
+          finishSim(game, { used: sim.shots.length, won: sim.last ? sim.last.won : false,
+            state: sim.last ? sim.last.state : '—', birdsN: sim.level.birds.length });
+          return false;
+        }
+        sim.shots.push(sim.best.cand);
+        sim.stock[sim.best.type]--;
+        sim.last = sim.best.r;
+        if (sim.last.won || sim.shots.length >= sim.level.birds.length) {
+          finishSim(game, { used: sim.shots.length, won: sim.last.won, state: sim.last.state,
+            birdsN: sim.level.birds.length });
+          return false;
+        }
+        sim.best = null;
+        sim.pending = buildCandidates(sim);
+        sim.pi = 0;
+        continue;
+      }
+      // 开跑下一个候选：重装载草稿 + 指标快照
+      const cand = sim.pending[sim.pi++];
+      simEnterLevel(game, sim.level);
+      LEVEL_FLOW.setupLevel(game, sim.level);
+      sim.run = {
+        cand,
+        seq: [...sim.shots, cand],
+        si: 0, st: null, r: null,
+        pigs0: game.pigs.length, blocks0: game.blocks.length,
+        bossMax: (game.pigs.find(p => p.isBoss) || { maxHealth: 0 }).maxHealth,
+      };
+      continue;
+    }
+    const run = sim.run;
+    if (!run.st) {
+      if (run.si >= run.seq.length) {
+        // 候选全部发完 → 计分并入贪心比较
+        if (!run.r) run.r = simMetrics(game, run.pigs0, run.blocks0, run.bossMax);
+        sim.done++;
+        if (!sim.best || run.r.score > sim.best.r.score) {
+          sim.best = { cand: run.cand, r: run.r, type: run.cand.type };
+        }
+        sim.run = null;
+        continue;
+      }
+      // 缺鸟/状态异常（如已 WIN）：跳过该发，不当作失败
+      if (!simFirePrepare(game, run.seq[run.si])) { run.si++; continue; }
+      run.st = { phase: 'fly', f: 0 };
+    }
+    budget -= simShotAdvance(game, run.seq[run.si], run.st, budget);
+    if (run.st.phase === 'done') {
+      run.r = simMetrics(game, run.pigs0, run.blocks0, run.bossMax);
+      run.si++;
+      run.st = null;
+    }
+  }
+  return true;
+}
+
+/** 协程收尾：恢复编辑器上下文 + 用 solved 回填策略读数（P1/W） */
+function finishSim(game, result) {
+  const d = game.editor;
+  const sim = d.sim;
+  if (!sim) return;
+  sim.running = false;
+  sim.result = result;
+  restoreEditorCtx(game, sim.ctx);
+  d.strategy = STRATEGY.strategyRead(deriveLevel(d.draft), result.won ? result : null);
+}
+
+/** 作废 AI 试解（结构变异/退出编辑器/重开）；跑 half 的协程先恢复上下文 */
+function cancelSim(game) {
+  const d = game.editor;
+  if (!d || !d.sim) return;
+  if (d.sim.running) restoreEditorCtx(game, d.sim.ctx);
+  d.sim = null;
+}
 
 /** 红闪反馈（非法放置/试玩被拒）；update 中衰减 */
 function flashReject(game) { game.editor.rejectFlash = 20; }
@@ -340,26 +741,27 @@ function placeAt(game, x, y, item) {
   // ↓ canAddEntity 内置禁区/重叠/门限校验，非 limit 类失败红闪反馈
   const ok = canAddEntity(d.draft, ent);
   if (!ok.ok) { if (ok.reason !== 'limit') flashReject(game); return; }
+  beginMutation(game);
   if (item.kind === 'block') d.draft.blocks.push(ent);
   else if (item.kind === 'pig') d.draft.pigs.push(ent);
   else if (item.kind === 'pearl') d.draft.pearls.push(ent);
-  touchStructure(game);
-  revalidate(game);
+  endMutation(game);
 }
 
 function addBird(game, type) {
   const d = game.editor;
   if (d.draft.birds.length >= 6) return;
+  beginMutation(game);
   d.draft.birds.push(type);
-  touchStructure(game);
+  endMutation(game);
 }
 
 function removeBirdAt(game, queueIndex) {
   const d = game.editor;
   if (d.draft.birds.length <= 1) return; // 至少 1 只
+  beginMutation(game);
   d.draft.birds.splice(queueIndex, 1);
-  touchStructure(game);
-  revalidate(game);
+  endMutation(game);
 }
 
 /** 候飞豚站位（与 level-flow.queuePosition 同公式；编辑器里全部豚排队列、不站弹弓） */
@@ -399,13 +801,13 @@ function removeAt(game, x, y) {
   const h = hitTest(game, x, y);
   if (!h) return;
   const d = game.editor;
+  if (h.kind === 'queuebird') return removeBirdAt(game, h.index); // 内部自管 begin/end
+  beginMutation(game);
   if (h.kind === 'block') d.draft.blocks.splice(h.index, 1);
   else if (h.kind === 'pig') d.draft.pigs.splice(h.index, 1);
   else if (h.kind === 'pearl') d.draft.pearls.splice(h.index, 1);
-  else if (h.kind === 'queuebird') return removeBirdAt(game, h.index);
   d.selected = null;
-  touchStructure(game);
-  revalidate(game);
+  endMutation(game);
 }
 
 // ==================== 选中浮条（T12-4）：复制/删除浮动操作条 ====================
@@ -469,11 +871,11 @@ function duplicateEntity(game) {
     ent = { x: src.x + GRID * 8, y: src.y + GRID };
   } else return;
   if (!canAddEntity(draft, ent).ok) { flashReject(game); return; }
+  beginMutation(game);
   if (sel.kind === 'block') { draft.blocks.push(ent); d.selected = { kind: 'block', index: draft.blocks.length - 1 }; }
   else if (sel.kind === 'pig') { draft.pigs.push(ent); d.selected = { kind: 'pig', index: draft.pigs.length - 1 }; }
   else if (sel.kind === 'pearl') { draft.pearls.push(ent); d.selected = { kind: 'pearl', index: draft.pearls.length - 1 }; }
-  touchStructure(game);
-  revalidate(game);
+  endMutation(game);
 }
 
 /** 直接删除当前选中实体（浮条删除按钮） */
@@ -481,12 +883,12 @@ function deleteSelected(game) {
   const d = game.editor;
   const sel = d.selected;
   if (!sel) return;
+  beginMutation(game);
   if (sel.kind === 'block') d.draft.blocks.splice(sel.index, 1);
   else if (sel.kind === 'pig') d.draft.pigs.splice(sel.index, 1);
   else if (sel.kind === 'pearl') d.draft.pearls.splice(sel.index, 1);
   d.selected = null;
-  touchStructure(game);
-  revalidate(game);
+  endMutation(game);
 }
 
 /** 试玩门：校验全绿才装载；否则红闪（问题红圈已常显） */
@@ -547,11 +949,23 @@ function onTouchStart(game, x, y) {
   const L = barLayout(d);
   // 1. 顶栏带（背景从 y=0 画起盖住状态栏；0..SAFE_TOP 状态栏区只吞不响应）
   if (y < L.topH) {
-    // 退出/试玩胶囊
-    for (const k of ['editorExit', 'editorPlay']) {
+    // 退出/试玩胶囊 + T14 策略按钮组（↶ ↷ 👁 🤖 📊）
+    for (const k of ['editorExit', 'editorPlay', ...TB_KEYS]) {
       if (game.buttons[k] && game.buttons[k].contains(x, y)) { game.buttons[k].pressed = true; return; }
     }
     return;
+  }
+  // 2. 策略抽屉（打开时面板区优先：关闭按钮 + 滚动，不穿透世界/底栏）
+  if (d.drawer) {
+    const dr = drawerRect(d);
+    if (x >= dr.x && y >= dr.y && y < dr.y + dr.h) {
+      if (y < dr.y + DRAWER.headH && x >= dr.x + dr.w - 44) { // 右上角关闭
+        d.drawer = false; d.drawerScroll = 0; d.drawerDrag = null;
+        return;
+      }
+      d.drawerDrag = { startY: y, scrollStart: d.drawerScroll, moved: false };
+      return;
+    }
   }
   // 2. 底栏区（分段控件 / 材质悬浮面板 / 橡皮固定槽 / 大卡行）
   if (y >= L.barTop) {
@@ -601,6 +1015,7 @@ function onTouchStart(game, x, y) {
     else if (h.kind === 'pig') { const p = d.draft.pigs[h.index]; offX = x - p.x; offY = y - p.y; }
     else if (h.kind === 'pearl') { const p = d.draft.pearls[h.index]; offX = x - p.x; offY = y - p.y; }
     d.drag = { ...h, startX: x, startY: y, offX, offY, moved: false };
+    d.pendingUndo = snapshotDraft(d.draft); // 拖动前快照：松手时真移动了才压撤销栈
   } else if (d.palette) {
     placeAt(game, x, y, d.palette);
   } else {
@@ -614,6 +1029,11 @@ function onTouchMove(game, x, y) {
   if (d.drag) {
     d.drag.moved = true;
     moveEntity(game, d.drag, x, y);
+  } else if (d.drawerDrag) {
+    const dy = y - d.drawerDrag.startY;
+    if (Math.abs(dy) > 4) d.drawerDrag.moved = true;
+    // 与底栏横滚同约定：上拖（dy<0）看下方内容 → scroll 增
+    d.drawerScroll = Math.max(0, Math.min(drawerMaxScroll(d), d.drawerDrag.scrollStart - dy));
   } else if (d.barDrag) {
     const dx = x - d.barDrag.startX;
     if (Math.abs(dx) > 6) d.barDrag.moved = true;
@@ -631,6 +1051,17 @@ function onTouchEnd(game) {
   if (game.buttons.editorPlay && game.buttons.editorPlay.pressed) {
     game.buttons.editorPlay.pressed = false; return tryPlay(game);
   }
+  // T14 策略按钮释放（置灰态点击无动作——locked 由 render 维护）
+  for (const k of TB_KEYS) {
+    const b = game.buttons[k];
+    if (b && b.pressed) {
+      b.pressed = false;
+      if (!b.locked) topBarAction(game, k);
+      return;
+    }
+  }
+  // 抽屉滚动手势收尾
+  if (d.drawerDrag) { d.drawerDrag = null; return; }
   // 底栏大卡点按（未滚动才触发；左缘 80、步距 80）
   if (d.barDrag) {
     const bd = d.barDrag;
@@ -649,8 +1080,9 @@ function onTouchEnd(game) {
   // 世界区拖动收尾
   const wasDrag = d.drag;
   if (wasDrag) {
-    if (wasDrag.moved) { touchStructure(game); revalidate(game); }
+    if (wasDrag.moved) { commitDragUndo(game); touchStructure(game); revalidate(game); }
     d.drag = null;
+    d.pendingUndo = null;
   }
   // 点候飞豚移除：必须世界区起手且未拖动
   if (d.worldDown && !wasDrag && y != null) {
@@ -681,14 +1113,16 @@ function moveEntity(game, drag, x, y) {
   }
 }
 
-/** 每帧：红闪衰减 + 顶栏/浮条按钮缩放动画（仅可见按钮） */
+/** 每帧：红闪衰减 + 顶栏/浮条按钮缩放动画 + AI 试解协程步进（仅可见按钮） */
 function update(game) {
   const d = game.editor;
   if (!d) return;
   if (d.rejectFlash > 0) d.rejectFlash--;
-  for (const k of ['editorExit', 'editorPlay']) {
+  for (const k of ['editorExit', 'editorPlay', ...TB_KEYS]) {
     if (game.buttons[k]) game.buttons[k].update();
   }
+  // AI 试解协程：每帧推进 SIM_FRAME_BUDGET 个物理步（分帧不卡 UI）
+  if (d.sim && d.sim.running) simStep(game);
 }
 
 // ==================== 本地存档（我造的关 / 挑战记录） ====================
@@ -843,9 +1277,14 @@ module.exports = {
   onTouchStart, onTouchMove, onTouchEnd, update,
   queueBirdPos, floatingBarRect, floatingBarHit,
   TABS, PALETTE,
+  // T14：撤销重做 / AI 试解协程 / 策略抽屉
+  undo, redo, pushUndo, snapshotDraft,
+  startSim, cancelSim, simStep, topBarAction,
+  drawerRect, drawerMaxScroll, drawerContentH,
   // 布局常量/helper（editor-render 与 e2e 共用，全部实时读 C，禁模块期冻结）
   TOP_CONTENT_H, SEG, SEG_H, FILTER_H, CARD_AREA_H, CARD_W, CARD_H, CARD_GAP, CARD_PITCH,
   CARD_X, FILTER, ERASER_SLOT, ZONE_X,
+  TB, TB_KEYS, DRAWER, SIM_FRAME_BUDGET,
   barLayout, visibleItems, barMaxScroll, MAT_GROUPS, MATERIALS, ERASER_ITEM,
   FLOAT_BAR,
 };

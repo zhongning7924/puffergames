@@ -19,6 +19,12 @@
 'use strict';
 
 function installEnv(options = {}) {
+  // 幂等护栏：同进程内二次安装（典型：e2e 中途 require level-sim.js）会换掉
+  // requestAnimationFrame 闭包——游戏循环随后注册进新闭包的 pendingCb，而先装
+  // 者的 env.pump 读旧闭包（pendingCb 永远为 null），整条帧链静默断裂。
+  // 已装过则直接复用首个 env（options 以首次调用为准）。
+  if (global.__wbTestEnv) return global.__wbTestEnv;
+
   const storage = {};
 
   // ===== Canvas / DOM mock =====
@@ -174,7 +180,9 @@ function installEnv(options = {}) {
     try { return JSON.parse(storage.angryBirds_progress); } catch (e) { return null; }
   }
 
-  return { pump, fire, storage, resetProgress, readProgress, ads };
+  const env = { pump, fire, storage, resetProgress, readProgress, ads };
+  global.__wbTestEnv = env;
+  return env;
 }
 
 /** 加载游戏单例（首次调用触发 new Game()，之后返回同一实例） */
