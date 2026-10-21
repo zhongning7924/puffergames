@@ -35,7 +35,7 @@ const HELP_PUFFERS = [
     name: '梭梭',
     bodyColor: C.BIRD_TYPES.dash.body,
     abilityName: '疾翎冲刺',
-    abilityDesc: '空中点击 → 沿当前方向极速冲刺（速度 ×2.1），直捣远处掩体。',
+    abilityDesc: '空中点击沿当前方向冲刺（×2.1）。',
     damageVs: { ...C.BIRD_TYPES.dash.damageVs },
   },
   {
@@ -43,7 +43,7 @@ const HELP_PUFFERS = [
     name: '砰砰',
     bodyColor: C.BIRD_TYPES.bomb.body,
     abilityName: '岩轰爆炸',
-    abilityDesc: '空中点击或首次撞击 → 范围爆炸（半径 110），一发清场。',
+    abilityDesc: '空中或首撞触发范围爆炸（半径 110）。',
     damageVs: { ...C.BIRD_TYPES.bomb.damageVs },
   },
   {
@@ -51,7 +51,7 @@ const HELP_PUFFERS = [
     name: '三丸子',
     bodyColor: C.BIRD_TYPES.split.body,
     abilityName: '三胞分裂',
-    abilityDesc: '空中点击 → 一分为三（上下偏转），一发覆盖三处。',
+    abilityDesc: '空中点击一分为三，上下偏转。',
     damageVs: { ...C.BIRD_TYPES.split.damageVs },
   },
 ];
@@ -87,17 +87,17 @@ const HELP_BOSSES = [
     name: '深渊章王',
     level: 32,
     hp: 11,
-    shell: '混合壳',
+    shell: '石壳',
     style: 'abyss',
-    trait: '石木冰混合壳；三度怒吼立石墙护阵封直射，需轮换河豚克制。',
+    trait: '三层石檐护甲；三度怒吼立石墙护阵、召唤援军小章鱼，需轮换河豚克制。',
   },
   {
     name: '潮汐王座·章王',
     level: 40,
     hp: 14,
-    shell: '王座双层壳',
+    shell: '石壳',
     style: 'throne',
-    trait: '最终 Boss，血量最高；三度怒吼（立石墙护阵 + 爆裂果 + 召唤援军）。',
+    trait: '最终 Boss，三层石檐王座；三度怒吼立石墙护阵、召唤援军，另有爆裂果柱。',
   },
 ];
 

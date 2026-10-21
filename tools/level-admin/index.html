@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>官卡后台 · 愤怒河豚的弹弓</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">官卡后台</span>
+    <span class="sub">愤怒河豚的弹弓 · 40 关</span>
+  </div>
+  <div class="meta">
+    <span class="chip" id="chipSource">读取中…</span>
+    <span class="chip mono" id="chipVersion">v—</span>
+  </div>
+  <div class="actions">
+    <button class="btn ghost" id="btnDiscard" title="丢弃未发布的改动，重新读取服务器/内置数据">丢弃草稿</button>
+    <button class="btn ghost" id="btnRollback" title="把内置 40 关作为新版本发布，用于撤销线上改动">回滚内置</button>
+    <button class="btn" id="btnSave" title="只存本地草稿，不上线">保存草稿</button>
+    <button class="btn primary" id="btnPublish" title="版本号 +1 并上传到服务器（玩家下次启动生效）">发布到服务器</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- 左：关卡列表 -->
+  <aside class="panel levels">
+    <div class="panel-head">
+      <span>关卡</span>
+      <span class="hint">点击切换</span>
+    </div>
+    <div class="level-list" id="levelList"></div>
+  </aside>
+
+  <!-- 中：画布 -->
+  <section class="stage">
+    <div class="stage-head">
+      <div class="stage-title" id="stageTitle">—</div>
+      <div class="tools">
+        <button class="btn tiny" id="addBlock">＋方块</button>
+        <button class="btn tiny" id="addPig">＋章鱼</button>
+        <button class="btn tiny" id="addPearl">＋珍珠</button>
+        <button class="btn tiny danger" id="delSel">删除选中</button>
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="cv" width="375" height="667"></canvas>
+    </div>
+    <div class="canvas-tip">拖拽移动 · 方向键微调 1px（Shift 10px）· 松开即写入 · 网格 25px</div>
+  </section>
+
+  <!-- 右：属性 -->
+  <aside class="panel props">
+    <div class="panel-head"><span>属性</span><span class="hint" id="selHint">未选中</span></div>
+    <div class="prop-body" id="propBody"></div>
+  </aside>
+
+</main>
+
+<footer class="statusbar">
+  <span id="status">就绪</span>
+  <span class="right mono" id="statusRight"></span>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

@@ -4,7 +4,7 @@
  *
  * 纯函数层：不依赖 wx / test-harness，游戏运行时与 Node 测试双端可加载。
  * 所有阈值复算自引擎常量（config.js / combat.js / physics.js 实证），
- * 推导依据见 docs/editor-redesign-t14.md 与 src/levels.js L39 注释头（v5~v38 实证档案）。
+ * 推导依据见 docs/design/造关师-策略_设计_v01_2026-10-16.md 与 src/levels.js L39 注释头（v5~v38 实证档案）。
  *
  * 四件套：
  *   ① 五维难度读数（P1 弹药 / P2 识别 / P3 精度 / P4 序列 / P5 方差）——tools/level-sim.js v2 尺子

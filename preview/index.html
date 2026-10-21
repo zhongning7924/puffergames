@@ -128,8 +128,11 @@
 /**
  * 截图模式（供无头 Chrome 取材，不影响正常预览）
  * ?shot=1&dpr=2.88  画布铺满窗口、原生分辨率、隐藏提示浮层
- * ?scene=select|play|boss  自动进入选关页 / 第 1 关 / 第 8 关（章王）
+ * ?scene=select|play|boss|editor  自动进入选关页 / 第 1 关 / 第 8 关（章王）/ 造关师
  * ?prog=N           预置解锁进度（配合 boss 场景）
+ * ?tab=blocks|enemies|birds|items  造关师当前分类（配合 editor 场景）
+ * ?mat=wood|stone|ice|fruit        造关师材质筛选（配合 editor 场景）
+ * ?fill=1           造关师预置几个实体，便于查看摆放效果
  */
 (function () {
   var q = window.__shot || {};
@@ -167,23 +170,48 @@
     c.dispatchEvent(new MouseEvent('mouseup', opts));
   }
 
-  // 用 rAF 帧计数定时，避免依赖真实时钟
-  var frame = 0, step = 0;
-  requestAnimationFrame(function loop() {
-    frame++;
-    if (step === 0 && frame >= 12) {
-      step = 1;
-      if (scene === 'select' || scene === 'play' || scene === 'boss') {
-        click(187, 358);                   // 「开始游戏」
-      }
+  // 截图场景推进。
+  // 注意：**必须用 setTimeout 而不是 rAF 计数**——无头 Chrome 走 --virtual-time-budget 时
+  // rAF 常常只跑 1~2 帧就到期（实测 rAF 版永远停在主菜单，enterEditor 根本没被调到），
+  // 而 setTimeout 会被虚拟时钟正常推进。
+  var step = 0;
+  function setupScene() {
+    step = 1;
+    if (scene === 'select' || scene === 'play' || scene === 'boss') {
+      click(187, 358);                     // 「开始游戏」
+    } else if (scene === 'editor') {
+      try { window.__wbGame && window.__wbGame.enterEditor(); } catch (e) {}
     }
-    if (step === 1 && frame >= 24) {
+    setTimeout(function () {
       step = 2;
-      if (scene === 'play') click(85.5, 194);    // 第 1 关（新手湾 2×4 网格 r1c1）
-      else if (scene === 'boss') click(289.5, 270); // 第 8 关（章王，r2c4）
-    }
-    requestAnimationFrame(loop);
-  });
+      if (scene === 'play') click(85.5, 194);      // 第 1 关
+      else if (scene === 'boss') click(289.5, 270); // 第 8 关（章王）
+      else if (scene === 'editor') {
+        var g = window.__wbGame, E = window.__wbEditor;
+        try {
+          if (!g || !g.editor) return;
+          if (q.tab) { g.editor.tab = q.tab; g.editor.matFilter = q.mat || 'wood'; }
+          if (q.fill && E) {
+            // 预置实体：展示摆放效果与「落在虚拟地面上」是否可见
+            E.placeAt(g, 200, 300, E.findPalette('wood-b'));
+            E.placeAt(g, 245, 300, E.findPalette('wood-p'));
+            E.placeAt(g, 300, 300, E.findPalette('pig-s'));
+            E.placeAt(g, 345, 300, E.findPalette('pig-boss'));
+          }
+          if (q.sel && E) {
+            var it = E.findPalette(q.sel);
+            if (it) g.editor.palette = it;
+          }
+        } catch (e) {}
+      }
+    }, 400);
+  }
+
+  // 等 bundle 里的游戏循环跑起来（实例就绪）再布置场景
+  (function waitReady(n) {
+    if (window.__wbGame || n <= 0) { setupScene(); return; }
+    setTimeout(function () { waitReady(n - 1); }, 100);
+  })(40);
 })();
 </script>
 </body>

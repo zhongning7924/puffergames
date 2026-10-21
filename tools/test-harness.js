@@ -91,6 +91,11 @@ function installEnv(options = {}) {
     },
     vibrateShort: () => {},
     vibrateLong: () => {},
+    // 右上角胶囊按钮（菜单按钮）：造关师顶栏需避让。
+    // mock 375×667 无刘海机型：胶囊贴在状态栏下方，宽 90。
+    getMenuButtonBoundingClientRect: () => ({
+      left: 278, right: 368, top: 4, bottom: 36, width: 90, height: 32,
+    }),
     onTouchStart: (cb) => { touchHandlers.touchstart = cb; },
     onTouchMove: (cb) => { touchHandlers.touchmove = cb; },
     onTouchEnd: (cb) => { touchHandlers.touchend = cb; },
@@ -102,10 +107,12 @@ function installEnv(options = {}) {
     getLaunchOptionsSync: () => ({ query: ads.launchQuery || {} }),
     getClipboardData: (opts) => { if (opts && opts.success) opts.success({ data: ads.clipboard || '' }); },
     setClipboardData: (opts) => { ads.clipboard = (opts && opts.data) || ''; if (opts && opts.success) opts.success(); },
+    // —— 官卡远端下发（level-source.js 用；测试注入 requestResponder 控制返回）——
+    request: (opts) => { if (ads.requestResponder) ads.requestResponder(opts); },
   };
 
   // 广告调用计数器（供 e2e 断言插屏频次 / Banner 显隐）
-  const ads = { interstitialShown: 0, bannerShown: 0, bannerHidden: 0, lastShare: null, launchQuery: null, clipboard: '' };
+  const ads = { interstitialShown: 0, bannerShown: 0, bannerHidden: 0, lastShare: null, launchQuery: null, clipboard: '', requestResponder: null };
 
   // 激励视频 mock：show() 同步回调 onClose({isEnded:true})，即"完整看完发奖励"
   if (options.rewardAd) {

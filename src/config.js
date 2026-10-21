@@ -40,6 +40,26 @@ const FEATURES = {
   leaderboard: false,
   ugcCodeChallenge: false,
   ugcChallengeLog: false,
+  // 全服榜（自建后端，复用 zoo-rank 服务 app=puffer）：默认开启。
+  // 依赖 wx.login 静默登录 + 后端 code2session，openid 不落库（HMAC 派生 uid）。
+  serverRank: true,
+};
+
+// 全服榜端点（zoo-rank 服务，复用 8002 端口，按 app=puffer 分表分密钥）
+const RANK = {
+  baseUrl: 'https://aiclub.hk.cn/puffer/api',
+  app: 'puffer',
+};
+
+/**
+ * 官卡远端下发端点（详见 src/level-source.js、docs/product/官卡下发_方案_v01_2026-10-20.md）
+ *  - 留空 = 只用随包内置官卡（纯离线，不请求网络）；
+ *  - 有值 = 启动时 GET 该地址，返回 { version, data:[Level...] }；
+ *    仅当 version 大于当前生效版本、且 data 通过形状校验才采纳。
+ *  - 服务端文件不存在时返回 version=0，客户端视为「无新版」静默跳过。
+ */
+const LEVELS = {
+  remoteUrl: 'https://aiclub.hk.cn/puffer/api/v1/levels/official',
 };
 
 // 物理常量 Physics constants
@@ -111,6 +131,28 @@ function init() {
   SAFE_BOTTOM = systemInfo.safeBottom || 0;
   GROUND_Y = SCREEN_HEIGHT - GROUND_HEIGHT;
   SLINGSHOT_Y = GROUND_Y - 110;
+  readMenuBtn();
+}
+
+// —— 微信右上角胶囊按钮（菜单按钮）——
+// 顶栏自绘控件必须避让它，否则最右侧按钮在真机上会被系统按钮盖住点不到。
+let MENU_BTN = null;
+/** 胶囊按钮标准宽度 + 右边距（无 getMenuButtonBoundingClientRect 时的保守预留） */
+const MENU_BTN_FALLBACK_W = 98;
+function readMenuBtn() {
+  try {
+    if (typeof wx !== 'undefined' && typeof wx.getMenuButtonBoundingClientRect === 'function') {
+      MENU_BTN = wx.getMenuButtonBoundingClientRect() || null;
+    }
+  } catch (e) {
+    MENU_BTN = null;
+  }
+  return MENU_BTN;
+}
+/** 胶囊按钮左缘 x（顶栏可用宽度的右界）；取不到时按标准机型保守预留 */
+function capsuleLeft() {
+  if (MENU_BTN && typeof MENU_BTN.left === 'number' && MENU_BTN.left > 0) return MENU_BTN.left;
+  return SCREEN_WIDTH - MENU_BTN_FALLBACK_W;
 }
 const MAX_DRAG = 95;            // 最大拖拽距离
 const POWER_FACTOR = 0.19;      // 力度系数
@@ -291,26 +333,34 @@ const BLOCK_TYPES = {
   },
 };
 
-// 章王配色 Boss styles（战斗内本体与图鉴头像的单一数据源）
+// 章王配色 Boss styles（战斗内本体 / 图鉴头像 / 造关师物料 的单一数据源）
 // body 取深一档：避免与同色壳材质方块「融壳」、避免图鉴浅色卡片上浅色发飘；
 // dark 用于描边/卷触手/嘴线/裂纹/怒眉；flash 为受伤闪色（琥珀王黄闪不可见 → 白闪）。
+// name/radius/hp 为章王本体元数据：造关师物料卡与关卡码 codec 都从这里取，
+// 保证「编辑器可选 / 分享码还原 / 玩法本体」三处章王完全同源、不会漂移。
 // 缺省/未知 style 一律回退 abyss（历史深紫，即旧硬编码色）。
 const BOSS_STYLE = {
-  marsh:  { body: '#8D6E63', dark: '#5D4037' },                    // L8 滩涂章王（木壳系暖棕）
-  ice:    { body: '#4FC3F7', dark: '#0277BD' },                    // L16 冰壳章王
-  stone:  { body: '#78909C', dark: '#37474F' },                    // L24 岩甲章王
-  abyss:  { body: '#8E24AA', dark: '#4A148C' },                    // L32 深渊章王（兼 fallback）
-  throne: { body: '#FF8F00', dark: '#E65100', flash: '#FFF8E1' },  // L40 潮汐王座（琥珀橙）
+  marsh:  { body: '#8D6E63', dark: '#5D4037', name: '滩涂章王',      radius: 30, hp: 5 },  // L8  木壳系暖棕
+  ice:    { body: '#4FC3F7', dark: '#0277BD', name: '冰壳章王',      radius: 26, hp: 7 },  // L16
+  stone:  { body: '#78909C', dark: '#37474F', name: '岩甲章王',      radius: 32, hp: 9 },  // L24
+  abyss:  { body: '#8E24AA', dark: '#4A148C', name: '深渊章王',      radius: 33, hp: 11 }, // L32（兼 fallback）
+  throne: { body: '#FF8F00', dark: '#E65100', flash: '#FFF8E1', name: '潮汐王座·章王', radius: 34, hp: 14 }, // L40 琥珀橙
 };
+
+// 章王可选顺序（造关师物料卡 / 图鉴遍历统一按此序，与关卡难度递进一致）
+const BOSS_ORDER = ['marsh', 'ice', 'stone', 'abyss', 'throne'];
 
 module.exports = {
   init,
   FEATURES,
+  RANK,
+  LEVELS,
   get SCREEN_WIDTH() { return SCREEN_WIDTH; },
   get SCREEN_HEIGHT() { return SCREEN_HEIGHT; },
   get DPR() { return DPR; },
   get SAFE_TOP() { return SAFE_TOP; },
   get SAFE_BOTTOM() { return SAFE_BOTTOM; },
+  capsuleLeft, readMenuBtn, MENU_BTN_FALLBACK_W,
   get GRAVITY() { return GRAVITY; },
   get AIR_FRICTION() { return AIR_FRICTION; },
   get GROUND_BOUNCE() { return GROUND_BOUNCE; },
@@ -329,6 +379,7 @@ module.exports = {
   get BLOCK_TYPES() { return BLOCK_TYPES; },
   get BIRD_TYPES() { return BIRD_TYPES; },
   get BOSS_STYLE() { return BOSS_STYLE; },
+  get BOSS_ORDER() { return BOSS_ORDER; },
   get DASH_BOOST() { return DASH_BOOST; },
   get DASH_MIN_SPEED() { return DASH_MIN_SPEED; },
   get BOMB_RADIUS() { return BOMB_RADIUS; },

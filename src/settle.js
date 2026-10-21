@@ -36,6 +36,7 @@ function saveWinProgress(game) {
       game.progress.daily = { date: today, best: game.score };
     }
     game.saveProgress();
+    game.reportRankDaily(game.score);
     return;
   }
   const prevStars = game.progress.stars[game.currentLevelIndex] || 0;
@@ -54,6 +55,11 @@ function saveWinProgress(game) {
   }
   game.saveProgress();
   game.uploadScore();
+  // 全服榜上报（尽力而为）：单关星级/分数/用鸟数
+  const lv = game.getCurrentLevel();
+  const totalBirds = (lv && Array.isArray(lv.birds)) ? lv.birds.length : 0;
+  const usedBirds = totalBirds > 0 ? Math.max(0, totalBirds - game.birdsRemaining) : 0;
+  game.reportRankProgress(game.currentLevelIndex, game.stars, game.score, usedBirds);
 }
 
 /** 激励视频点位 1：失败后 +1 只河豚继续（挽回流失，eCPM 最高点位） */

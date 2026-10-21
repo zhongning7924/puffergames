@@ -85,6 +85,8 @@ angry-birds/
 ├── project.config.json  # 项目配置（appid=touristappid）
 ├── build-preview.js     # 浏览器预览打包器（CommonJS → IIFE）
 ├── verify-preview.js    # 浏览器预览端到端验证
+├── README.md            # 本文件：上手 / 结构 / 回归门 / 发版
+├── overview.md          # 迭代史（T1 起逐轮记录，CHANGELOG 性质）
 ├── src/
 │   ├── config.js        # 全局配置：屏幕尺寸、物理常量、配色、功能开关
 │   ├── utils.js         # 数学工具：向量运算、碰撞检测
@@ -109,9 +111,20 @@ angry-birds/
 │   ├── gen-sounds.js    # 音效合成器：程序化生成 WAV（零依赖、零版权素材）
 │   ├── validate-levels.js # 关卡静态校验（几何/越界/珍珠可达/难度指标）
 │   ├── e2e-tests.js     # 端到端行为测试
-│   └── test-harness.js  # 测试环境（虚拟时钟 60Hz / 触摸 / 激励视频 mock）
+│   ├── test-harness.js  # 测试环境（虚拟时钟 60Hz / 触摸 / 激励视频 mock）
+│   ├── level-sim.js     # 难度五维尺子 + 贪心解算（STATIC=1 跑全章）
+│   ├── boss-sim.js      # 章王关自动对战验证
+│   ├── shot-editor.js   # 造关师 UI 无头截图（视觉回归）
+│   └── probes/          # 一次性调试探针（人工打开，不进回归门）
+│       ├── probe-editor-state.html
+│       ├── probe-editor-geom.html
+│       └── probe-editor-layout.js
 ├── sounds/              # 生成的音效文件
-├── docs/                # 设计文档（广告接入方案等）
+├── docs/
+│   ├── INDEX.md         # 文档索引：每份文档讲什么、状态如何（先看这个）
+│   ├── design/          # UI / 交互设计说明
+│   ├── product/         # 产品方案（广告点位与频控）
+│   └── superpowers/     # 计划与规格（外部工具约定目录，勿改名）
 ├── outputs/             # 交付物：正式头像、发布信息、备案文案
 ├── preview/             # 浏览器预览（index.html + 打包产物）
 └── opendata/            # 好友排行榜开放数据域（当前已停用，见下）
@@ -183,7 +196,7 @@ const AD_UNIT = {
 
 必须替换为微信公众平台「流量主 → 广告位管理」创建的真实广告位 ID，否则广告加载失败、收益恒为 0（占位 ID 下模块会自动降级，不影响玩法）。
 
-广告点位策略：激励视频 3 处（失败复活 / 结算双倍 / 卡关弹道全显）、插屏仅退出关卡并按频控（首 2 次不弹，之后每 3 次 1 次，60 秒冷却）、原生模板横幅仅选关页且做布局避让。**WIN → 「下一关」的连闯路径绝不插广告**。详见 `docs/广告接入方案.md`。
+广告点位策略：激励视频 3 处（失败复活 / 结算双倍 / 卡关弹道全显）、插屏仅退出关卡并按频控（首 2 次不弹，之后每 3 次 1 次，60 秒冷却）、原生模板横幅仅选关页且做布局避让。**WIN → 「下一关」的连闯路径绝不插广告**。详见 `docs/product/广告接入_方案_v01_2026-08-31.md`。
 
 ### 上架资质（提醒，非技术项）
 

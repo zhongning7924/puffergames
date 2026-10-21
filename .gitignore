@@ -7,6 +7,9 @@ preview/bundle.js
 # AI 会话记忆与工作日志（本机记录，不入库；文件保留在磁盘）
 .workbuddy/
 
+# 文件治理撤销日志（本机审计记录，可回滚文件搬移，不入库）
+.file-governor/
+
 # 产出物目录：默认不入库，只放行最终交付件（头像原图/正式头像/发布与备案文档）。
 # 中间产物（头像迭代稿 v0~v8、UI 调图临时截图 btn-*/crop-*/menu-frame-*）体积大且可重建，不入历史。
 outputs/*
@@ -16,3 +19,10 @@ outputs/*
 !outputs/audit-content-*.md
 !outputs/release-materials-*.md
 !outputs/promo-*.png
+
+# 软著申请材料：PDF/DOCX/插图约 8MB，可由同目录 config.json + make_manual.py + diagrams.py 重建；
+# 生成脚本与 config 仍入库，便于日后改版本号重出材料。
+copyright/**/*.pdf
+copyright/**/*.docx
+copyright/**/图*.png
+copyright/**/source_lines.json

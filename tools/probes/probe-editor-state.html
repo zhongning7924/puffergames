@@ -1,0 +1,14 @@
+<!DOCTYPE html><html><body><pre id="out">pending</pre>
+<script>
+window.__log=[];
+window.addEventListener('error',e=>{window.__log.push('ERR '+e.message);document.getElementById('out').textContent=window.__log.join('\n');});
+</script>
+<iframe id="f" src="preview/index.html?scene=editor" style="width:375px;height:667px"></iframe>
+<script>
+setTimeout(()=>{
+  const w=document.getElementById('f').contentWindow;
+  let r={hasGame:!!w.__wbGame, hasEditor:!!w.__wbEditor, state:null, log:(w.__log||[]).join('|')};
+  try{ r.state=w.__wbGame&&w.__wbGame.state; }catch(e){ r.state='err:'+e.message; }
+  document.getElementById('out').textContent=JSON.stringify(r,null,1);
+},1500);
+</script></body></html>

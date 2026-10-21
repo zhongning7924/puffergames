@@ -60,8 +60,11 @@ const bundle = `(function(){
     currentModule = prev;
     return module.exports;
   }
-  // 入口：根目录 game.js 内部 require('./src/game.js') -> new Game()
+  // 入口：根目录 game.js 只做 require('./src/game.js') 不导出，故直接取 src 模块的实例
+  // （src/game.js 的 module.exports = new Game()，e2e 亦依赖此约定）
   __require('./game.js');
+  window.__wbGame = __require('./src/game.js');
+  try { window.__wbEditor = __require('./src/editor.js'); } catch (e) { window.__wbEditor = null; }
 })();
 `;
 

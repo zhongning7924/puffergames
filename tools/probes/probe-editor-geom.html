@@ -1,0 +1,60 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><style>#probe-out{position:fixed;left:0;top:0;z-index:999;background:#fff;color:#000;font-size:11px;white-space:pre;}</style></head><body>
+<div id="out">pending</div>
+<script>
+(function () {
+  var q = {};
+  location.search.replace(/^\?/, '').split('&').forEach(function (kv) {
+    var p = kv.split('='); q[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || '');
+  });
+  window.__shot = q;
+  if (q.dpr) { try { Object.defineProperty(window, 'devicePixelRatio', { value: parseFloat(q.dpr), configurable: true }); } catch (e) {} }
+})();
+</script>
+<script>
+(function () {
+  const SCREEN_W = 375, SCREEN_H = 667;
+  const dpr = window.devicePixelRatio || 1;
+  const canvas = document.createElement('canvas');
+  canvas.id = 'game';
+  canvas.style.width = SCREEN_W + 'px'; canvas.style.height = SCREEN_H + 'px';
+  canvas.width = Math.round(SCREEN_W * dpr); canvas.height = Math.round(SCREEN_H * dpr);
+  const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+  document.body.appendChild(canvas);
+  window.wx = {
+    createCanvas: function () { return canvas; },
+    getSystemInfoSync: function () {
+      return { screenWidth: SCREEN_W, screenHeight: SCREEN_H, devicePixelRatio: dpr,
+        windowWidth: SCREEN_W, windowHeight: SCREEN_H, statusBarHeight: 0,
+        safeArea: { top: 0, bottom: SCREEN_H, left: 0, right: SCREEN_W } };
+    },
+    getStorageSync: function () { return null; }, setStorageSync: function () {},
+    vibrateShort: function () {}, vibrateLong: function () {},
+    onTouchStart: function () {}, onTouchMove: function () {}, onTouchEnd: function () {}, onTouchCancel: function () {},
+    getMenuButtonBoundingClientRect: function () { return { left: 278, right: 368, top: 4, bottom: 36, width: 90, height: 32 }; },
+  };
+})();
+</script>
+<script src="bundle.js"></script>
+<script>
+(function () {
+  function report() {
+    var g = window.__wbGame, E = window.__wbEditor;
+    var lines = [];
+    if (g && E) {
+      try { window.__wbGame.enterEditor(); } catch (e) { lines.push('enterEditor err: ' + e.message); }
+      var L = E.barLayout(g.editor);
+      lines.push('topH=' + L.topH + ' barTop=' + L.barTop + ' floorY=' + E.floorY());
+      var b = g.buttons;
+      Object.keys(b).forEach(function (k) {
+        var btn = b[k];
+        if (btn && typeof btn.x === 'number') lines.push(k + ': x=' + btn.x + ' y=' + btn.y + ' w=' + btn.width + ' h=' + btn.height);
+      });
+    } else lines.push('hooks missing g=' + !!g + ' E=' + !!E);
+    var d = document.createElement('div'); d.id = 'probe-out';
+    d.textContent = lines.join('\n');
+    document.body.appendChild(d);
+  }
+  setTimeout(report, 1200);
+})();
+</script>
+</body></html>

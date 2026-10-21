@@ -12,6 +12,7 @@ const U = require('./utils.js');
 const AUDIO = require('./audio.js');
 const SOCIAL = require('./social.js');
 const EDITOR = require('./editor.js');
+const LEVEL_SOURCE = require('./level-source.js');
 
 /** 触摸按下：按状态机分发（菜单/设置/排行榜/选关选中按钮；READY→AIMING；FLYING→技能） */
 function onTouchStart(game, x, y) {
@@ -47,6 +48,10 @@ function onTouchStart(game, x, y) {
         game.buttons.leaderboard.pressed = true;
         AUDIO.play('tap');
       }
+      if (game.buttons.serverRank && game.buttons.serverRank.contains(x, y)) {
+        game.buttons.serverRank.pressed = true;
+        AUDIO.play('tap');
+      }
       if (game.buttons.settings && game.buttons.settings.contains(x, y)) {
         game.buttons.settings.pressed = true;
         AUDIO.play('tap');
@@ -58,6 +63,15 @@ function onTouchStart(game, x, y) {
       // 造关师：主菜单入口 + 中心页/列表页按钮
       if (game.buttons.goMaker && game.buttons.goMaker.contains(x, y)) {
         game.buttons.goMaker.pressed = true;
+        AUDIO.play('tap');
+      }
+      // 官卡更新提醒横幅：恢复原版 / 知道了
+      if (game.buttons.lvlRestore && game.buttons.lvlRestore.contains(x, y)) {
+        game.buttons.lvlRestore.pressed = true;
+        AUDIO.play('tap');
+      }
+      if (game.buttons.lvlAck && game.buttons.lvlAck.contains(x, y)) {
+        game.buttons.lvlAck.pressed = true;
         AUDIO.play('tap');
       }
       if (game.listView) {
@@ -85,6 +99,10 @@ function onTouchStart(game, x, y) {
           AUDIO.play('tap');
         }
       }
+      if (game.buttons.lvlRestore && game.buttons.lvlRestore.contains(x, y)) {
+        game.buttons.lvlRestore.pressed = true;
+        AUDIO.play('tap');
+      }
       if (game.buttons.back && game.buttons.back.contains(x, y)) {
         game.buttons.back.pressed = true;
         AUDIO.play('tap');
@@ -103,6 +121,23 @@ function onTouchStart(game, x, y) {
     case 'LEADERBOARD':
       if (game.buttons.back && game.buttons.back.contains(x, y)) {
         game.buttons.back.pressed = true;
+        AUDIO.play('tap');
+      }
+      break;
+
+    case 'RANK':
+      // 记录手势起点（区分点击与拖动滚动）
+      game.rankTouch = { y, scroll: game.rankScroll || 0, moved: false };
+      if (game.buttons.rankBack && game.buttons.rankBack.contains(x, y)) {
+        game.buttons.rankBack.pressed = true;
+        AUDIO.play('tap');
+      }
+      if (game.buttons.rankTab_stars && game.buttons.rankTab_stars.contains(x, y)) {
+        game.buttons.rankTab_stars.pressed = true;
+        AUDIO.play('tap');
+      }
+      if (game.buttons.rankTab_score && game.buttons.rankTab_score.contains(x, y)) {
+        game.buttons.rankTab_score.pressed = true;
         AUDIO.play('tap');
       }
       break;
@@ -178,7 +213,7 @@ function onTouchStart(game, x, y) {
       // 在剩豚奖励多的关卡（结算动画最长约 6 秒）尤其明显。
       if (game.winAnim && game.winAnim.phase !== 'done') {
         game.skipWinAnim();
-        const onButton = ['next', 'retry', 'menu', 'share', 'double',
+        const onButton = ['next', 'toMaker', 'retry', 'menu', 'share', 'double',
           'editorBack', 'saveShare', 'challengeShare']
           .some(k => game.buttons[k] && game.buttons[k].contains(x, y));
         if (!onButton) break; // 点在空白处：仅跳过，防误触
@@ -193,6 +228,10 @@ function onTouchStart(game, x, y) {
       }
       if (game.buttons.menu && game.buttons.menu.contains(x, y)) {
         game.buttons.menu.pressed = true;
+        AUDIO.play('tap');
+      }
+      if (game.buttons.toMaker && game.buttons.toMaker.contains(x, y)) {
+        game.buttons.toMaker.pressed = true;
         AUDIO.play('tap');
       }
       if (game.buttons.share && game.buttons.share.contains(x, y)) {
@@ -282,6 +321,20 @@ function onTouchMove(game, x, y) {
     return;
   }
 
+  if (game.state === 'RANK' && game.rankTouch) {
+    const t = game.rankTouch;
+    const dy = y - t.y;
+    if (!t.moved && Math.abs(dy) > 6) {
+      t.moved = true;
+      if (game.buttons.rankBack) game.buttons.rankBack.pressed = false;
+    }
+    if (t.moved) {
+      const max = game.rankMaxScroll || 0;
+      game.rankScroll = Math.max(0, Math.min(max, t.scroll - dy));
+    }
+    return;
+  }
+
   if (game.state === 'AIMING' && game.currentBird) {
     // 计算拖拽位置（限制在最大拖拽范围内）
     let dx = x - C.SLINGSHOT_X;
@@ -318,6 +371,10 @@ function onTouchEnd(game) {
         game.buttons.leaderboard.pressed = false;
         game.goToLeaderboard();
       }
+      if (game.buttons.serverRank && game.buttons.serverRank.pressed) {
+        game.buttons.serverRank.pressed = false;
+        game.goToRank();
+      }
       if (game.buttons.settings && game.buttons.settings.pressed) {
         game.buttons.settings.pressed = false;
         game.goToSettings();
@@ -330,6 +387,19 @@ function onTouchEnd(game) {
       if (game.buttons.goMaker && game.buttons.goMaker.pressed) {
         game.buttons.goMaker.pressed = false;
         game.openLevelList('ugcHome');
+      }
+      // 官卡更新横幅：恢复原版 / 知道了
+      if (game.buttons.lvlRestore && game.buttons.lvlRestore.pressed) {
+        game.buttons.lvlRestore.pressed = false;
+        game.restoreOfficialLevels();
+        delete game.buttons.lvlRestore;
+        delete game.buttons.lvlAck;
+      }
+      if (game.buttons.lvlAck && game.buttons.lvlAck.pressed) {
+        game.buttons.lvlAck.pressed = false;
+        LEVEL_SOURCE.ackUpdate();
+        delete game.buttons.lvlRestore;
+        delete game.buttons.lvlAck;
       }
       if (game.listView) {
         if (game.buttons.listBack && game.buttons.listBack.pressed) {
@@ -384,6 +454,10 @@ function onTouchEnd(game) {
         game.buttons.tglVibration.pressed = false;
         game.toggleSetting('vibration');
       }
+      if (game.buttons.lvlRestore && game.buttons.lvlRestore.pressed) {
+        game.buttons.lvlRestore.pressed = false;
+        game.restoreOfficialLevels();
+      }
       if (game.buttons.back && game.buttons.back.pressed) {
         game.buttons.back.pressed = false;
         game.goToMenu();
@@ -405,6 +479,29 @@ function onTouchEnd(game) {
       if (game.buttons.back && game.buttons.back.pressed) {
         game.buttons.back.pressed = false;
         game.goToMenu();
+      }
+      break;
+
+    case 'RANK':
+      // 本次手势是拖动滚动则不触发按钮
+      if (game.rankTouch && game.rankTouch.moved) {
+        game.rankTouch = null;
+        break;
+      }
+      game.rankTouch = null;
+      if (game.buttons.rankBack && game.buttons.rankBack.pressed) {
+        game.buttons.rankBack.pressed = false;
+        game.goToMenu();
+      }
+      if (game.buttons.rankTab_stars && game.buttons.rankTab_stars.pressed) {
+        game.buttons.rankTab_stars.pressed = false;
+        game.rankTab = 'stars';
+        game.rankScroll = 0;
+      }
+      if (game.buttons.rankTab_score && game.buttons.rankTab_score.pressed) {
+        game.buttons.rankTab_score.pressed = false;
+        game.rankTab = 'score';
+        game.rankScroll = 0;
       }
       break;
 
@@ -477,6 +574,10 @@ function onTouchEnd(game) {
       if (game.buttons.menu && game.buttons.menu.pressed) {
         game.buttons.menu.pressed = false;
         game.goToMenu();
+      }
+      if (game.buttons.toMaker && game.buttons.toMaker.pressed) {
+        game.buttons.toMaker.pressed = false;
+        game.goToMaker();
       }
       if (game.buttons.share && game.buttons.share.pressed) {
         game.buttons.share.pressed = false;

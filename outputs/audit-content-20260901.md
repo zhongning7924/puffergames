@@ -111,5 +111,5 @@
 |------|------|
 | `outputs/mini-program-info.md` | 小程序名称 / 简称 / 头像 / 介绍 / 游戏背景 / 主题 / 价值 |
 | `outputs/puffer-avatar-144x144.png` | 正式头像 |
-| `docs/广告接入方案.md` | 广告点位与频控规则 |
+| `docs/product/广告接入_方案_v01_2026-08-31.md` | 广告点位与频控规则 |
 | `src/config.js` | 功能开关 `FEATURES.leaderboard` |

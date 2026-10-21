@@ -24,6 +24,7 @@ const VALIDATE = require('../src/level-validate.js');
 const EDITOR = require('../src/editor.js');
 const PHYS = require('../src/physics.js');
 const HELP = require('../src/help.js');
+const LEVEL_SOURCE = require('../src/level-source.js');
 
 // ===== 极简测试运行器 =====
 const tests = [];
@@ -694,6 +695,25 @@ test('结算动画中点按钮：一次点击即生效（不再被"跳过动画"
   assert.strictEqual(game.currentLevelIndex, 16, '一次点击即进入第 17 关');
 });
 
+test('通关最后一关（第40关）：无「下一关」，显示「去造关」并进入造关师中心页', () => {
+  fresh();
+  game.progress.unlockedLevels = 40;
+  game.loadLevel(39);       // 第 40 关（潮汐王座）
+  env.pump(3);
+  game.pigs.forEach(p => { p.dying = true; });
+  game.checkWinLose();
+  env.pump(1);              // 结算页绘制一帧，创建按钮
+  assert.strictEqual(game.state, 'WIN');
+  assert.ok(!game.buttons.next, '最后一关不应有「下一关」按钮');
+  assert.ok(game.buttons.toMaker, '最后一关应有「去造关」按钮');
+  const b = game.buttons.toMaker;
+  env.fire('touchstart', b.x + b.width / 2, b.y + b.height / 2);
+  env.fire('touchend');
+  env.pump(2);
+  assert.strictEqual(game.state, 'MENU', '点击去造关应进入菜单态');
+  assert.strictEqual(game.listView, 'ugcHome', '应定位到造关师中心页');
+});
+
 // =====================================================================
 // 6. 广告点位（插屏频控 / Banner 避让）
 // =====================================================================
@@ -930,17 +950,117 @@ test('渲染冒烟：全部界面状态各渲染数帧无异常', () => {
   assert.strictEqual(game.state, 'WIN');
 });
 
-test('主菜单：按钮顺序 开始 → 造关师 → 设置 → 玩法说明，标题下方显示出品方', () => {
+test('主菜单：按钮顺序 开始 → 造关师 → 全服榜 → 设置 → 玩法说明，标题下方显示出品方', () => {
   fresh();
   game.goToMenu();
   env.pump(3);
   assert.ok(game.buttons.help, '主菜单应显示「玩法说明」按钮');
-  // 按钮顺序：开始游戏 → 造关师 → 设置 → 玩法说明（y 坐标严格递增，统一 54px 行距）
+  // 按钮顺序：开始游戏 → 造关师 → 全服榜 → 设置 → 玩法说明（y 坐标严格递增）
   assert.ok(game.buttons.play.y < game.buttons.goMaker.y, '造关师按钮应在开始按钮下方');
-  assert.ok(game.buttons.goMaker.y < game.buttons.settings.y, '设置按钮应在造关师按钮下方');
+  assert.ok(game.buttons.goMaker.y < game.buttons.serverRank.y, '全服榜按钮应在造关师按钮下方');
+  assert.ok(game.buttons.serverRank.y < game.buttons.settings.y, '设置按钮应在全服榜按钮下方');
   assert.ok(game.buttons.settings.y < game.buttons.help.y, '玩法说明按钮应在设置按钮下方');
   assert.strictEqual(game.buttons.goMaker.y - game.buttons.play.y, 62, '造关师紧跟开始按钮（+62）');
 });
+
+test('全服榜：主菜单入口可见，点击进入 RANK 页并可返回', () => {
+  fresh();
+  game.goToMenu();
+  env.pump(3);
+  assert.ok(game.buttons.serverRank, '主菜单应有「全服榜」按钮');
+
+  // 点全服榜按钮 → 进入 RANK
+  const cx = C.SCREEN_WIDTH / 2;
+  const cy = game.buttons.serverRank.y + 21;
+  env.fire('touchstart', cx, cy);
+  env.fire('touchend');
+  env.pump(3);
+  assert.strictEqual(game.state, 'RANK', '点击全服榜应进入 RANK 状态');
+  assert.strictEqual(game.rankTab, 'stars', '默认 tab 为总星榜');
+
+  // tab 切到总分榜
+  const scoreTab = game.buttons.rankTab_score;
+  env.fire('touchstart', scoreTab.x + scoreTab.width / 2, scoreTab.y + scoreTab.height / 2);
+  env.fire('touchend');
+  env.pump(2);
+  assert.strictEqual(game.rankTab, 'score', '点击 tab 应切换到总分榜');
+
+  // 返回 → 主菜单
+  const back = game.buttons.rankBack;
+  env.fire('touchstart', back.x + back.width / 2, back.y + back.height / 2);
+  env.fire('touchend');
+  env.pump(2);
+  assert.strictEqual(game.state, 'MENU', '返回应回到主菜单');
+});
+
+test('全服榜：无网络环境（无 wx.login）下静默降级，fetchRank 返回 null 不抛错', () => {
+  fresh();
+  // rank.js 在无 wx.login 环境下 ensureLogin 应静默降级
+  const RANK = require('../src/rank.js');
+  let called = false;
+  RANK.fetchRank('stars', (d) => { called = true; });
+  // 同步降级（无 wx.login 立即 cb(null)）
+  assert.strictEqual(called, true, 'fetchRank 回调应被触发');
+  assert.strictEqual(RANK.isReady(), false, '无登录环境应未就绪');
+});
+
+test('全服榜：历史进度补录条目取自本地存档（星级/最佳分，用鸟数传 0）', () => {
+  fresh();
+  game.progress.stars = { 0: 3, 1: 2, 2: 3 };
+  game.progress.bestScores = { 0: 1200, 1: 800, 2: 1500 };
+
+  const entries = game.collectRankProgressEntries();
+  assert.strictEqual(entries.length, 3, '3 个已通关关卡都应收进补录');
+  assert.deepStrictEqual(
+    entries.map((e) => e.levelIndex).sort((a, b) => a - b), [0, 1, 2],
+    'levelIndex 应来自本地存档键（0-based）'
+  );
+  const lv2 = entries.find((e) => e.levelIndex === 2);
+  assert.strictEqual(lv2.stars, 3, '星级取本地存档');
+  assert.strictEqual(lv2.score, 1500, '分数取本地最佳分');
+  assert.strictEqual(lv2.birds, 0, '本地不记用鸟数，传 0 表示未知（服务端保留已有记录）');
+
+  // 只有最佳分没有星也要补录；全 0 的空条目跳过
+  game.progress.stars = {};
+  game.progress.bestScores = { 5: 700, 6: 0 };
+  const partial = game.collectRankProgressEntries();
+  assert.strictEqual(partial.length, 1, '仅有最佳分的关卡补录，全 0 跳过');
+  assert.strictEqual(partial[0].levelIndex, 5, '保留有分的关卡');
+});
+
+test('全服榜：goToRank 先批量补录再查榜（避免自己不在榜里）', () => {
+  fresh();
+  const RANK = require('../src/rank.js');
+  game.progress.stars = { 0: 3, 1: 2 };
+  game.progress.bestScores = { 0: 1200, 1: 800 };
+
+  const order = [];
+  const origBatch = RANK.reportProgressBatch;
+  const origFetch = RANK.fetchRank;
+  let batchItems = null;
+  RANK.reportProgressBatch = (items, cb) => { order.push('batch'); batchItems = items; if (cb) cb(null); };
+  RANK.fetchRank = (kind, cb) => { order.push('rank:' + kind); if (cb) cb(null); };
+  try {
+    game.goToRank();
+  } finally {
+    RANK.reportProgressBatch = origBatch;
+    RANK.fetchRank = origFetch;
+  }
+  assert.strictEqual(order[0], 'batch', '补录必须发生在查榜之前');
+  assert.ok(order.indexOf('rank:stars') > 0 && order.indexOf('rank:score') > 0, '两个榜都要查');
+  assert.strictEqual(batchItems.length, 2, '补录条目数与本地已通关关卡一致');
+});
+
+test('全服榜：批量补录在无登录环境下静默降级，空列表直接回调', () => {
+  const RANK = require('../src/rank.js');
+  let got = 'unset';
+  RANK.reportProgressBatch([{ levelIndex: 0, stars: 3, score: 100, birds: 0 }], (d) => { got = d; });
+  assert.strictEqual(got, null, '无登录环境应回调 null 且不抛错');
+  got = 'unset';
+  RANK.reportProgressBatch([], (d) => { got = d; });
+  assert.strictEqual(got, null, '空列表立即回调 null，不发请求');
+});
+
 
 test('玩法说明页：主菜单入口可见、可进入、可滚动、可返回菜单', () => {
   fresh();
@@ -980,7 +1100,7 @@ test('codec：合法关卡往返深相等（量化到 4px）', () => {
     pearls: [{x:260,y:300}],
   };
   const code = CODEC.encodeLevel(lv);
-  assert.ok(code.startsWith('PG1'), '前缀 PG1');
+  assert.ok(code.startsWith('PG2'), '前缀 PG2');
   assert.ok(code.length < 700, `关卡码过长: ${code.length}`);
   const back = CODEC.decodeLevel(code);
   assert.ok(back, '解码应成功');
@@ -993,7 +1113,8 @@ test('codec：合法关卡往返深相等（量化到 4px）', () => {
 
 test('codec：坏码/截断码/非法枚举拒绝为 null', () => {
   assert.strictEqual(CODEC.decodeLevel('XXXX'), null);
-  assert.strictEqual(CODEC.decodeLevel('PG1'), null); // 体太短
+  assert.strictEqual(CODEC.decodeLevel('PG2'), null); // 体太短
+  assert.strictEqual(CODEC.decodeLevel('PG1'), null); // 旧格式空体也拒绝
   const good = CODEC.encodeLevel({birds:['normal'],blocks:[],pigs:[{x:200,y:600,radius:17}],pearls:[]});
   assert.strictEqual(CODEC.decodeLevel(good.slice(0, good.length-2)), null); // 截断
   assert.strictEqual(CODEC.decodeLevel(good.replace(/[ndbs]/, 'z')), null); // 非法豚种
@@ -1076,7 +1197,8 @@ test('T12 顶栏：sketch 胶囊退出/试玩就位；旧校验灯按钮与 show
   assert.ok(!game.buttons.editorIssues, '旧校验灯按钮已删');
   assert.ok(!('showIssues' in E2), 'showIssues 死状态已删');
   assert.ok(game.buttons.editorExit.sketch && game.buttons.editorPlay.sketch, '均为 sketch 果冻风');
-  assert.ok(game.buttons.editorExit.height >= 36 && game.buttons.editorPlay.height >= 40, '热区加高');
+  assert.ok(game.buttons.editorExit.height === 34 && game.buttons.editorPlay.height === 34,
+    'T15.2 胶囊调小一档（34px 高）');
   assert.ok(game.buttons.editorExit.y >= C.SAFE_TOP && game.buttons.editorPlay.y >= C.SAFE_TOP,
     '胶囊压在状态栏下沿以下，不压刘海');
 });
@@ -1085,22 +1207,22 @@ test('T12 顶栏：4 段分段切换 tab、清 palette/复位 scrollX；橡皮�
   const E2 = enterFreshEditor();
   assert.strictEqual(E2.tab, 'blocks');
   assert.strictEqual(E2.matFilter, 'wood', 'blocks 默认材质木');
-  env.fire('touchstart', segX(1), SEG_Y); env.fire('touchend');
+  env.fire('touchstart', segX(1), segY()); env.fire('touchend');
   assert.strictEqual(E2.tab, 'enemies');
   // 挂一个章鱼物料再切回 → palette 清
   env.fire('touchstart', cardX(0), CARD_Y); env.fire('touchend'); // pig-s（大卡 j0）
   assert.ok(E2.palette && E2.palette.kind === 'pig');
-  env.fire('touchstart', segX(0), SEG_Y); env.fire('touchend');
+  env.fire('touchstart', segX(0), segY()); env.fire('touchend');
   assert.strictEqual(E2.tab, 'blocks');
   assert.strictEqual(E2.palette, null, '切分类清已挂物料');
   // scrollX 复位
   E2.scrollX = 30;
-  env.fire('touchstart', segX(2), SEG_Y); env.fire('touchend');
+  env.fire('touchstart', segX(2), segY()); env.fire('touchend');
   assert.strictEqual(E2.scrollX, 0);
   // T12-3 橡皮固定槽：武装/切换（不依赖 tab）
   env.fire('touchstart', ERASER_SLOT_X, CARD_Y); env.fire('touchend'); // 点橡皮槽
   assert.strictEqual(E2.eraser, true);
-  env.fire('touchstart', segX(1), SEG_Y); env.fire('touchend'); // 切 enemies
+  env.fire('touchstart', segX(1), segY()); env.fire('touchend'); // 切 enemies
   assert.strictEqual(E2.eraser, true, '橡皮武装跨分类保留');
   // 点物料卡解除橡皮
   env.fire('touchstart', cardX(0), CARD_Y); env.fire('touchend'); // pig-s（enemies j0）
@@ -1113,9 +1235,9 @@ test('T12 顶栏：试玩胶囊三态（红数置灰/可试玩/可分享），�
   env.pump(1);
   const play = game.buttons.editorPlay;
   assert.strictEqual(play.locked, true, '空草稿置灰');
-  assert.ok(/^🔴/.test(play.text), '空草稿显示红数：' + play.text);
+  assert.ok(/^\d+ 问题$/.test(play.text), '空草稿显示问题数：' + play.text);
   // 有问题点击 → 不跳转 + 红闪（locked 仍可点，由 tryPlay 拒绝）
-  env.fire('touchstart', PLAY_XY[0], PLAY_XY[1]); env.fire('touchend');
+  env.fire('touchstart', PLAY_XY()[0], PLAY_XY()[1]); env.fire('touchend');
   assert.strictEqual(game.state, 'EDITOR', '有问题不许试玩');
   assert.ok(E2.rejectFlash > 0, '非法试玩红闪');
   // 合法布局 → 可试玩
@@ -1138,7 +1260,7 @@ test('T12-3 材质筛选：blocks 切材质子筛选清 palette/复位 scrollX�
   // 材质筛选行点击：seg 宽 = (375-80-8)/4=71.75，木段中心 x≈116
   const fw = (C.SCREEN_WIDTH - EDITOR.FILTER.x - 8) / 4;
   const matX = (i) => EDITOR.FILTER.x + i * fw + fw / 2;
-  const FILTER_Y = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - EDITOR.CARD_AREA_H - EDITOR.FILTER_H / 2;
+  const FILTER_Y = EDITOR.barLayout(E2).filterTop + EDITOR.FILTER_H / 2;
   // 点「石」段
   env.fire('touchstart', matX(1), FILTER_Y); env.fire('touchend');
   assert.strictEqual(E2.matFilter, 'stone', '材质切换到石');
@@ -1148,11 +1270,11 @@ test('T12-3 材质筛选：blocks 切材质子筛选清 palette/复位 scrollX�
   const vis = EDITOR.visibleItems(E2);
   assert.ok(vis.length === 3 && vis.every(i => i.type === 'stone'), '可见物料均为石材');
   // 切到敌人 tab → 无筛选行
-  env.fire('touchstart', segX(1), SEG_Y); env.fire('touchend');
+  env.fire('touchstart', segX(1), segY()); env.fire('touchend');
   assert.strictEqual(E2.matFilter, 'stone', '切 tab 保留 matFilter');
   assert.strictEqual(EDITOR.barLayout(E2).showFilter, false, '敌人 tab 无材质筛选行');
   // 切回 blocks → 材质筛选行恢复
-  env.fire('touchstart', segX(0), SEG_Y); env.fire('touchend');
+  env.fire('touchstart', segX(0), segY()); env.fire('touchend');
   assert.strictEqual(EDITOR.barLayout(E2).showFilter, true);
 });
 
@@ -1314,9 +1436,10 @@ test('编辑器：deriveLevel 产出可被 setupLevel 装载的关卡（实体�
 // =====================================================================
 
 const EDITOR_GY = C.GROUND_Y; // 577 = 667-90
-// 世界区安全触摸 y（高于底栏面板顶，避开分段控件行 segTop≈537）
-// placeAt 内 placePosition 靠 support=GROUND_Y 吸附，即使 touchY 更浅也会落到地面附近
-const WY = C.GROUND_Y - 70; // 507：世界区中部，适配所有 tab 的面板高度
+// 世界区安全触摸 y。
+// T15：编辑器改用「虚拟地面线」floorY()（恒定，位于底栏面板之上），
+// 故 WY 取 floorY 上方一点——既能落在虚拟地面上，又保证在面板之外（任意 tab 都成立）。
+const WY = EDITOR.floorY() - 30;
 
 /** 进全新编辑器（game.editor=null 强制新草稿，模拟首次进入；backToEditor 才保留草稿） */
 function enterFreshEditor() {
@@ -1326,19 +1449,22 @@ function enterFreshEditor() {
   env.pump(1);
   return game.editor;
 }
-// 顶栏（T12-3 后段：40px，仅导航胶囊）：中心 y=20
+// 顶栏：按钮垂直居中于 40px 内容带 → 中心 y=20
 const TOP_Y = 20;
-// T12-3 后段：分段控件下移至底栏面板第一行
-// segTop = cardTop - FILTER_H - SEG_H = 603-36-30 = 537（blocks 默认）
-const SEG_Y = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - EDITOR.CARD_AREA_H - EDITOR.FILTER_H - EDITOR.SEG_H / 2;
-const segX = (i) => EDITOR.SEG.x + i * EDITOR.SEG.segW + EDITOR.SEG.segW / 2; // 119+46i
-const EXIT_XY = [44, TOP_Y];          // 退出胶囊中心
-const PLAY_XY = [280 + 87 / 2, TOP_Y]; // 试玩胶囊中心 (323.5,20)
-// T12-3 大卡底栏：卡中心 y=cardTop+CARD_AREA_H/2=603+32=635，卡左缘 64 步距 80 宽 72
-const CARD_X = 64, CARD_PITCH = 80, CARD_W = 72;
+// 分段控件行中心：几何实时读 EDITOR.barLayout（勿写死像素）。
+// 用函数而非常量——模块加载期还没有编辑器实例，barLayout 会读 null.tab。
+const segY = () => EDITOR.barLayout(game.editor).segTop + EDITOR.SEG_H / 2;
+const segX = (i) => EDITOR.SEG.x + i * EDITOR.SEG.segW + EDITOR.SEG.segW / 2;
+// 顶栏胶囊中心：从实际按钮实例取，布局随机型/胶囊宽度变化也不会写歪
+const EXIT_XY = () => [game.buttons.editorExit.x + game.buttons.editorExit.width / 2,
+  game.buttons.editorExit.y + game.buttons.editorExit.height / 2];
+const PLAY_XY = () => [game.buttons.editorPlay.x + game.buttons.editorPlay.width / 2,
+  game.buttons.editorPlay.y + game.buttons.editorPlay.height / 2];
+// 大卡底栏：卡中心 y 与卡左缘/步距/宽度全部取自 EDITOR 常量
+const CARD_X = EDITOR.CARD_X, CARD_PITCH = EDITOR.CARD_PITCH, CARD_W = EDITOR.CARD_W;
 const CARD_Y = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - EDITOR.CARD_AREA_H + EDITOR.CARD_AREA_H / 2;
-const cardX = (j) => CARD_X + j * CARD_PITCH + CARD_W / 2; // 100 + j*80
-const ERASER_SLOT_X = EDITOR.ERASER_SLOT.x + EDITOR.ERASER_SLOT.w / 2; // 36
+const cardX = (j) => CARD_X + j * CARD_PITCH + CARD_W / 2;
+const ERASER_SLOT_X = EDITOR.ERASER_SLOT.x + EDITOR.ERASER_SLOT.w / 2;
 // 旧常量（仅 "编辑器：EDITOR 态渲染冒烟" 仍引用 CHIP_Y；保留兼容）
 const CHIP_Y = CARD_Y; // 过渡别名
 const chipX = cardX;    // 过渡别名
@@ -1411,7 +1537,7 @@ test('编辑器：底栏切 tab + 选物料；bird 物料直接入队；橡皮�
   assert.strictEqual(E2.palette && E2.palette.id, 'wood-b');
   assert.strictEqual(E2.eraser, false);
   // 顶栏分段切到「敌人」，选小章鱼（j0=pig-s）
-  env.fire('touchstart', segX(1), SEG_Y); env.fire('touchend');
+  env.fire('touchstart', segX(1), segY()); env.fire('touchend');
   assert.strictEqual(E2.tab, 'enemies');
   env.fire('touchstart', cardX(0), CARD_Y); env.fire('touchend');
   assert.strictEqual(E2.palette && E2.palette.kind, 'pig');
@@ -1419,7 +1545,7 @@ test('编辑器：底栏切 tab + 选物料；bird 物料直接入队；橡皮�
   env.fire('touchstart', 300, WY); env.fire('touchend');
   assert.strictEqual(E2.draft.pigs.length, 1);
   // 顶栏分段切「河豚」：点河豚物料直接入队（不进入放置模式）
-  env.fire('touchstart', segX(2), SEG_Y); env.fire('touchend');
+  env.fire('touchstart', segX(2), segY()); env.fire('touchend');
   env.fire('touchstart', cardX(1), CARD_Y); env.fire('touchend'); // j1=dash
   assert.deepStrictEqual(E2.draft.birds, ['normal', 'dash']);
   assert.strictEqual(E2.palette, null, '河豚物料不挂 palette');
@@ -1441,7 +1567,7 @@ test('编辑器：顶栏按钮创建；点退出回 MENU；点空白取消选中
   env.fire('touchstart', 400, 400); env.fire('touchend'); // 点空白
   assert.strictEqual(E2.selected, null, '点空白取消选中');
   // 顶栏退出胶囊
-  env.fire('touchstart', EXIT_XY[0], EXIT_XY[1]); env.fire('touchend');
+  env.fire('touchstart', EXIT_XY()[0], EXIT_XY()[1]); env.fire('touchend');
   assert.strictEqual(game.state, 'MENU');
 });
 
@@ -1458,11 +1584,11 @@ test('编辑器：EDITOR 态渲染冒烟（实体/选中/预览/红圈/四 tab/�
   env.fire('touchend');
   // 四个 tab 逐一切换渲染（含河豚/道具 chip 图标路径）
   for (let i = 0; i < 4; i++) {
-    env.fire('touchstart', segX(i), SEG_Y); env.fire('touchend');
+    env.fire('touchstart', segX(i), segY()); env.fire('touchend');
     env.pump(2);
   }
   // 橡皮模式 + 非法放置红闪
-  env.fire('touchstart', segX(3), SEG_Y); env.fire('touchend');
+  env.fire('touchstart', segX(3), segY()); env.fire('touchend');
   env.fire('touchstart', chipX(1), CHIP_Y); env.fire('touchend');
   env.fire('touchstart', 60, 300); env.pump(2); // 禁区附近触发红闪/橡皮
   env.fire('touchend');
@@ -1925,26 +2051,28 @@ test('难度曲线：五章 L33-39 火砖在场 + 必配嘟嘟 + 砰砰稀缺（
   }
 });
 
-test('编辑器：章鱼王物料放置→草稿增项，isBoss/hp 正确', () => {
+test('编辑器：章鱼王物料放置→草稿增项，isBoss/hp/style 正确', () => {
   const E2 = enterFreshEditor();
-  // 切到敌人 tab，选章鱼王（enemies j2=pig-boss）
-  env.fire('touchstart', segX(1), SEG_Y); env.fire('touchend');
+  // 切到敌人 tab，选章鱼王（enemies j2=boss-marsh 滩涂章王）
+  env.fire('touchstart', segX(1), segY()); env.fire('touchend');
   env.fire('touchstart', cardX(2), CARD_Y); env.fire('touchend');
-  assert.strictEqual(E2.palette && E2.palette.id, 'pig-boss');
+  assert.strictEqual(E2.palette && E2.palette.id, 'boss-marsh');
   // 在世界区放置章鱼王
   env.fire('touchstart', 300, WY); env.fire('touchend');
   assert.strictEqual(E2.draft.pigs.length, 1);
   const boss = E2.draft.pigs[0];
   assert.strictEqual(boss.isBoss, true, '放置物应为章王');
-  assert.strictEqual(boss.maxHealth, 5, '默认 hp=5');
-  assert.strictEqual(boss.radius, 28, '章王半径=28');
-  assert.ok(boss.bossName, '章王应有名字');
+  assert.strictEqual(boss.maxHealth, 5, '滩涂章王 hp=5');
+  assert.strictEqual(boss.radius, 30, '滩涂章王半径=30（与玩法同源）');
+  assert.strictEqual(boss.bossName, '滩涂章王');
+  assert.strictEqual(boss.bossStyleKey, 'marsh', '章王 style 键保留');
+  assert.strictEqual(boss.bossStyle, C.BOSS_STYLE.marsh, '章王配色解析为 marsh');
 });
 
-test('编辑器：复制章鱼王保留 boss 属性；deriveLevel→instantiateDraft 往返不丢', () => {
+test('编辑器：复制章鱼王保留 boss/style 属性；deriveLevel→instantiateDraft 往返不丢', () => {
   const E2 = enterFreshEditor();
   // 放置一只章鱼王
-  EDITOR.placeAt(game, 280, WY, EDITOR.findPalette('pig-boss'));
+  EDITOR.placeAt(game, 280, WY, EDITOR.findPalette('boss-marsh'));
   assert.strictEqual(E2.draft.pigs.length, 1);
   // 选中并复制
   env.fire('touchstart', 280, WY); env.fire('touchend');
@@ -1954,55 +2082,95 @@ test('编辑器：复制章鱼王保留 boss 属性；deriveLevel→instantiateD
   const copy = E2.draft.pigs[1];
   assert.strictEqual(copy.isBoss, true, '复制的章鱼保留 boss 标记');
   assert.strictEqual(copy.maxHealth, 5, '复制的章鱼保留 hp');
+  assert.strictEqual(copy.bossStyleKey, 'marsh', '复制的章鱼保留 style');
   // deriveLevel → instantiateDraft 往返
   const level = EDITOR.deriveLevel(E2.draft);
   const pigData = level.pigs.filter(p => p.boss);
   assert.strictEqual(pigData.length, 2, 'deriveLevel 输出 2 只 boss');
+  assert.ok(pigData.every(p => p.style === 'marsh'), 'deriveLevel 输出 style');
   const restored = EDITOR.instantiateDraft(level);
   assert.strictEqual(restored.pigs.length, 2);
   assert.ok(restored.pigs.every(p => p.isBoss), 'instantiateDraft 还原 boss 标记');
+  assert.ok(restored.pigs.every(p => p.bossStyleKey === 'marsh'), 'instantiateDraft 还原 style');
 });
 
-test('codec：章王关卡码编解码往返 boss/hp 不丢失', () => {
+test('编辑器：敌人物料栏含 5 种章王，与玩法/图鉴同源（名字/hp/体型/配色）', () => {
+  const bosses = EDITOR.PALETTE.enemies.filter(i => i.boss);
+  assert.strictEqual(bosses.length, 5, '敌人栏应有 5 种章王');
+  // 与 config.BOSS_ORDER 一一对应，名字/hp/radius/style 全部同源
+  C.BOSS_ORDER.forEach((key, i) => {
+    const b = bosses[i];
+    const meta = C.BOSS_STYLE[key];
+    assert.strictEqual(b.style, key, `第${i + 1} 个章王 style=${key}`);
+    assert.strictEqual(b.label, meta.name, `第${i + 1} 个章王名=${meta.name}`);
+    assert.strictEqual(b.hp, meta.hp, `第${i + 1} 个章王 hp=${meta.hp}`);
+    assert.strictEqual(b.radius, meta.radius, `第${i + 1} 个章王半径=${meta.radius}`);
+  });
+});
+
+test('codec：章王关卡码编解码往返 boss/hp/style/名字 不丢失（PG2）', () => {
   const lv = {
     birds: ['normal'],
     blocks: [],
     pigs: [
       { x: 200, y: 560, radius: 17 },
       { x: 300, y: 560, radius: 22 },
-      { x: 240, y: 540, radius: 28, boss: true, hp: 5, name: '章鱼王' },
+      { x: 240, y: 540, radius: 33, boss: true, hp: 11, name: '深渊章王', style: 'abyss' },
+      { x: 120, y: 540, radius: 34, boss: true, hp: 14, name: '潮汐王座·章王', style: 'throne' },
     ],
     pearls: [],
   };
   const code = CODEC.encodeLevel(lv);
-  assert.ok(code.startsWith('PG1'), '前缀 PG1');
+  assert.ok(code.startsWith('PG2'), '前缀 PG2');
   const back = CODEC.decodeLevel(code);
   assert.ok(back, '解码应成功');
-  assert.strictEqual(back.pigs.length, 3);
+  assert.strictEqual(back.pigs.length, 4);
   // 普豚不变
   assert.deepStrictEqual(back.pigs[0], { x: 200, y: 560, radius: 17 });
   assert.deepStrictEqual(back.pigs[1], { x: 300, y: 560, radius: 22 });
-  // 章王：boss/hp/name 完整
-  assert.strictEqual(back.pigs[2].radius, 28);
+  // 章王：boss/hp/name/style/radius 完整（体型随 style 从单一数据源还原）
   assert.strictEqual(back.pigs[2].boss, true);
-  assert.strictEqual(back.pigs[2].hp, 5);
-  assert.strictEqual(back.pigs[2].name, '章鱼王');
+  assert.strictEqual(back.pigs[2].hp, 11);
+  assert.strictEqual(back.pigs[2].name, '深渊章王');
+  assert.strictEqual(back.pigs[2].style, 'abyss');
+  assert.strictEqual(back.pigs[2].radius, 33, '深渊章王半径随 style 还原为 33');
+  assert.strictEqual(back.pigs[3].style, 'throne');
+  assert.strictEqual(back.pigs[3].radius, 34);
+  assert.strictEqual(back.pigs[3].name, '潮汐王座·章王');
+});
+
+test('codec：PG1 旧码解码兼容（章王回退深渊紫，体型 28）', () => {
+  // 手工构造 PG1 章王码：1 豚 normal + 0 方块 + 1 只小章鱼 + 1 只章王(hp5) + 0 珍珠
+  const B = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const enc = (n) => n < 32 ? B[n] : B[32 + (n >> 5)] + B[n & 31];
+  const pg1 = 'PG1' + enc(1) + 'n' + enc(0) + enc(2)
+    + 's' + enc(50) + enc(140)            // 小章鱼 (200,560)
+    + 'b' + enc(5) + enc(60) + enc(135)   // 章王 hp5 (240,540)
+    + enc(0);
+  const back = CODEC.decodeLevel(pg1);
+  assert.ok(back, 'PG1 旧码应能解码');
+  assert.deepStrictEqual(back.pigs[0], { x: 200, y: 560, radius: 17 });
+  const boss = back.pigs[1];
+  assert.strictEqual(boss.boss, true);
+  assert.strictEqual(boss.hp, 5);
+  assert.strictEqual(boss.radius, 28, '旧码章王半径保持 28');
+  assert.strictEqual(boss.style, 'abyss', '旧码章王无 style，回退深渊紫');
 });
 
 test('codec：旧码（无章王）解码不受新 boss 格式影响', () => {
-  // 仅单豚的旧格式：PG1 前缀 + 1 只普通豚 + 0 方块 + 1 只小章鱼 + 0 珍珠
+  // 无章王关卡：PG2 编码后解码，普豚不误判为 boss
   const oldLv = { birds: ['normal'], blocks: [],
     pigs: [{ x: 200, y: 600, radius: 17 }], pearls: [] };
   const code = CODEC.encodeLevel(oldLv);
   const back = CODEC.decodeLevel(code);
   assert.ok(back);
   assert.deepStrictEqual(back.pigs[0], { x: 200, y: 600, radius: 17 });
-  assert.strictEqual(back.pigs[0].boss, undefined, '旧码豚不应有 boss 标记');
+  assert.strictEqual(back.pigs[0].boss, undefined, '无章王豚不应有 boss 标记');
 });
 
 // =====================================================================
 // 造关师 T14：策略视角（纯函数 + 撤销重做 + AI 试解协程 + 抽屉 UI）
-// 验收依据 docs/editor-redesign-t14.md §9；纯函数与 level-sim 静态尺子的
+// 验收依据 docs/design/造关师-策略_设计_v01_2026-10-16.md §9；纯函数与 level-sim 静态尺子的
 // 全 40 关一致性在 tools 外一次性核对（level-sim require 会重装 env，禁入 e2e）。
 // =====================================================================
 
@@ -2127,7 +2295,8 @@ test('T14 顶栏工具组：5 按钮创建 + ↶↷👁📊 触摸路由', () =>
   const TB = EDITOR.TB;
   for (const k of EDITOR.TB_KEYS) assert.ok(game.buttons[k], `${k} 已创建`);
   const cx = i => TB.x0 + i * (TB.size + TB.gap) + TB.size / 2;
-  const cy = C.SAFE_TOP + TB.yOff + TB.size / 2;
+  // 按钮 y 从实际实例取（TB.yOff 已不再承载纵向居中，改为 TOP_CONTENT_H 内居中）
+  const cy = game.buttons[EDITOR.TB_KEYS[0]].y + game.buttons[EDITOR.TB_KEYS[0]].height / 2;
   // 放置 2 实体 → ↶ 撤 1 → ↷ 回 1
   EDITOR.placeAt(game, 240, WY, EDITOR.findPalette('wood-p'));
   EDITOR.placeAt(game, 280, WY, EDITOR.findPalette('pig-s'));
@@ -2221,6 +2390,166 @@ test('T14 渲染冒烟：击杀组叠加层 + 链爆圈 + 试解进度条 + 难�
   while (E2.sim && E2.sim.running && guard++ < 600) EDITOR.simStep(game);
   env.pump(2);
   assert.strictEqual(game.state, 'EDITOR');
+});
+
+// =====================================================================
+// 官卡数据源（level-source.js）：本地原始兜底 + 远端版本下发 + 一键恢复
+// =====================================================================
+
+/** 造一份合法但不等于内置的远端关卡数据（用于触发「版本更新」） */
+function fakeRemoteLevels() {
+  return [
+    { name: '远端测试关', flavor: '远端', birds: ['normal', 'bomb'], pigs: [{ x: 240, y: 560, radius: 17 }], blocks: [], pearls: [], stars: [1000, 2000, 3000], trajectory: 70 },
+  ];
+}
+
+test('官卡源：首次启动落盘原始副本，活动版本=内置版本', () => {
+  // 清空存储（含原始/活动副本），再显式 init 一次模拟首启
+  for (const k of Object.keys(env.storage)) delete env.storage[k];
+  LEVEL_SOURCE.init(game);
+  assert.strictEqual(LEVEL_SOURCE.getActiveVersion(), LEVEL_SOURCE.BUILTIN_VERSION);
+  assert.strictEqual(LEVEL_SOURCE.getOriginalVersion(), LEVEL_SOURCE.BUILTIN_VERSION);
+  assert.strictEqual(LEVEL_SOURCE.usingRemote(), false);
+  assert.strictEqual(LEVEL_SOURCE.hasPendingUpdate(), false);
+  // 原始副本已持久化到本地存储
+  assert.ok(env.storage['angryBirds_official_original'], '原始副本已落盘');
+  assert.ok(env.storage['angryBirds_official_active'], '活动副本已落盘');
+  assert.ok(game.levels.length >= 40, '内置官卡 40 关生效');
+});
+
+test('官卡源：远端下发新版本 → 提醒 + 替换关卡数据', () => {
+  const orig = game.levels.length;
+  LEVEL_SOURCE.setRemoteUrl('https://test.local/levels.json');
+  env.ads.requestResponder = (opts) => {
+    assert.ok(opts.url.indexOf('test.local') >= 0, '请求发往配置端点');
+    opts.success({ data: { version: LEVEL_SOURCE.BUILTIN_VERSION + 1, data: fakeRemoteLevels() } });
+  };
+  LEVEL_SOURCE.checkRemote(game);
+  assert.strictEqual(LEVEL_SOURCE.getActiveVersion(), LEVEL_SOURCE.BUILTIN_VERSION + 1);
+  assert.strictEqual(LEVEL_SOURCE.usingRemote(), true);
+  assert.strictEqual(LEVEL_SOURCE.hasPendingUpdate(), true, '有新版本应触发提醒');
+  assert.strictEqual(game.levels.length, 1, '活动官卡被远端数据替换');
+  assert.strictEqual(game.levels[0].name, '远端测试关');
+  assert.strictEqual(orig, 40, '替换前确有 40 关（san 校验前置条件）');
+});
+
+test('官卡源：版本不高于当前 → 不采纳不提醒', () => {
+  const before = game.levels.length;
+  env.ads.requestResponder = (opts) => {
+    opts.success({ data: { version: LEVEL_SOURCE.BUILTIN_VERSION, data: fakeRemoteLevels() } });
+  };
+  LEVEL_SOURCE.checkRemote(game);
+  assert.strictEqual(LEVEL_SOURCE.usingRemote(), true, '仍是上一版远端的 usingRemote 态');
+  assert.strictEqual(LEVEL_SOURCE.getActiveVersion(), LEVEL_SOURCE.BUILTIN_VERSION + 1);
+  assert.strictEqual(game.levels.length, before, '旧版本不覆盖当前关卡');
+});
+
+test('官卡源：坏数据（无 pigs/非数组）不采纳', () => {
+  const before = game.levels.length;
+  env.ads.requestResponder = (opts) => {
+    opts.success({ data: { version: 999, data: [{ birds: ['normal'] }] } }); // 缺 pigs
+  };
+  LEVEL_SOURCE.checkRemote(game);
+  assert.strictEqual(game.levels.length, before, '形状非法数据被拒');
+  assert.strictEqual(LEVEL_SOURCE.getActiveVersion(), LEVEL_SOURCE.BUILTIN_VERSION + 1, '版本未变');
+});
+
+test('官卡源：恢复原始官卡 → 回到内置 40 关，清提醒', () => {
+  LEVEL_SOURCE.restoreOriginal(game);
+  assert.strictEqual(LEVEL_SOURCE.usingRemote(), false);
+  assert.strictEqual(LEVEL_SOURCE.hasPendingUpdate(), false, '恢复后清提醒');
+  assert.strictEqual(LEVEL_SOURCE.getActiveVersion(), LEVEL_SOURCE.BUILTIN_VERSION);
+  assert.ok(game.levels.length >= 40, '恢复后回到内置 40 关');
+  assert.notStrictEqual(game.levels[0].name, '远端测试关', '不再是远端关');
+  // 清理：恢复空端点与响应器，避免影响后续
+  LEVEL_SOURCE.setRemoteUrl('');
+  env.ads.requestResponder = null;
+});
+
+test('官卡源：菜单更新横幅渲染 + 「恢复原版/知道了」触摸路由', () => {
+  // 前面的「恢复原始官卡」用例会记下被拒版本号；这里模拟「用户没拒绝过任何版本」
+  global.wx.setStorageSync('angryBirds_official_dismissed', null);
+  // 先造一个 pendingUpdate 态
+  env.ads.requestResponder = (opts) => opts.success({ data: { version: LEVEL_SOURCE.BUILTIN_VERSION + 1, data: fakeRemoteLevels() } });
+  LEVEL_SOURCE.setRemoteUrl('https://test.local/levels.json');
+  LEVEL_SOURCE.checkRemote(game);
+  assert.ok(LEVEL_SOURCE.hasPendingUpdate());
+  game.state = 'MENU';
+  game.listView = null;
+  env.pump(2);
+  assert.ok(game.buttons.lvlRestore && game.buttons.lvlAck, '横幅两按钮已创建');
+  // 点「恢复原版」→ 回到内置 + 清横幅按钮
+  const rb = game.buttons.lvlRestore;
+  env.fire('touchstart', rb.x + rb.width / 2, rb.y + rb.height / 2);
+  env.fire('touchend');
+  assert.strictEqual(LEVEL_SOURCE.usingRemote(), false, '点恢复原版回到内置');
+  assert.strictEqual(game.buttons.lvlRestore, undefined, '横幅按钮已清理');
+  // 再造一次 pendingUpdate，测「知道了」
+  env.ads.requestResponder = (opts) => opts.success({ data: { version: LEVEL_SOURCE.BUILTIN_VERSION + 2, data: fakeRemoteLevels() } });
+  LEVEL_SOURCE.checkRemote(game);
+  env.pump(1);
+  assert.ok(LEVEL_SOURCE.hasPendingUpdate());
+  const ab = game.buttons.lvlAck;
+  env.fire('touchstart', ab.x + ab.width / 2, ab.y + ab.height / 2);
+  env.fire('touchend');
+  assert.strictEqual(LEVEL_SOURCE.hasPendingUpdate(), false, '知道了清提醒');
+  assert.strictEqual(LEVEL_SOURCE.usingRemote(), true, '知道了不恢复，仍是远端');
+  // 清理
+  LEVEL_SOURCE.restoreOriginal(game);
+  LEVEL_SOURCE.setRemoteUrl('');
+  env.ads.requestResponder = null;
+});
+
+test('官卡源：点过「恢复原版」后，同一远端版本不再被推回来', () => {
+  const R = LEVEL_SOURCE;
+  const v = R.BUILTIN_VERSION + 5;
+  env.ads.requestResponder = (opts) => opts.success({ data: { version: v, data: fakeRemoteLevels() } });
+  R.setRemoteUrl('https://test.local/levels.json');
+  R.checkRemote(game);
+  assert.strictEqual(R.getActiveVersion(), v, '新版本先被正常采纳');
+
+  // 用户点「恢复原版」→ 记住「我不要这个版本」
+  R.restoreOriginal(game);
+  assert.strictEqual(R.getActiveVersion(), R.BUILTIN_VERSION, '恢复后回到内置版本');
+
+  // 下次启动再拉，远端仍是同一个 v
+  R.checkRemote(game);
+  assert.strictEqual(R.usingRemote(), false, '被拒绝的版本不应再次推回');
+  assert.strictEqual(R.hasPendingUpdate(), false, '也不应再弹提醒');
+
+  // 更高的新版本（没拒绝过）照常推送
+  env.ads.requestResponder = (opts) => opts.success({ data: { version: v + 1, data: fakeRemoteLevels() } });
+  R.checkRemote(game);
+  assert.strictEqual(R.usingRemote(), true, '未拒绝过的新版本照常推送');
+  assert.ok(R.hasPendingUpdate(), '新版本应有提醒');
+
+  R.restoreOriginal(game);
+  R.setRemoteUrl('');
+  env.ads.requestResponder = null;
+});
+
+test('官卡源：兼容后端通用包装 { ok, data:{ version, data } }', () => {
+  const R = LEVEL_SOURCE;
+  const v = R.BUILTIN_VERSION + 7;
+  env.ads.requestResponder = (opts) => opts.success({
+    data: { ok: true, data: { version: v, data: fakeRemoteLevels() } },
+  });
+  R.setRemoteUrl('https://test.local/levels.json');
+  R.checkRemote(game);
+  assert.strictEqual(R.getActiveVersion(), v, '包装形态也应能解析出版本号');
+  assert.strictEqual(R.usingRemote(), true, '包装形态也应采纳');
+  R.restoreOriginal(game);
+  R.setRemoteUrl('');
+  env.ads.requestResponder = null;
+});
+
+test('官卡源：config 下发端点与后端路由一致（防端点漂移）', () => {
+  const C = require('../src/config.js');
+  assert.ok(C.LEVELS && typeof C.LEVELS.remoteUrl === 'string', 'config 应暴露 LEVELS.remoteUrl');
+  assert.ok(
+    C.LEVELS.remoteUrl.indexOf('/puffer/api/v1/levels/official') >= 0,
+    '端点应指向 zoo-rank 的 /puffer/api/v1/levels/official，实际=' + C.LEVELS.remoteUrl
+  );
 });
 
 run();

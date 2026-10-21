@@ -1,0 +1,182 @@
+{
+ "files": [
+  {
+   "file": "src/ad.js",
+   "raw_lines": 315,
+   "kept_lines": 220
+  },
+  {
+   "file": "src/audio.js",
+   "raw_lines": 176,
+   "kept_lines": 125
+  },
+  {
+   "file": "src/combat.js",
+   "raw_lines": 302,
+   "kept_lines": 241
+  },
+  {
+   "file": "src/config.js",
+   "raw_lines": 388,
+   "kept_lines": 272
+  },
+  {
+   "file": "src/daily.js",
+   "raw_lines": 164,
+   "kept_lines": 121
+  },
+  {
+   "file": "src/editor-render.js",
+   "raw_lines": 1045,
+   "kept_lines": 824
+  },
+  {
+   "file": "src/editor-strategy.js",
+   "raw_lines": 386,
+   "kept_lines": 282
+  },
+  {
+   "file": "src/editor.js",
+   "raw_lines": 1339,
+   "kept_lines": 1078
+  },
+  {
+   "file": "src/effects.js",
+   "raw_lines": 154,
+   "kept_lines": 125
+  },
+  {
+   "file": "src/entities.js",
+   "raw_lines": 1356,
+   "kept_lines": 1072
+  },
+  {
+   "file": "src/game.js",
+   "raw_lines": 860,
+   "kept_lines": 624
+  },
+  {
+   "file": "src/help.js",
+   "raw_lines": 338,
+   "kept_lines": 269
+  },
+  {
+   "file": "src/input.js",
+   "raw_lines": 634,
+   "kept_lines": 561
+  },
+  {
+   "file": "src/level-codec.js",
+   "raw_lines": 165,
+   "kept_lines": 145
+  },
+  {
+   "file": "src/level-flow.js",
+   "raw_lines": 187,
+   "kept_lines": 142
+  },
+  {
+   "file": "src/level-source.js",
+   "raw_lines": 201,
+   "kept_lines": 123
+  },
+  {
+   "file": "src/level-validate.js",
+   "raw_lines": 128,
+   "kept_lines": 98
+  },
+  {
+   "file": "src/levels.js",
+   "raw_lines": 1243,
+   "kept_lines": 875
+  },
+  {
+   "file": "src/pearls.js",
+   "raw_lines": 329,
+   "kept_lines": 236
+  },
+  {
+   "file": "src/physics.js",
+   "raw_lines": 228,
+   "kept_lines": 171
+  },
+  {
+   "file": "src/rank.js",
+   "raw_lines": 222,
+   "kept_lines": 163
+  },
+  {
+   "file": "src/renderer.js",
+   "raw_lines": 556,
+   "kept_lines": 436
+  },
+  {
+   "file": "src/screens.js",
+   "raw_lines": 1626,
+   "kept_lines": 1285
+  },
+  {
+   "file": "src/settle.js",
+   "raw_lines": 245,
+   "kept_lines": 193
+  },
+  {
+   "file": "src/social.js",
+   "raw_lines": 116,
+   "kept_lines": 70
+  },
+  {
+   "file": "src/theme.js",
+   "raw_lines": 158,
+   "kept_lines": 118
+  },
+  {
+   "file": "src/utils.js",
+   "raw_lines": 325,
+   "kept_lines": 229
+  },
+  {
+   "file": "game.js",
+   "raw_lines": 7,
+   "kept_lines": 1
+  }
+ ],
+ "raw_total_lines": 13193,
+ "effective_total_lines": 10099,
+ "selected_lines": 3000,
+ "pages_total": 202,
+ "selected_pages": 60,
+ "mode": "front30_back30",
+ "order": [
+  "src/ad.js",
+  "src/audio.js",
+  "src/combat.js",
+  "src/config.js",
+  "src/daily.js",
+  "src/editor-render.js",
+  "src/editor-strategy.js",
+  "src/editor.js",
+  "src/effects.js",
+  "src/entities.js",
+  "src/game.js",
+  "src/help.js",
+  "src/input.js",
+  "src/level-codec.js",
+  "src/level-flow.js",
+  "src/level-source.js",
+  "src/level-validate.js",
+  "src/levels.js",
+  "src/pearls.js",
+  "src/physics.js",
+  "src/rank.js",
+  "src/renderer.js",
+  "src/screens.js",
+  "src/settle.js",
+  "src/social.js",
+  "src/theme.js",
+  "src/utils.js",
+  "game.js"
+ ],
+ "name": "愤怒河豚的弹弓游戏软件",
+ "version": "V1.0.0"
+}

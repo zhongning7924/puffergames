@@ -440,6 +440,8 @@ class Octopus {
     this.bossName = opts.name || '';
     // 章王配色（五色差异化的单一数据源在 config.BOSS_STYLE；未知 style 回退深渊紫）
     this.bossStyle = C.BOSS_STYLE[opts.style] || C.BOSS_STYLE.abyss;
+    // style 键原样保留（配色对象丢失键信息），供撤销重做/复制/导出关卡码 round-trip
+    this.bossStyleKey = opts.style || 'abyss';
     this.sleepMark = opts.sleep || 0;   // >0 = 休眠体，在章王第 N 阶段怒吼时唤醒
     this.sleeping = this.sleepMark > 0;
     const defaultHp = radius > 26 ? 3 : radius > 20 ? 2 : 1;

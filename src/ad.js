@@ -6,7 +6,7 @@
  *    「流量主 → 广告位管理」中创建的真实广告位 ID（需企业主体 + 开通流量主）。
  *    占位 ID 下加载会失败，模块自动降级为不可用（相关按钮/位次不显示），不影响玩法。
  *
- * 设计原则（点位策略见 docs/广告接入方案.md）：
+ * 设计原则（点位策略见 docs/product/广告接入_方案_v01_2026-08-31.md）：
  *  - 激励视频：玩家主动、有奖励、eCPM 最高 → 失败复活 / 结算双倍 / 卡关弹道全显
  *  - 插屏：只在「退出关卡回到选关或菜单」时按频次出现，绝不打断 WIN→下一关 的连闯心流
  *  - 底部横幅：只常驻选关页底部，进战斗/结算即隐藏；选关页内容区自动上移避让
@@ -44,9 +44,37 @@ let lastInterstitialAt = 0;   // 上次插屏展示时间
 
 /** 游戏启动时调用一次（三種广告各自 try/catch，互不牵连） */
 function init() {
+  warnIfPlaceholder();
   initRewarded();
   initInterstitial();
   initBanner();
+}
+
+/**
+ * 占位 ID 判定：真实 adUnitId 是 `adunit-` + 16 位随机 hex；
+ * 模板占位是「一串 0 + 序号」（adunit-0000000000000000 / …0001 / …0002），
+ * 这里按「前缀 + 16 位 + 全数字且前 10 位为 0」识别，避免误伤真实 ID。
+ */
+function isPlaceholderId(id) {
+  if (typeof id !== 'string' || id.indexOf('adunit-') !== 0) return true;
+  const body = id.slice(7);
+  if (body.length !== 16) return true;
+  return /^0{10,}\d*$/.test(body);
+}
+
+/**
+ * 占位 ID 自检：三个 ID 只要还是模板占位，就明确告警。
+ * 占位 ID 不会产生任何收益（且会拉低账号填充率/质量分），
+ * 这里不静默禁用（避免掩盖配置问题），但保证开发者能在控制台第一眼看到。
+ */
+function warnIfPlaceholder() {
+  const bad = Object.keys(AD_UNIT).filter((k) => isPlaceholderId(AD_UNIT[k]));
+  if (bad.length) {
+    try {
+      console.warn('[ad] 广告位 ID 仍是占位符：' + bad.join(' / ') +
+        '。广告不会产生任何收益，上线前必须在公众平台「流量主 → 广告位管理」创建后替换 src/ad.js 的 AD_UNIT。');
+    } catch (e) { /* 无 console 环境忽略 */ }
+  }
 }
 
 // ============================================================
@@ -59,6 +87,9 @@ function initRewarded() {
       rewarded = wx.createRewardedVideoAd({ adUnitId: AD_UNIT.reward });
       rewarded.onError(() => { rewardedReady = false; });
       rewardedReady = true;
+      // 提前拉取素材：玩家点「看广告」时才 load 很可能来不及（尤其弱网），
+      // 提前预热能显著提高展示成功率与填充率。失败不影响后续 show 里重试。
+      try { rewarded.load().catch(() => {}); } catch (e) { /* 老基础库无 load 或同步抛错 */ }
     }
   } catch (e) {
     rewarded = null;

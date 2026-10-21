@@ -35,6 +35,7 @@ C.init(); // 尽早读取系统信息，避免模块加载时 jsbridge 未就绪
 const U = require('./utils.js');
 const E = require('./entities.js');
 const { getLevels } = require('./levels.js');
+const LEVEL_SOURCE = require('./level-source.js');
 const AUDIO = require('./audio.js');
 const SOCIAL = require('./social.js');
 const AD = require('./ad.js');
@@ -49,6 +50,7 @@ const SCREENS = require('./screens.js');
 const HELP = require('./help.js');
 const EDITOR = require('./editor.js');
 const EDITOR_R = require('./editor-render.js');
+const RANK = require('./rank.js');
 
 /** 关卡内状态（含结算页）：用于判断"是否从关卡退出"，作为插屏广告的触发口径 */
 const IN_LEVEL_STATES = ['READY', 'AIMING', 'FLYING', 'SETTLING', 'WIN', 'LOSE'];
@@ -57,6 +59,8 @@ class Game {
   constructor() {
     this.setupCanvas();
     this.initState();
+    // 官卡数据源：落盘原始副本 + 装载活动副本 + 异步远端版本检查（见 level-source.js）
+    LEVEL_SOURCE.init(this);
     this.initBubbles();
     RENDERER.initBackgroundCache(this); // 静态背景离屏缓存（失败自动降级逐帧直绘）
     this.loadProgress();
@@ -305,6 +309,64 @@ class Game {
     }
   }
 
+  /** 进入全服榜（自建后端，复用 zoo-rank 服务） */
+  goToRank() {
+    if (!C.FEATURES.serverRank) {
+      this.goToMenu();
+      return;
+    }
+    this.state = 'RANK';
+    this.buttons = {};
+    this.rankTab = 'stars';                       // 'stars' 总星 | 'score' 总分
+    this.rankData = { stars: null, score: null }; // { list, me, total } 或 null（未返回/离线）
+    this.rankScroll = 0;
+    this.rankMaxScroll = 0;
+    this.rankTouch = null;
+    // 先把本地历史进度补录一次，再查榜：老存档通关时还没有上报功能，
+    // 不补录就永远上不了榜（服务端只升不降，重复补录无副作用）。
+    this.syncRankProgress(() => {
+      RANK.fetchRank('stars', (d) => { this.rankData.stars = d; });
+      RANK.fetchRank('score', (d) => { this.rankData.score = d; });
+    });
+  }
+
+  /** 汇总本地历史进度为补录条目（星级/最佳分；本地未存用鸟数，传 0 表示未知） */
+  collectRankProgressEntries() {
+    const out = [];
+    const stars = this.progress.stars || {};
+    const best = this.progress.bestScores || {};
+    const seen = {};
+    for (const k in stars) seen[k] = true;
+    for (const k in best) seen[k] = true;
+    for (const k in seen) {
+      const idx = parseInt(k, 10);
+      if (!(idx >= 0)) continue;
+      const s = stars[k] || 0;
+      const sc = best[k] || 0;
+      if (s <= 0 && sc <= 0) continue;
+      out.push({ levelIndex: idx, stars: s, score: sc, birds: 0 });
+    }
+    return out;
+  }
+
+  /** 进榜前对齐历史进度（离线/失败时直接放行，不阻塞查榜） */
+  syncRankProgress(cb) {
+    if (!C.FEATURES.serverRank) { if (cb) cb(); return; }
+    RANK.reportProgressBatch(this.collectRankProgressEntries(), () => { if (cb) cb(); });
+  }
+
+  /** 上报单关进度到全服榜（尽力而为；自制关/每日挑战/珍珠关不走战役进度） */
+  reportRankProgress(levelIndex, stars, score, birds) {
+    if (!C.FEATURES.serverRank) return;
+    RANK.reportProgress(levelIndex, stars, score, birds);
+  }
+
+  /** 上报每日挑战分数到全服榜（尽力而为） */
+  reportRankDaily(score) {
+    if (!C.FEATURES.serverRank) return;
+    RANK.reportDaily(score);
+  }
+
   // ==================== 关卡管理 ====================
 
   /** 当前进行中的关卡数据（自制关/每日挑战/珍珠关时为对应关卡） */
@@ -398,6 +460,17 @@ class Game {
       this.goToMenu();
     }
   }
+
+  /** 战役最后一关通关后点「去造关」：正向引导进入造关师中心页 */
+  goToMaker() {
+    // 不走 goToMenu（会触发退出插屏），对齐 WIN→下一关 的连闯心流
+    this.state = 'MENU';
+    this.buttons = {};
+    this.listView = 'ugcHome';
+  }
+
+  /** 恢复原始官卡数据（丢弃远端下发版本，回到随包内置官卡） */
+  restoreOfficialLevels() { LEVEL_SOURCE.restoreOriginal(this); }
 
   retryLevel() {
     if (this.isCustom) {
@@ -724,6 +797,9 @@ class Game {
         break;
       case 'LEADERBOARD':
         SCREENS.drawLeaderboard(this);
+        break;
+      case 'RANK':
+        SCREENS.drawRank(this);
         break;
       case 'SETTINGS':
         SCREENS.drawSettings(this);

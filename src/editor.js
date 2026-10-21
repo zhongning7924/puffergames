@@ -22,22 +22,38 @@ const STRATEGY = require('./editor-strategy.js');
 const GRID = CODEC.GRID;
 
 // ==================== 布局常量（全部逻辑 CSS 像素；y 类几何随 SAFE_* 实时算）====================
-const TOP_CONTENT_H = 40;  // 顶栏内容带高（背景从 y=0 画到 SAFE_TOP+此值，盖住状态栏）
-const SEG_H = 30;          // 分段控件行高（T12-3 后段：下移至底栏面板第一行）
-// 顶栏 4 分类分段控件：x/w/segW 桌面固定，y 段内垂直居中由渲染处理
-const SEG = { x: 96, w: 184, h: 30, segW: 46 };
+// T15：顶栏改双行。
+//   行1（40px）= 退出 + 试玩；行2（44px）= 5 个策略工具按钮。
+//   原因：微信右上角胶囊按钮长期占据 x≈[278,368]，单行要塞下「退出+5工具+试玩」必然挤成一团
+//   （实测 5×44px 工具 + 76px 退出 + 96px 试玩 = 需 460px > 375px 屏宽）。
+//   胶囊只占行1，行2 可用整幅屏宽 → 工具按钮得以保持 42px 大触控目标。
+const TOP_ROW1_H = 34;      // 行1 内容带高
+const TOP_CONTENT_H = 88;   // 顶栏总高（行1 + 行间 4 + 行2）
+const SEG_H = 40;          // 分段控件行高（T15：加高到 40，容纳 15px 标签 + 呼吸）
+// 底栏第一行：4 分类分段控件（T15：由居中窄条改为整幅铺满，两侧留 10px 边距）
+const SEG_PAD = 10;
+const SEG = {
+  x: SEG_PAD,
+  w: C.SCREEN_WIDTH - SEG_PAD * 2,
+  h: SEG_H,
+  get segW() { return this.w / TABS.length; },
+};
 // 底栏：材质筛选行（仅 blocks）+ 卡行（锚屏底，含 SAFE_BOTTOM 留白）
-const FILTER_H = 36;       // 材质筛选行高
-const CARD_AREA_H = 64;    // 卡行高
-const CARD_W = 72, CARD_H = 56, CARD_GAP = 8;
-const CARD_PITCH = CARD_W + CARD_GAP;   // 80：大卡横移步距
-const CARD_X = 64;         // 卡行紧挨橡皮槽右缘 (8+56=64)；透明井消隐
-const FILTER = { x: 64, h: 36 };        // 材质面板几何（宽 = 屏宽-64-8，segW 实时算）
-const ERASER_SLOT = { x: 8, y: 4, w: 56, h: 56 }; // 橡皮固定槽（卡行坐标系，y 相对 cardTop）
+const FILTER_H = 44;       // 材质筛选行高（T15：加高）
+const CARD_AREA_H = 92;    // 卡行高（T15：72×84 大卡 + 上下留白）
+const CARD_W = 72, CARD_H = 84, CARD_GAP = 16;
+const CARD_PITCH = CARD_W + CARD_GAP;   // 88：大卡横移步距（T15.2 间距 10→16，呼吸感更强）
+const CARD_X = 78;         // 卡行紧挨橡皮槽右缘 (10+58=70) + 8 间隙
+const FILTER = { x: 78, h: 44 };        // 材质面板几何（宽 = 屏宽-78-10，segW 实时算）
+const ERASER_SLOT = { x: 10, y: 4, w: 58, h: 84 }; // 橡皮固定槽（卡行坐标系，y 相对 cardTop）
+const ROW_GAP = 8;         // T15：行与行之间的呼吸间距（消除"太紧密"）
+const FLOOR_MARGIN = 26;   // T15：虚拟地面线距面板顶的留白（容得下最大章王半径 28）
 const ZONE_X = C.SCREEN_WIDTH * 0.33; // 弹弓禁放区（与 validateLevel 同公式）
-// T14 顶栏策略按钮组（中段：退出 8..80 → ↶ ↷ 👁 🤖 📊 + 难度徽章 → 试玩 280..367）
-const TB = { size: 32, gap: 2, x0: 84, yOff: 4 };
+// T15 顶栏策略按钮组（**第二行**，整幅屏宽可用，不受胶囊遮挡）
+const TB = { size: 34, gap: 8, yOff: TOP_ROW1_H + 6, x0: 10 };
 const TB_KEYS = ['editorUndo', 'editorRedo', 'editorOverlay', 'editorSim', 'editorDrawer'];
+// 顶栏右侧胶囊保留区（真机读 getMenuButtonBoundingClientRect，取不到按标准机型预留）
+const CAPSULE_PAD = 8;
 // T14 策略抽屉（右滑面板；只盖世界区，底栏常驻可继续编辑）
 const DRAWER = { w: 300, headH: 40, pad: 12 };
 // T14 AI 试解协程：每渲染帧物理 update 预算（分帧推进，防长帧卡顿）
@@ -66,7 +82,12 @@ const PALETTE = {
   enemies: [
     { id: 'pig-s', kind: 'pig', radius: 17, label: '小章鱼' },
     { id: 'pig-l', kind: 'pig', radius: 22, label: '大章鱼' },
-    { id: 'pig-boss', kind: 'pig', radius: 28, label: '章鱼王', boss: true, hp: 5 },
+    // 章王五色（与玩法/图鉴同源 config.BOSS_STYLE：滩涂/冰壳/岩甲/深渊/潮汐王座）
+    // 各自带独立 style（配色）+ 本体 hp/name/radius，试玩/导出/分享码全链路一致
+    ...C.BOSS_ORDER.map(key => {
+      const b = C.BOSS_STYLE[key];
+      return { id: 'boss-' + key, kind: 'pig', radius: b.radius, label: b.name, boss: true, hp: b.hp, style: key };
+    }),
   ],
   birds: [
     { id: 'normal', kind: 'bird', type: 'normal', label: '嘟嘟' },
@@ -106,11 +127,12 @@ function visibleItems(d) {
 
 /** 底栏实时几何（随机型 SAFE_TOP/SAFE_BOTTOM 变化，禁止模块期冻结） */
 function barLayout(d) {
-  const cardTop = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - CARD_AREA_H;
   const showFilter = d.tab === 'blocks';
-  const filterTop = cardTop - FILTER_H;
-  const segTop = filterTop - SEG_H;
-  const filterW = C.SCREEN_WIDTH - FILTER.x - 8; // 面板右缘留 8
+  const cardTop = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - CARD_AREA_H;
+  const filterTop = cardTop - ROW_GAP - FILTER_H;
+  // T15：非 blocks 分类不占材质行高度，分段控件直接贴卡行（原实现恒定预留 36px 空白）
+  const segTop = (showFilter ? filterTop - ROW_GAP : cardTop - ROW_GAP) - SEG_H;
+  const filterW = C.SCREEN_WIDTH - FILTER.x - 10; // 面板右缘留 10
   return {
     topH: C.SAFE_TOP + TOP_CONTENT_H,
     cardTop,
@@ -134,6 +156,17 @@ function findPalette(id) {
   return null;
 }
 
+// ==================== 虚拟地面（编辑器专用）====================
+/**
+ * T15：底栏面板会盖住真实 GROUND_Y（面板顶 475 < GROUND_Y 577），
+ * 直接用真实地面线会让「落在地上的方块/章鱼」整个藏进面板里看不见。
+ * 因此编辑器内引入一条**恒定**虚拟地面线 floorY（恒定＝不随 tab 切换跳动），
+ * 取「面板最高的那一档」（blocks 含材质行）再上移 FLOOR_MARGIN。
+ * 注意：虚拟地面仅用于编辑器内摆放；导出关卡仍写真实坐标（见 deriveLevel）。
+ */
+const FLOOR_BASE = C.SCREEN_HEIGHT - C.SAFE_BOTTOM - CARD_AREA_H - ROW_GAP - FILTER_H - ROW_GAP - SEG_H;
+function floorY() { return FLOOR_BASE - FLOOR_MARGIN; }
+
 // ==================== 草稿模型 ====================
 
 /** 全新草稿：1 只普通河豚，无方块/章鱼/珍珠 */
@@ -145,29 +178,36 @@ function newDraft() {
 function instantiateDraft(data) {
   return {
     blocks: (data.blocks || []).map(b => new E.Block(b.x, b.y, b.width, b.height, b.type)),
-    pigs: (data.pigs || []).map(p => new E.Octopus(p.x, p.y, p.radius,
-      (p.boss) ? { boss: true, hp: p.hp, name: p.name } : undefined)),
+  pigs: (data.pigs || []).map(p => new E.Octopus(p.x, p.y, p.radius,
+    (p.boss) ? { boss: true, hp: p.hp, name: p.name, style: p.style } : undefined)),
     pearls: (data.pearls || []).map(p => ({ x: p.x, y: p.y })),
     birds: (data.birds && data.birds.length) ? data.birds.slice() : ['normal'],
   };
 }
 
-/** 草稿 → 可装载关卡对象（补展示/结算字段；stars 仿每日关公式） */
+/**
+ * 草稿 → 可装载关卡对象（补展示/结算字段；stars 仿每日关公式）
+ *
+ * T15：编辑器内用虚拟地面线 floorY() 摆放（否则落地铁被底栏面板遮住），
+ * 这里统一做一次 y 平移，把虚拟地面对齐回真实 GROUND_Y，
+ * 保证导出的关卡在正式游玩时与编辑器所见完全一致（只是整体下移 delta）。
+ */
 function deriveLevel(draft) {
+  const delta = C.GROUND_Y - floorY(); // 虚拟地面 → 真实地面的位移
   const level = {
     name: '自制关',
     flavor: '玩家创作',
     trajectory: 70,
     birds: draft.birds.slice(),
     blocks: draft.blocks.map(b => ({
-      x: Math.round(b.x), y: Math.round(b.y), width: b.width, height: b.height, type: b.type,
+      x: Math.round(b.x), y: Math.round(b.y + delta), width: b.width, height: b.height, type: b.type,
     })),
     pigs: draft.pigs.map(p => {
-      const obj = { x: Math.round(p.x), y: Math.round(p.y), radius: p.radius };
-      if (p.isBoss) { obj.boss = true; obj.hp = p.maxHealth; if (p.bossName) obj.name = p.bossName; }
+      const obj = { x: Math.round(p.x), y: Math.round(p.y + delta), radius: p.radius };
+      if (p.isBoss) { obj.boss = true; obj.hp = p.maxHealth; if (p.bossName) obj.name = p.bossName; obj.style = p.bossStyleKey; }
       return obj;
     }),
-    pearls: draft.pearls.map(p => ({ x: Math.round(p.x), y: Math.round(p.y), reward: true })),
+    pearls: draft.pearls.map(p => ({ x: Math.round(p.x), y: Math.round(p.y + delta), reward: true })),
   };
   const base = level.pigs.length * 1000 + level.blocks.length * 250;
   level.stars = [Math.round(base * 0.6), base, Math.round(base * 1.5)];
@@ -210,24 +250,34 @@ function enterEditor(game) {
   game.isCustom = false;
   game.playOrigin = null;
   game.buttons = {};
-  // 顶栏：退出/试玩为马卡龙 sketch 胶囊（热区 ≥36 高，随 SAFE_TOP 避开刘海）；
-  // 中间 4 分类分段为自绘控件（不进 game.buttons，命中走 SEG 几何）。
-  game.buttons.editorExit = new E.Button(8, C.SAFE_TOP + 2, 72, 36, '‹退出', '#5B8DB8',
-    { sketch: true, radius: 18, fontSize: 14, shadowOffset: 3 });
-  game.buttons.editorPlay = new E.Button(C.SCREEN_WIDTH - 95, C.SAFE_TOP + 0, 87, 40, '▶ 试玩', '#57C98E',
-    { sketch: true, radius: 20, fontSize: 14, shadowOffset: 3 });
-  // T14 策略按钮组（顶栏中段）：撤销/重做/叠加层/AI 试解/策略抽屉
+  // T15.2 顶栏双行（整体调小一档并靠左）：
+  //   行1 = 退出胶囊（左）+ 试玩胶囊（右，右缘避让微信胶囊 C.capsuleLeft()）
+  //   行2 = 5 个策略工具按钮（左对齐，与退出胶囊同起点）
+  const btnY = C.SAFE_TOP + (TOP_ROW1_H - 34) / 2;
+  game.buttons.editorExit = new E.Button(10, btnY, 68, 34, '‹ 退出', '#5B8DB8',
+    { sketch: true, radius: 17, fontSize: 13, shadowOffset: 3 });
+  const capL = C.capsuleLeft();
+  const playW = 84;
+  game.buttons.editorPlay = new E.Button(Math.max(0, capL - CAPSULE_PAD - playW), btnY, playW, 34,
+    '▶ 试玩', '#57C98E', { sketch: true, radius: 17, fontSize: 13, shadowOffset: 3 });
+  // 工具组：靠左（x0=10）；极窄屏等比收缩间距兜底
   const tbY = C.SAFE_TOP + TB.yOff;
+  let gap = TB.gap;
+  const total = () => TB_KEYS.length * TB.size + (TB_KEYS.length - 1) * gap;
+  const maxW = C.SCREEN_WIDTH - TB.x0 - capL + CAPSULE_PAD; // 右缘不越过试玩胶囊左缘
+  if (total() > maxW) gap = Math.max(2, Math.floor((maxW - TB_KEYS.length * TB.size) / (TB_KEYS.length - 1)));
+  TB.gap = gap;
+  TB.x0 = 10;
   const tbDef = [
-    ['editorUndo', '↶', '#5B8DB8'],
-    ['editorRedo', '↷', '#5B8DB8'],
-    ['editorOverlay', '👁', '#7E57C2'],
-    ['editorSim', '🤖', '#F2A03D'],
-    ['editorDrawer', '📊', '#57C98E'],
+    ['editorUndo', '#5B8DB8'],
+    ['editorRedo', '#5B8DB8'],
+    ['editorOverlay', '#7E57C2'],
+    ['editorSim', '#F2A03D'],
+    ['editorDrawer', '#57C98E'],
   ];
-  tbDef.forEach(([k, txt, color], i) => {
-    game.buttons[k] = new E.Button(TB.x0 + i * (TB.size + TB.gap), tbY, TB.size, TB.size, txt, color,
-      { sketch: true, radius: 10, fontSize: 16, shadowOffset: 2 });
+  tbDef.forEach(([k, color], i) => {
+    game.buttons[k] = new E.Button(TB.x0 + i * (TB.size + TB.gap), tbY, TB.size, TB.size, '', color,
+      { sketch: true, radius: 10, fontSize: 14, shadowOffset: 2 });
   });
   // 清空运行时世界（避免上一关残留实体被物理 update / 主渲染画出；编辑器画自己的草稿）
   game.blocks = [];
@@ -274,7 +324,7 @@ function snap(v) { return Math.round(v / GRID) * GRID; }
 
 /** 落点支撑：该 x 处最高（y 最小）的可承托方块顶面；否则海床 */
 function groundYAt(draft, x) {
-  let top = C.GROUND_Y;
+  let top = floorY();
   for (const b of draft.blocks) {
     if (x >= b.x - 2 && x <= b.x + b.width + 2 && b.y < top) top = b.y;
   }
@@ -301,7 +351,7 @@ function snapshotDraft(draft) {
   return {
     blocks: draft.blocks.map(b => new E.Block(b.x, b.y, b.width, b.height, b.type)),
     pigs: draft.pigs.map(p => {
-      const opts = p.isBoss ? { boss: true, hp: p.maxHealth, name: p.bossName } : undefined;
+      const opts = p.isBoss ? { boss: true, hp: p.maxHealth, name: p.bossName, style: p.bossStyleKey } : undefined;
       return new E.Octopus(p.x, p.y, p.radius, opts);
     }),
     pearls: draft.pearls.map(p => ({ x: p.x, y: p.y, kind: 'pearl' })),
@@ -733,7 +783,7 @@ function placeAt(game, x, y, item) {
   if (item.kind === 'block') ent = new E.Block(pos.x, pos.y, item.w, item.h, item.type);
   else if (item.kind === 'pig') {
     const pigOpts = {};
-    if (item.boss) { pigOpts.boss = true; pigOpts.hp = item.hp || 5; pigOpts.name = item.label; }
+    if (item.boss) { pigOpts.boss = true; pigOpts.hp = item.hp || 5; pigOpts.name = item.label; pigOpts.style = item.style; }
     ent = new E.Octopus(pos.x, pos.y, item.radius, pigOpts);
   }
   else if (item.kind === 'pearl') ent = { x: pos.x, y: pos.y, kind: 'pearl' };
@@ -768,7 +818,7 @@ function removeBirdAt(game, queueIndex) {
 function queueBirdPos(i) {
   return {
     x: C.SLINGSHOT_X - 35 - (i % 3) * 21,
-    y: C.GROUND_Y - 130 - Math.floor(i / 3) * 28,
+    y: floorY() - 130 - Math.floor(i / 3) * 28,
   };
 }
 
@@ -862,7 +912,7 @@ function duplicateEntity(game) {
   } else if (sel.kind === 'pig') {
     const src = draft.pigs[sel.index]; if (!src) return;
     const pigOpts = {};
-    if (src.isBoss) { pigOpts.boss = true; pigOpts.hp = src.maxHealth; if (src.bossName) pigOpts.name = src.bossName; }
+    if (src.isBoss) { pigOpts.boss = true; pigOpts.hp = src.maxHealth; if (src.bossName) pigOpts.name = src.bossName; pigOpts.style = src.bossStyleKey; }
     // 偏移量须 > 2*radius 避免重叠；章王半径 28 需要更大步距
     const offX = Math.max(GRID * 8, src.radius * 2 + GRID * 2);
     ent = new E.Octopus(src.x + offX, src.y + GRID, src.radius, pigOpts);
@@ -978,8 +1028,7 @@ function onTouchStart(game, x, y) {
       return;
     }
     // 2b. 材质筛选 / 卡行
-    if (L.showFilter && y >= L.filterTop && y < L.cardTop) {
-      // blocks 材质筛选行：面板 x≥FILTER.x；x<FILTER.x 直通世界（不 return）
+    if (L.showFilter && y >= L.filterTop && y < L.cardTop) {      // blocks 材质筛选行：面板 x≥FILTER.x；x<FILTER.x 直通世界（不 return）
       if (x >= FILTER.x) {
         const i = Math.floor((x - FILTER.x) / L.filterSegW);
         if (MATERIALS[i]) setMatFilter(d, MATERIALS[i].id);
@@ -1099,12 +1148,12 @@ function moveEntity(game, drag, x, y) {
     const b = d.draft.blocks[drag.index];
     if (!b) return;
     b.x = snap(x - drag.offX);
-    b.y = Math.min(snap(y - drag.offY), C.GROUND_Y - b.height);
+    b.y = Math.min(snap(y - drag.offY), floorY() - b.height);
   } else if (drag.kind === 'pig') {
     const p = d.draft.pigs[drag.index];
     if (!p) return;
     p.x = snap(x - drag.offX);
-    p.y = Math.min(snap(y - drag.offY), C.GROUND_Y - p.radius);
+    p.y = Math.min(snap(y - drag.offY), floorY() - p.radius);
   } else if (drag.kind === 'pearl') {
     const p = d.draft.pearls[drag.index];
     if (!p) return;
@@ -1210,7 +1259,7 @@ function openPlayed(game, i) {
 
 /**
  * 挑战流解码：decode 通过后再跑编辑器同款全量校验。
- * 关卡码是可手改的字符串（PG1 无校验和），结构合法 ≠ 可玩：0 章鱼会开局白送 WIN、
+ * 关卡码是可手改的字符串（无校验和），结构合法 ≠ 可玩：0 章鱼会开局白送 WIN、
  * 0 河豚无法发射、方块压弹弓区发射即撞、沉地/互叠是坏关。装载挑战前必须挡下。
  */
 function decodePlayable(code) {
@@ -1283,7 +1332,7 @@ module.exports = {
   drawerRect, drawerMaxScroll, drawerContentH,
   // 布局常量/helper（editor-render 与 e2e 共用，全部实时读 C，禁模块期冻结）
   TOP_CONTENT_H, SEG, SEG_H, FILTER_H, CARD_AREA_H, CARD_W, CARD_H, CARD_GAP, CARD_PITCH,
-  CARD_X, FILTER, ERASER_SLOT, ZONE_X,
+  CARD_X, FILTER, ERASER_SLOT, ZONE_X, ROW_GAP, SEG_PAD, CAPSULE_PAD, FLOOR_MARGIN, floorY,
   TB, TB_KEYS, DRAWER, SIM_FRAME_BUDGET,
   barLayout, visibleItems, barMaxScroll, MAT_GROUPS, MATERIALS, ERASER_ITEM,
   FLOAT_BAR,

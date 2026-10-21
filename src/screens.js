@@ -15,6 +15,8 @@ const AD = require('./ad.js');
 const DAILY = require('./daily.js');
 const PEARLS = require('./pearls.js');
 const EDITOR = require('./editor.js');
+const LEVEL_SOURCE = require('./level-source.js');
+const RANK = require('./rank.js');
 
 // 马卡龙界面实例色（高饱和旧色 → 低饱和粉彩色；微信绿 #07C160 为合规色不在此列）
 const UI = {
@@ -30,6 +32,7 @@ const UI = {
   cyanDeep: '#76CFE0',  // 旧 #006064
   coral: '#FF8A80',     // 旧 #EF5350（失败语义）
   ink: '#6D4C57',       // 浅底面板上的深粉棕文字（替代白字）
+  inkSoft: '#9A7E86',   // 深粉棕的淡一档（说明性副文案）
 };
 // 章节专属色（马卡龙五色系：薄荷青/珊瑚橙/薰衣草/草莓红/奶黄）
 const CHAPTER_ACCENTS = ['#7FDDE8', '#FFAB91', '#CE93D8', '#FF8A80', '#FFCC80'];
@@ -231,26 +234,42 @@ function drawMenu(game) {
   // 造关师入口（紧跟「开始游戏」下方；UGC 中心：造关/输码挑战/我造的关/挑战记录）
   const makerY = btnY + 62;
   if (!game.buttons.goMaker) {
-    game.buttons.goMaker = new E.Button(btnX, makerY, btnW, 42, '🎨 造关师', '#07C160', sketchOpts);
+    game.buttons.goMaker = new E.Button(btnX, makerY, btnW, 42, '造关师', '#FFB78A', sketchOpts);
   }
   game.buttons.goMaker.y = makerY;
   game.buttons.goMaker.draw(ctx);
 
+  // 入口列：造关师下方依次 全服榜（自建后端）→ 好友排行榜（开放数据域，默认关）→ 设置
+  let nextEntryY = makerY + 54;
+
+  // 全服榜入口（自建后端，复用 zoo-rank 服务；见 config.js FEATURES.serverRank）
+  if (C.FEATURES.serverRank) {
+    if (!game.buttons.serverRank) {
+      game.buttons.serverRank = new E.Button(btnX, nextEntryY, btnW, 42, '全服榜', '#7FDDE8', sketchOpts);
+    }
+    game.buttons.serverRank.y = nextEntryY;
+    game.buttons.serverRank.draw(ctx);
+    nextEntryY += 54;
+  } else if (game.buttons.serverRank) {
+    delete game.buttons.serverRank;
+  }
+
   // 排行榜入口（需关系链数据 + 用户隐私保护指引，默认关闭；见 config.js FEATURES）
   // 开启时插在造关师与设置之间；关闭时不创建按钮，input 层不会命中，入口彻底不可达。
   if (C.FEATURES.leaderboard) {
-    const leaderY = makerY + 54;
+    const leaderY = nextEntryY;
     if (!game.buttons.leaderboard) {
       game.buttons.leaderboard = new E.Button(btnX, leaderY, btnW, 42, '好友排行榜', '#07C160', sketchOpts);
     }
     game.buttons.leaderboard.y = leaderY; // 每帧同步，支持开关切换后重排
     game.buttons.leaderboard.draw(ctx);
+    nextEntryY += 54;
   } else if (game.buttons.leaderboard) {
     delete game.buttons.leaderboard; // 开关关闭后清残留（如设置页返回菜单时）
   }
 
-  // 设置入口（音效/音乐/震动开关）：排行榜隐藏时上移一位，避免菜单中间留一空格
-  const settingsY = C.FEATURES.leaderboard ? makerY + 108 : makerY + 54;
+  // 设置入口（音效/音乐/震动开关）：随上方入口动态下移
+  const settingsY = nextEntryY;
   if (!game.buttons.settings) {
     game.buttons.settings = new E.Button(btnX, settingsY, btnW, 42, '设置', UI.blue, sketchOpts);
   }
@@ -288,6 +307,59 @@ function drawMenu(game) {
     ctx.fillStyle = '#FFF5F8';
     ctx.fillText(pearlCount + ' / ' + PEARLS.TOTAL, cx + 8, pearlY + 1);
   }
+
+  // 官卡玩法更新提醒横幅（远端下发新版本后出现一次；含「恢复原版」与「知道了」）
+  if (LEVEL_SOURCE.hasPendingUpdate()) drawLevelUpdateBanner(ctx, game);
+}
+
+/**
+ * 官卡玩法更新提醒横幅（主菜单底部）。
+ * 出现于本会话新采纳了远端官卡版本之后；提供「恢复原版」回到内置官卡、
+ * 与「知道了」关闭提醒（不恢复）。按钮复用 E.Button + game.buttons，input 层命中。
+ */
+function drawLevelUpdateBanner(ctx, game) {
+  const W = C.SCREEN_WIDTH;
+  const H = C.SCREEN_HEIGHT;
+  const pad = 14;
+  const bannerH = 74;
+  const y = H - C.SAFE_BOTTOM - bannerH - 8;
+  const cx = W / 2;
+
+  ctx.save();
+  // 半透明深蓝底 + 亮边，压在主菜单最底部
+  ctx.fillStyle = 'rgba(20,44,70,0.94)';
+  U.roundRectPath(ctx, pad, y, W - pad * 2, bannerH, 14);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,213,79,0.55)';
+  ctx.lineWidth = 1.5;
+  U.roundRectPath(ctx, pad, y, W - pad * 2, bannerH, 14);
+  ctx.stroke();
+
+  // 文案
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#FFD54F';
+  ctx.font = 'bold 15px Arial';
+  ctx.fillText('✨ 官卡玩法已更新', pad + 14, y + 24);
+  ctx.fillStyle = 'rgba(233,244,253,0.92)';
+  ctx.font = '12px Arial';
+  ctx.fillText('新关卡已下发，可随时恢复为原版', pad + 14, y + 47);
+
+  // 两个操作按钮（右对齐）
+  const btnW = 84, btnH = 34, btnY = y + (bannerH - btnH) / 2;
+  const restoreX = W - pad - btnW * 2 - 10;
+  const ackX = W - pad - btnW;
+  if (!game.buttons.lvlRestore) {
+    game.buttons.lvlRestore = new E.Button(restoreX, btnY, btnW, btnH, '恢复原版', '#FFCC80',
+      { sketch: true, radius: 10, fontSize: 13, shadowOffset: 2 });
+  }
+  if (!game.buttons.lvlAck) {
+    game.buttons.lvlAck = new E.Button(ackX, btnY, btnW, btnH, '知道了', '#7FC8E8',
+      { sketch: true, radius: 10, fontSize: 13, shadowOffset: 2 });
+  }
+  game.buttons.lvlRestore.draw(ctx);
+  game.buttons.lvlAck.draw(ctx);
+  ctx.restore();
 }
 
 /**
@@ -441,10 +513,24 @@ function drawSettings(game) {
     btn.draw(ctx);
   });
 
-  // 返回
-  if (!game.buttons.back) {
-    game.buttons.back = new E.Button(cx - 70, 180 + 3 * 62 + 24, 140, 44, '返回', UI.blue, sketchOpts);
+  // 恢复原版官卡：仅在当前使用远端下发版本时出现（否则没有可恢复的对象）
+  const usingRemote = LEVEL_SOURCE.usingRemote();
+  const restoreRowY = 180 + 3 * 62;
+  if (usingRemote) {
+    if (!game.buttons.lvlRestore) {
+      game.buttons.lvlRestore = new E.Button(btnX, restoreRowY, btnW, 46, '恢复原版官卡', UI.apricot, sketchOpts);
+    }
+    game.buttons.lvlRestore.draw(ctx);
+  } else if (game.buttons.lvlRestore) {
+    delete game.buttons.lvlRestore; // 恢复后回到内置，清残留按钮
   }
+
+  // 返回（使用远端时下移一行，给「恢复原版」让位）
+  const backY = 180 + (usingRemote ? 4 : 3) * 62 + 24;
+  if (!game.buttons.back) {
+    game.buttons.back = new E.Button(cx - 70, backY, 140, 44, '返回', UI.blue, sketchOpts);
+  }
+  game.buttons.back.y = backY;
   game.buttons.back.draw(ctx);
 }
 
@@ -479,6 +565,201 @@ function drawLeaderboard(game) {
       { sketch: true, strokeWidth: 3, shadowOffset: 4, radius: 14 });
   }
   game.buttons.back.draw(ctx);
+}
+
+// ============================================================
+// 全服榜页面（自建后端 zoo-rank 服务）：总星榜 / 总分榜 双 tab
+// ============================================================
+
+/** 全服榜主页面：浅水背景 + 双 tab + 玻璃面板榜单 + 底部我的排名。 */
+function drawRank(game) {
+  const ctx = game.ctx;
+  const W = C.SCREEN_WIDTH, H = C.SCREEN_HEIGHT, cx = W / 2;
+
+  // 1. 浅水背景（与选关页同色系）
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, C.COLORS.waterTop);
+  bg.addColorStop(1, C.COLORS.waterMid);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. 标题 + 返回
+  const titleY = C.SAFE_TOP + 38;
+  drawStrokedText(ctx, '全服榜', cx, titleY, 'bold 28px Arial', '#FFD54F', 'rgba(0,0,0,0.5)', 3);
+  if (!game.buttons.rankBack) {
+    game.buttons.rankBack = new E.Button(12, C.SAFE_TOP + 8, 62, 34, '‹ 返回', '#9AA8BC',
+      { sketch: true, radius: 17, fontSize: 13, shadowOffset: 2 });
+  }
+  game.buttons.rankBack.draw(ctx);
+
+  // 3. tab 切换（总星 / 总分）
+  const tabY = titleY + 26;
+  const tabW = 92, tabH = 34, tabGap = 12;
+  const tabX0 = cx - (tabW * 2 + tabGap) / 2;
+  [['stars', '总星榜'], ['score', '总分榜']].forEach(([key, label], i) => {
+    const tx = tabX0 + i * (tabW + tabGap);
+    const active = game.rankTab === key;
+    const bkey = 'rankTab_' + key;
+    if (!game.buttons[bkey]) {
+      game.buttons[bkey] = new E.Button(tx, tabY, tabW, tabH, label, '#FFB300',
+        { sketch: true, radius: 12, fontSize: 14, shadowOffset: 2 });
+    }
+    const b = game.buttons[bkey];
+    b.x = tx; b.y = tabY; b.color = active ? '#FFB300' : '#9AA8BC';
+    b.draw(ctx);
+  });
+
+  // 4. 榜单玻璃面板
+  const panelX = 16, panelW = W - 32;
+  const panelTop = tabY + tabH + 12;
+  const panelBottom = H - C.SAFE_BOTTOM - 78;
+  const panelH = panelBottom - panelTop;
+  drawGlassPanel(ctx, panelX, panelTop, panelW, panelH, '#FFD54F', game.frameCount);
+
+  // 5. 榜单列表（滚动）
+  const data = game.rankData[game.rankTab];
+  drawRankList(ctx, game, data, panelX, panelTop, panelW, panelH);
+
+  // 6. 底部我的排名卡片
+  drawRankMe(ctx, game, data, panelX, panelW, panelBottom + 6);
+}
+
+/** 榜单列表：前三名金银铜徽章 + 昵称 + 数值；支持滚动。 */
+function drawRankList(ctx, game, data, x, y, w, h) {
+  ctx.save();
+  ctx.beginPath();
+  U.roundRectPath(ctx, x, y, w, h, 18);
+  ctx.clip();
+  ctx.translate(0, -game.rankScroll);
+
+  const isStars = game.rankTab === 'stars';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // 未返回 / 空榜
+  if (!data) {
+    ctx.font = '15px Arial';
+    ctx.fillStyle = UI.ink;
+    ctx.fillText(RANK.isReady() ? '加载中…' : '正在连接全服榜…', x + w / 2, y + h / 2);
+    game.rankMaxScroll = 0;
+    ctx.restore();
+    return;
+  }
+  if (!data.list || data.list.length === 0) {
+    ctx.font = '15px Arial';
+    ctx.fillStyle = UI.ink;
+    ctx.fillText('还没有人上榜', x + w / 2, y + h / 2 - 12);
+    ctx.font = '13px Arial';
+    ctx.fillStyle = UI.inkSoft;
+    ctx.fillText('通关任意一关就会出现在这里', x + w / 2, y + h / 2 + 12);
+    game.rankMaxScroll = 0;
+    ctx.restore();
+    return;
+  }
+
+  const rowH = 46, gap = 6;
+  let ry = y + 12;
+  for (const item of data.list) {
+    drawRankRow(ctx, item, x + 10, ry, w - 20, rowH, isStars);
+    ry += rowH + gap;
+  }
+
+  game.rankMaxScroll = Math.max(0, ry + 8 - (y + h));
+  if (game.rankScroll > game.rankMaxScroll) game.rankScroll = game.rankMaxScroll;
+  ctx.restore();
+}
+
+/** 单行榜单：排名徽章 + 昵称 + 数值。前三名金银铜淡底。 */
+function drawRankRow(ctx, item, x, y, w, h, isStars) {
+  const rank = item.rank || 0;
+  const medal = rank <= 3;
+  const cy = y + h / 2;
+
+  // 行底：前三名淡金银铜，其余半透明白
+  if (medal) {
+    const tops = ['rgba(255,214,64,0.30)', 'rgba(176,190,197,0.26)', 'rgba(255,171,145,0.28)'];
+    ctx.fillStyle = tops[rank - 1];
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  }
+  ctx.beginPath();
+  U.roundRectPath(ctx, x, y, w, h, 10);
+  ctx.fill();
+
+  // 排名徽章
+  const badgeX = x + 18;
+  if (medal) {
+    const badgeColors = ['#FFB300', '#B0BEC5', '#FFAB91'];
+    ctx.fillStyle = badgeColors[rank - 1];
+    ctx.beginPath();
+    ctx.arc(badgeX, cy, 13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 13px Arial';
+    ctx.fillText(String(rank), badgeX, cy + 1);
+  } else {
+    ctx.fillStyle = UI.ink;
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText(String(rank), badgeX, cy + 1);
+  }
+
+  // 昵称（超长截断）
+  let nick = item.nickname || '河豚玩家';
+  if (nick.length > 8) nick = nick.slice(0, 8) + '…';
+  ctx.fillStyle = UI.ink;
+  ctx.font = 'bold 15px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText(nick, x + 40, cy + 1);
+
+  // 数值（右对齐）
+  ctx.textAlign = 'right';
+  const valX = x + w - 16;
+  if (isStars) {
+    T.drawStar(ctx, valX - 58, cy, 9, '#FFB300');
+    ctx.fillStyle = '#B8860B';
+    ctx.font = 'bold 16px Arial';
+    ctx.fillText(String(item.totalStars || 0), valX - 2, cy + 1);
+  } else {
+    ctx.fillStyle = '#D81B60';
+    ctx.font = 'bold 15px Arial';
+    ctx.fillText(String(item.totalScore || 0), valX - 2, cy + 1);
+  }
+}
+
+/** 底部我的排名卡片：名次 + 当前榜数值。 */
+function drawRankMe(ctx, game, data, x, w, y) {
+  const h = 62;
+  drawGlassPanel(ctx, x, y, w, h, '#7FDDE8', null);
+  const cy = y + h / 2;
+
+  if (!data || !data.me) {
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = UI.ink;
+    ctx.fillText(RANK.isReady() ? '完成关卡后即可上榜' : '登录后即可上榜', x + w / 2, cy);
+    return;
+  }
+
+  const me = data.me;
+  const isStars = game.rankTab === 'stars';
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = UI.ink;
+  ctx.font = 'bold 14px Arial';
+  ctx.fillText('我的排名', x + 18, y + 22);
+
+  const rankText = me.rank ? ('第 ' + me.rank + ' 名') : '未上榜';
+  ctx.fillStyle = '#FF8F00';
+  ctx.font = 'bold 20px Arial';
+  ctx.fillText(rankText, x + 18, y + 44);
+
+  const val = isStars ? (me.totalStars || 0) : (me.totalScore || 0);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = isStars ? '#B8860B' : '#D81B60';
+  ctx.font = 'bold 16px Arial';
+  ctx.fillText(isStars ? ('★ ' + val) : String(val), x + w - 18, y + 44);
 }
 
 /**
@@ -1190,6 +1471,9 @@ function drawWinScreen(game) {
   // 每日挑战/珍珠关/自制关没有"下一关"（custom 时 currentLevelIndex=-1 恒使旧表达式为 false，必须显式纳入）
   const isLastLevel = game.isDaily || game.isBonus || game.isCustom ||
     game.currentLevelIndex >= game.levels.length - 1;
+  // 真·战役最后一关（第 40 关）：通关后引导「去造关」，与每日/珍珠/自制区分开
+  const isCampaignLast = !game.isDaily && !game.isBonus && !game.isCustom &&
+    game.currentLevelIndex >= game.levels.length - 1;
 
   if (game.isCustom && game.playOrigin === 'author') {
     // 作者流 WIN：返回编辑 + 保存并分享（proven 门控视觉；回调侧 T7 再卡一次）
@@ -1219,8 +1503,21 @@ function drawWinScreen(game) {
     if (!game.buttons.menu) {
       game.buttons.menu = new E.Button(cx + 51, btnY, 75, btnH, '菜单', UI.gray, sketchOpts);
     }
+  } else if (isCampaignLast) {
+    // 第 40 关通关：把「下一关」换成「去造关」（正向引导，绿色突出）
+    delete game.buttons.next;
+    if (!game.buttons.toMaker) {
+      game.buttons.toMaker = new E.Button(cx - 125, btnY, 85, btnH, '去造关', '#07C160', sketchOpts);
+    }
+    if (!game.buttons.retry) {
+      game.buttons.retry = new E.Button(cx - 32, btnY, 75, btnH, '重玩', UI.orange, sketchOpts);
+    }
+    if (!game.buttons.menu) {
+      game.buttons.menu = new E.Button(cx + 51, btnY, 75, btnH, '菜单', UI.gray, sketchOpts);
+    }
   } else {
     delete game.buttons.next;
+    delete game.buttons.toMaker;
     if (!game.buttons.retry) {
       game.buttons.retry = new E.Button(cx - 84, btnY, 80, btnH, '重玩', UI.orange, sketchOpts);
     }
@@ -1229,7 +1526,7 @@ function drawWinScreen(game) {
     }
   }
 
-  for (const key of ['next', 'retry', 'menu', 'editorBack', 'saveShare', 'challengeShare']) {
+  for (const key of ['next', 'toMaker', 'retry', 'menu', 'editorBack', 'saveShare', 'challengeShare']) {
     if (game.buttons[key]) game.buttons[key].draw(ctx);
   }
 }
@@ -1321,6 +1618,7 @@ function drawLoseScreen(game) {
 module.exports = {
   drawMenu,
   drawLeaderboard,
+  drawRank,
   drawSettings,
   drawLevelSelect,
   drawWinScreen,

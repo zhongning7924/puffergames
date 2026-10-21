@@ -82,7 +82,7 @@ function getLaunchLevel() {
 
 /**
  * 主动分享自制关卡卡片（query 带关卡码，好友点击直达挑战）。
- * @param {string} code 关卡码（PG1 前缀）
+ * @param {string} code 关卡码（PG2 前缀）
  * @param {number} [stars] 挑战成绩（挑战流二次分享时带上；作者首次分享为空）
  */
 function shareCustom(code, stars) {

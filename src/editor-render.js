@@ -20,27 +20,42 @@ const {
   TOP_CONTENT_H, SEG, SEG_H,
   CARD_W, CARD_H, CARD_GAP, CARD_PITCH, CARD_X,
   FILTER, FILTER_H, CARD_AREA_H,
-  ERASER_SLOT, ZONE_X,
+  ERASER_SLOT, ZONE_X, ROW_GAP, floorY,
   TB, TB_KEYS, DRAWER,
   barLayout, visibleItems, floatingBarRect, drawerRect,
   MATERIALS, ERASER_ITEM, FLOAT_BAR,
 } = EDITOR;
 
-/** 物料卡的主题色块（方块按材质、敌人/道具按语义；橡皮用粉红） */
+/**
+ * 物料卡图标配色 —— 单一数据源取 config 真实材质色（BLOCK_TYPES / COLORS / BIRD_TYPES）。
+ * T15：原 cardColor() 写死了一套近似色（章鱼 #B76BD6 vs 实际 #CE93D8、冰 #9FD8E8 vs #B3E5FC），
+ * 导致卡片预览色与放进世界后的实际颜色对不上，这里统一改为引用真值。
+ * T15.1/T16：章王按 style 取色（非章王回退深渊紫 abyss），使五色章王卡与放入世界后的配色一致。
+ */
 function cardColor(item) {
   if (item.kind === 'block') {
-    return { wood: '#B07A4A', stone: '#8A8F98', ice: '#9FD8E8', burst: '#E8654B' }[item.type] || '#B07A4A';
+    const t = C.BLOCK_TYPES[item.type];
+    return t ? t.color : '#B07A4A';
   }
-  if (item.kind === 'pig') return item.boss ? '#FFB74D' : '#B76BD6';   // 章王金 / 章鱼紫
-  if (item.kind === 'bird') return '#F2A03D';  // 河豚橙
-  if (item.kind === 'pearl') return '#F6E7A1'; // 珍珠金
-  if (item.kind === 'eraser') return '#E87A7A';// 橡皮粉红
+  if (item.kind === 'pig') return item.boss ? C.BOSS_STYLE[item.style || 'abyss'].body : C.COLORS.pigBody;
+  if (item.kind === 'bird') {
+    const t = C.BIRD_TYPES[item.type];
+    return t ? t.body : '#FFD54F';
+  }
+  if (item.kind === 'pearl') return '#F6E7A1';
+  if (item.kind === 'eraser') return '#F2A2A2';
   return '#888';
 }
 
-/** 材质筛选段色（与方块材质色一致） */
+/** 章鱼图标描边色（与 Octopus.draw 同源，章王按 style 取色，非章王回退深渊紫） */
+function pigDark(item) {
+  return item.boss ? C.BOSS_STYLE[item.style || 'abyss'].dark : C.COLORS.pigBodyDark;
+}
+
+/** 材质筛选段色（直接取 BLOCK_TYPES 真值） */
 function matColor(id) {
-  return { wood: '#B07A4A', stone: '#8A8F98', ice: '#9FD8E8', fruit: '#E8654B' }[id] || '#888';
+  const t = C.BLOCK_TYPES[id === 'fruit' ? 'burst' : id];
+  return t ? t.color : '#888';
 }
 
 function drawEditor(game) {
@@ -55,6 +70,25 @@ function drawEditor(game) {
   // 1. 世界背景（海洋/海床照常用，底栏盖在沙土区上）
   RENDERER.drawBackground(game);
 
+  // 1b. T15 虚拟地面：编辑器内的摆放基线（恒定，不随 tab 跳）。
+  //     画一条沙色脊线 + 沙带，让"东西落在哪"一目了然，
+  //     同时遮住底栏上方那条永远够不到的真实 GROUND_Y，避免出现两条地面线的错觉。
+  //     T15.1：沙带高度原写死 26px——blocks 档（面板顶 475）刚好贴合，
+  //     但敌人/河豚/道具档没有材质行、面板更矮（顶 527），沙带与面板之间
+  //     会露出一条 52px 的水缝，地板像"浮"在水里。改为按 barTop 动态铺满，
+  //     任何分类都只有一条地面线（脊线位置恒定，实体不随 tab 跳）。
+  const fy = floorY();
+  const bandH = Math.max(0, L.barTop - fy);
+  ctx.save();
+  const sandGrad = ctx.createLinearGradient(0, fy, 0, fy + bandH);
+  sandGrad.addColorStop(0, 'rgba(255,241,224,0.72)');   // 靠脊线处实一些，读作"地面"
+  sandGrad.addColorStop(1, 'rgba(255,241,224,0.52)');   // 向面板渐隐，接上水下沙床
+  ctx.fillStyle = sandGrad;
+  ctx.fillRect(0, fy, W, bandH);
+  ctx.fillStyle = C.COLORS.sandDark;
+  ctx.fillRect(0, fy - 2, W, 3);
+  ctx.restore();
+
   // 弹弓禁放区提示（淡色虚线 + 文案），不画弹弓/弹道
   ctx.save();
   ctx.strokeStyle = 'rgba(255,120,120,0.55)';
@@ -62,7 +96,7 @@ function drawEditor(game) {
   ctx.setLineDash([8, 6]);
   ctx.beginPath();
   ctx.moveTo(ZONE_X, topH);
-  ctx.lineTo(ZONE_X, C.GROUND_Y);
+  ctx.lineTo(ZONE_X, fy);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = 'rgba(255,120,120,0.7)';
@@ -114,7 +148,9 @@ function drawEditor(game) {
   if (playBtn) {
     const n = d.issues.length;
     playBtn.locked = n > 0;
-    playBtn.text = n > 0 ? `🔴 ${Math.min(n, 99)}` : (d.proven ? '✓ 可分享' : '▶ 试玩');
+    // T15.1：问题计数去掉 🔴 emoji（彩色 emoji 在各机型字形/配色不一，
+    // 与自绘矢量图标风格打架）；置灰态已能表达"不可试玩"，文字只报数量。
+    playBtn.text = n > 0 ? `${Math.min(n, 99)} 问题` : (d.proven ? '✓ 可分享' : '▶ 试玩');
     playBtn.draw(ctx);
   }
   // 6b. T14 策略工具组（↶ ↷ 👁 🤖 📊）+ 难度徽章 + AI 进度
@@ -163,22 +199,28 @@ function drawBottomBar(ctx, game, L) {
   const H = C.SCREEN_HEIGHT;
 
   // ---- 背景（从 barTop 到屏底，含 SAFE_BOTTOM）----
+  // T15：顶部一道亮色分隔线，让面板与海床的边界清晰（原来糊在一起）
   ctx.save();
-  ctx.fillStyle = 'rgba(18,40,66,0.96)';
+  const bg = ctx.createLinearGradient(0, L.barTop, 0, H);
+  bg.addColorStop(0, 'rgba(23,52,84,0.97)');
+  bg.addColorStop(1, 'rgba(14,34,58,0.98)');
+  ctx.fillStyle = bg;
   ctx.fillRect(0, L.barTop, W, H - L.barTop);
+  ctx.fillStyle = 'rgba(150,205,240,0.28)';
+  ctx.fillRect(0, L.barTop, W, 1.5);
 
   // ---- 分段控件行（方块/敌人/河豚/道具，底栏第一行）----
   drawSegmented(ctx, d, L.segTop);
 
-  // ---- 材质筛选行（仅 blocks 分类显示；面板 x≥80）----
+  // ---- 材质筛选行（仅 blocks 分类显示；面板 x≥FILTER.x）----
   if (L.showFilter) {
     drawFilterRow(ctx, d, L);
   }
 
-  // ---- 橡皮固定槽（卡行坐标，x: 8-64）----
+  // ---- 橡皮固定槽（卡行坐标）----
   drawEraserSlot(ctx, d, L);
 
-  // ---- 大卡行（x≥80，横滚裁剪）----
+  // ---- 大卡行（x≥CARD_X，横滚裁剪）----
   drawCardRow(ctx, game, d, L);
 
   ctx.restore();
@@ -191,28 +233,45 @@ function drawFilterRow(ctx, d, L) {
   ctx.save();
 
   // 面板背景（x≥FILTER.x）
-  ctx.fillStyle = 'rgba(255,255,255,0.06)';
-  ctx.fillRect(FILTER.x, top, L.filterW, h);
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  roundRect(ctx, FILTER.x, top, L.filterW, h, 10);
+  ctx.fill();
 
-  // 四段
+  // 四段：材质色圆点 + 文字，激活段白底 + 描边
   ctx.textAlign = 'center';
-  ctx.font = '13px sans-serif';
+  ctx.textBaseline = 'middle';
   MATERIALS.forEach((m, i) => {
     const fx = FILTER.x + i * L.filterSegW;
     const active = d.matFilter === m.id;
+    const cx = fx + L.filterSegW / 2;
     if (active) {
-      // 激活段：白底 + 材质色下划线
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      roundRect(ctx, fx + 3, top + 4, L.filterSegW - 6, h - 8, 6);
+      // 激活段：白底 + 材质色描边（比原来的半透明块更清晰）
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      roundRect(ctx, fx + 4, top + 5, L.filterSegW - 8, h - 10, 8);
       ctx.fill();
-      ctx.fillStyle = matColor(m.id);
-      roundRect(ctx, fx + L.filterSegW * 0.25, top + h - 6, L.filterSegW * 0.5, 3, 1.5);
-      ctx.fill();
-      ctx.fillStyle = '#FFFFFF';
-    } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.strokeStyle = matColor(m.id);
+      ctx.lineWidth = 2;
+      roundRect(ctx, fx + 4, top + 5, L.filterSegW - 8, h - 10, 8);
+      ctx.stroke();
     }
-    ctx.fillText(m.label, fx + L.filterSegW / 2, top + h / 2 + 5);
+
+    // 材质色圆点（左） + 文字（右）
+    const dotR = 5;
+    const dotX = cx - 15;
+    ctx.fillStyle = matColor(m.id);
+    ctx.beginPath();
+    ctx.arc(dotX, top + h / 2, dotR, 0, Math.PI * 2);
+    ctx.fill();
+    if (active) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = active ? '#1F3A5F' : 'rgba(226,240,252,0.78)';
+    ctx.font = `bold 14px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(m.label, dotX + dotR + 6, top + h / 2 + 0.5);
   });
 
   ctx.restore();
@@ -224,43 +283,175 @@ function drawEraserSlot(ctx, d, L) {
   const y = L.cardTop + ERASER_SLOT.y;
   const w = ERASER_SLOT.w;
   const h = ERASER_SLOT.h;
+  const on = d.eraser;
 
   ctx.save();
 
   // 槽位背景
-  ctx.fillStyle = d.eraser ? 'rgba(232,122,122,0.35)' : 'rgba(255,255,255,0.10)';
-  roundRect(ctx, x, y, w, h, 10);
+  ctx.fillStyle = on ? 'rgba(242,162,162,0.30)' : 'rgba(255,255,255,0.10)';
+  roundRect(ctx, x, y, w, h, 14);
   ctx.fill();
-  if (d.eraser) {
-    ctx.strokeStyle = 'rgba(232,122,122,0.7)';
-    ctx.lineWidth = 2;
-    roundRect(ctx, x, y, w, h, 10);
-    ctx.stroke();
-  }
+  ctx.strokeStyle = on ? 'rgba(255,190,190,0.95)' : 'rgba(255,255,255,0.16)';
+  ctx.lineWidth = on ? 2.5 : 1.5;
+  roundRect(ctx, x, y, w, h, 14);
+  ctx.stroke();
 
-  // 橡皮图标（粉红圆角方块）
-  const iconSz = 22;
-  ctx.fillStyle = '#E87A7A';
-  roundRect(ctx, x + (w - iconSz) / 2, y + 8, iconSz, iconSz, 5);
+  // 橡皮图标：斜置的橡皮块（主体 + 深色底沿 + 高光），比纯色方块更像"橡皮"
+  // 注意：必须用 save/restore 回收变换，不能用 setTransform——全局 ctx 上有 DPR scale
+  const cx = x + w / 2;
+  const cy = y + h / 2 - 10;
+  const bw = 34, bh = 20;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-0.42);
+  // 橡皮主体
+  ctx.fillStyle = '#F2A2A2';
+  roundRect(ctx, -bw / 2, -bh / 2, bw, bh, 5);
   ctx.fill();
+  // 深色"用旧了的"底沿
+  ctx.fillStyle = '#D97B7B';
+  roundRect(ctx, -bw / 2, bh / 2 - 6, bw, 6, 3);
+  ctx.fill();
+  // 描边 + 顶部高光
+  ctx.strokeStyle = '#B85C5C';
+  ctx.lineWidth = 2;
+  roundRect(ctx, -bw / 2, -bh / 2, bw, bh, 5);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  roundRect(ctx, -bw / 2 + 3, -bh / 2 + 2.5, bw - 6, 3.5, 2);
+  ctx.fill();
+  ctx.restore();
 
   // 标签
-  ctx.fillStyle = d.eraser ? '#FFFFFF' : 'rgba(255,255,255,0.65)';
-  ctx.font = `${d.eraser ? 'bold ' : ''}11px sans-serif`;
+  ctx.fillStyle = on ? '#FFFFFF' : 'rgba(226,240,252,0.80)';
+  ctx.font = `bold 12px sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(ERASER_ITEM.label, x + w / 2, y + h - 6);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(ERASER_ITEM.label, x + w / 2, y + h - 10);
 
   ctx.restore();
 }
 
-/** 大卡行：72×56 物料卡，x≥64 横滚裁剪 */
+/**
+ * 物料卡图标 —— T15 重做。
+ * 原实现：方块=纯色圆角方块、章鱼=纯色圆（+小三角王冠），
+ * 木梁/木柱/木块三种形状全是同一个方块色块，完全无法区分。
+ * 现在：方块按**真实宽高比**绘制（梁扁/柱高/块方，一眼可辨）+ 材质纹理；
+ * 章鱼直接复用 Octopus.draw 的真实形象（眼/腮红/触手/王冠）。
+ */
+function drawCardIcon(ctx, game, item, cx, cy) {
+  if (item.kind === 'bird') {
+    E.drawPufferMini(ctx, cx, cy, 19, item.type);
+    return;
+  }
+  if (item.kind === 'pearl') {
+    E.drawPearl(ctx, cx, cy, 14, game.frameCount);
+    return;
+  }
+  if (item.kind === 'pig') {
+    // 复用真实章鱼绘制：临时实例画完即弃（draw 不修改持久状态，仅读 blinking/hurtFlash）
+    // T15.1：半径按 item.radius 等比缩放（小17/大22/王28 → 13/17/21），
+    // 原来写死 boss?20:17，三种体型在卡面上一样大，完全看不出大小章鱼与王的区别；
+    // 王冠向上多占约 0.5r，故整体缩放取保守值，王(r=21)连冠高约 55px 仍在卡内。
+    // T16：章王带 style，五色章王卡上画的即是该 style 的真实配色。
+    const pigR = Math.round(13 + ((item.radius || 17) - 17) * 0.75);
+    const pig = new E.Octopus(cx, cy, pigR,
+      item.boss ? { boss: true, hp: item.hp || 5, name: item.label, style: item.style } : undefined);
+    pig.blinking = false;
+    pig.hurtFlash = 0;
+    pig.squish = 0;
+    pig.dying = false;
+    pig.sleeping = false;
+    pig.draw(ctx);
+    return;
+  }
+  // 方块：按 item.w/h 真实比例缩放进 44×44 图标框
+  const boxW = 44, boxH = 40;
+  const k = Math.min(boxW / item.w, boxH / item.h);
+  const w = Math.max(8, item.w * k);
+  const h = Math.max(8, item.h * k);
+  const t = C.BLOCK_TYPES[item.type] || C.BLOCK_TYPES.wood;
+  const x0 = cx - w / 2, y0 = cy - h / 2;
+
+  ctx.save();
+  if (item.type === 'burst') {
+    // 爆裂果：浆果造型（与世界内 Block.draw 的 burst 分支同源）
+    const r = Math.min(w, h) / 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = t.color;
+    ctx.fill();
+    ctx.strokeStyle = t.colorDark;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#7CB342';
+    ctx.beginPath();
+    ctx.ellipse(cx + 2, cy - r - 1, 5, 2.5, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = t.colorLight;
+    for (const p of [[-r * 0.35, -r * 0.1], [r * 0.2, r * 0.25], [r * 0.05, -r * 0.4]]) {
+      ctx.beginPath();
+      ctx.arc(cx + p[0], cy + p[1], r * 0.14, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.beginPath();
+    ctx.arc(cx - r * 0.3, cy - r * 0.35, r * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = t.color;
+    roundRect(ctx, x0, y0, w, h, Math.min(4, w / 4, h / 4));
+    ctx.fill();
+    ctx.strokeStyle = t.colorDark;
+    ctx.lineWidth = 2;
+    roundRect(ctx, x0, y0, w, h, Math.min(4, w / 4, h / 4));
+    ctx.stroke();
+    // 材质纹理（与世界内一致，让卡片预览能预告手感差异）
+    if (item.type === 'wood') {
+      ctx.strokeStyle = t.colorDark;
+      ctx.lineWidth = 1;
+      const n = Math.max(2, Math.floor(h / 9));
+      for (let i = 1; i < n; i++) {
+        const gy = y0 + (h / n) * i;
+        ctx.beginPath();
+        ctx.moveTo(x0 + 3, gy);
+        ctx.lineTo(x0 + w - 3, gy);
+        ctx.stroke();
+      }
+    } else if (item.type === 'stone') {
+      ctx.fillStyle = t.colorDark;
+      for (const p of [[0.3, 0.35], [0.62, 0.6], [0.45, 0.72]]) {
+        ctx.beginPath();
+        ctx.arc(x0 + w * p[0], y0 + h * p[1], Math.max(1.2, Math.min(w, h) * 0.06), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (item.type === 'ice') {
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.beginPath();
+      ctx.moveTo(x0 + 3, y0 + 3);
+      ctx.lineTo(x0 + w * 0.32, y0 + 3);
+      ctx.lineTo(x0 + 3, y0 + h * 0.32);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // 顶部高光
+    ctx.fillStyle = t.colorLight;
+    ctx.globalAlpha = 0.45;
+    roundRect(ctx, x0 + 2, y0 + 2, Math.max(2, w - 4), 3, 1.5);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+/** 大卡行：72×84 物料卡，x≥CARD_X 横滚裁剪 */
 function drawCardRow(ctx, game, d, L) {
   const items = visibleItems(d);
   if (!items.length) return;
 
   ctx.save();
 
-  // 裁剪到卡行视口（x≥80）
+  // 裁剪到卡行视口
   ctx.beginPath();
   ctx.rect(CARD_X, L.cardTop, C.SCREEN_WIDTH - CARD_X, CARD_AREA_H);
   ctx.clip();
@@ -275,78 +466,74 @@ function drawCardRow(ctx, game, d, L) {
     const active = (d.palette && d.palette.id === item.id) ||
       (d.eraser && item.id === 'eraser');
 
-    // 卡背景
-    ctx.fillStyle = active ? '#FFFFFF' : 'rgba(255,255,255,0.12)';
-    roundRect(ctx, cx - CARD_W / 2, cy - CARD_H / 2, CARD_W, CARD_H, 10);
+    // 卡背景：非激活态用半透明深蓝（不再是灰蒙蒙的 12% 白）
+    ctx.fillStyle = active ? '#FFFFFF' : 'rgba(255,255,255,0.13)';
+    roundRect(ctx, cx - CARD_W / 2, cy - CARD_H / 2, CARD_W, CARD_H, 14);
     ctx.fill();
-
-    // 图标（居中偏上）
-    const iconCY = cy - 8;
-    if (item.kind === 'bird') {
-      E.drawPufferMini(ctx, cx, iconCY, 14, item.type);
-    } else if (item.kind === 'pearl') {
-      E.drawPearl(ctx, cx, iconCY, 10, game.frameCount);
-    } else if (item.kind === 'pig') {
-      ctx.fillStyle = cardColor(item);
-      ctx.beginPath();
-      ctx.arc(cx, iconCY, 14, 0, Math.PI * 2);
-      ctx.fill();
-      if (item.boss) {
-        // 王冠小三角
-        ctx.fillStyle = '#5D4037';
-        ctx.beginPath();
-        ctx.moveTo(cx - 5, iconCY - 12);
-        ctx.lineTo(cx - 2, iconCY - 18);
-        ctx.lineTo(cx, iconCY - 14);
-        ctx.lineTo(cx + 2, iconCY - 18);
-        ctx.lineTo(cx + 5, iconCY - 12);
-        ctx.closePath();
-        ctx.fill();
-      }
+    if (!active) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, cx - CARD_W / 2, cy - CARD_H / 2, CARD_W, CARD_H, 14);
+      ctx.stroke();
     } else {
-      // 方块/橡皮：色块
-      ctx.fillStyle = cardColor(item);
-      const sz = 22;
-      roundRect(ctx, cx - sz / 2, iconCY - sz / 2, sz, sz, 5);
-      ctx.fill();
+      // 激活态：材质色描边，和图标颜色呼应
+      ctx.strokeStyle = cardColor(item);
+      ctx.lineWidth = 3;
+      roundRect(ctx, cx - CARD_W / 2, cy - CARD_H / 2, CARD_W, CARD_H, 14);
+      ctx.stroke();
     }
 
+    // 图标（居中偏上，留出下方标签空间）
+    drawCardIcon(ctx, game, item, cx, cy - 11);
+
     // 标签
-    ctx.fillStyle = active ? '#1F3A5F' : '#FFFFFF';
-    ctx.font = `${active ? 'bold ' : ''}11px sans-serif`;
+    ctx.fillStyle = active ? '#1F3A5F' : 'rgba(233,244,253,0.92)';
+    ctx.font = `bold 13px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(item.label, cx, cy + 22);
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(item.label, cx, cy + CARD_H / 2 - 12);
   });
 
   ctx.restore();
 }
 
-// 顶栏 4 分类分段控件的激活色条（方块木色 / 章鱼紫 / 河豚橙 / 道具金）
-const SEG_ACTIVE = { blocks: '#C4A88C', enemies: '#CE93D8', birds: '#FFB74D', items: '#F6E08C' };
+// 4 分类分段控件的激活色（直接引用世界内真实色，保证卡片/世界/分段三处颜色一致）
+const SEG_ACTIVE = {
+  blocks: C.COLORS.wood,
+  enemies: C.COLORS.pigBody,
+  birds: C.BIRD_TYPES.normal.body,
+  items: '#F6E7A1',
+};
 
-/** 分段控件：居中半透容器 + 激活段白底墨字 + 色条；top 由调用方传入（顶栏或底栏） */
+/**
+ * 分段控件：整幅铺满底栏（两侧 SEG_PAD 留白）+ 激活段白底墨字 + 顶部色条。
+ * T15：由「居中 184px 窄条」改为全宽，段宽 46→88，标签 13→15px。
+ */
 function drawSegmented(ctx, d, top) {
-  const vPad = (SEG_H - SEG.h) / 2; // 段内垂直居中
+  const vPad = (SEG_H - SEG.h) / 2; // 段内垂直居中（SEG.h === SEG_H，此处为 0）
   ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.14)';
-  roundRect(ctx, SEG.x, top + vPad, SEG.w, SEG.h, 10);
+  ctx.fillStyle = 'rgba(255,255,255,0.13)';
+  roundRect(ctx, SEG.x, top + vPad, SEG.w, SEG.h, 12);
   ctx.fill();
   ctx.textAlign = 'center';
-  ctx.font = 'bold 13px sans-serif';
+  ctx.textBaseline = 'middle';
   TABS.forEach((t, i) => {
     const sx = SEG.x + i * SEG.segW;
-    if (d.tab === t.id) {
+    const active = d.tab === t.id;
+    if (active) {
+      // 激活段：白底 + 分类色顶条（色条移到顶部，不再压住文字）
       ctx.fillStyle = '#FFFFFF';
-      roundRect(ctx, sx + 3, top + vPad + 3, SEG.segW - 6, SEG.h - 6, 8);
+      roundRect(ctx, sx + 3, top + vPad + 3, SEG.segW - 6, SEG.h - 6, 10);
       ctx.fill();
       ctx.fillStyle = SEG_ACTIVE[t.id];
-      roundRect(ctx, sx + 12, top + vPad + 6, SEG.segW - 24, 3, 1.5);
+      roundRect(ctx, sx + SEG.segW * 0.28, top + vPad + 6, SEG.segW * 0.44, 4, 2);
       ctx.fill();
       ctx.fillStyle = '#1F3A5F';
     } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.62)';
+      ctx.fillStyle = 'rgba(226,240,252,0.80)';
     }
-    ctx.fillText(t.label, sx + SEG.segW / 2, top + vPad + 22);
+    ctx.font = `bold 15px sans-serif`;
+    ctx.fillText(t.label, sx + SEG.segW / 2, top + vPad + SEG.h / 2 + 5);
   });
   ctx.restore();
 }
@@ -528,22 +715,116 @@ function drawChainPreview(ctx, game) {
   ctx.restore();
 }
 
-/** 顶栏策略工具组：置灰态维护 + 激活白环 + 难度徽章 + AI 进度/结果 */
+/**
+ * 顶栏工具按钮图标 —— T15 自绘矢量，替换 emoji。
+ * 原因：👁🤖📊 在不同机型/系统上字形与配色各异（截图里青绿+亮紫撞色），
+ * 且与本作马卡龙海洋风完全不搭；自绘可保证跨端一致、配色受控。
+ */
+function drawToolIcon(ctx, key, cx, cy, s, color) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = Math.max(2, s * 0.11);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (key === 'editorUndo' || key === 'editorRedo') {
+    // 弧形回转箭头（撤销 ↺ / 重做 ↻，互为镜像）。
+    // T15.1：旧版弧心偏下 + 箭头脱离弧的端点，两个元素各画各的，
+    // 截图里读起来是一张"笑脸"（弧=嘴、三角=眼）——语义完全错。
+    // 现在：270° 弧 + 箭头顶点贴在弧端点上、方向沿该点切线，一眼是回转箭头。
+    const undo = key === 'editorUndo';
+    const r = s * 0.27, cy = s * 0.04;
+    // undo：135°→225° 逆时针（经底部/右侧/顶部，开口在左上）；redo 镜像
+    const a0 = undo ? Math.PI * 0.75 : Math.PI * 0.25;
+    const a1 = undo ? Math.PI * 1.25 : Math.PI * 1.75;
+    ctx.beginPath();
+    ctx.arc(0, cy, r, a0, a1, !undo);
+    ctx.stroke();
+    // 箭头：顶点=弧终点，方向=该点切线（undo 逆时针 / redo 顺时针）
+    const ca = Math.cos(a1), sa = Math.sin(a1);
+    const px = r * ca, py = cy + r * sa;
+    const tx = undo ? sa : -sa, ty = undo ? -ca : ca;
+    const len = s * 0.17, w = s * 0.09;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px - tx * len - ty * w, py - ty * len + tx * w);
+    ctx.lineTo(px - tx * len + ty * w, py - ty * len - tx * w);
+    ctx.closePath();
+    ctx.fill();
+  } else if (key === 'editorOverlay') {
+    // 眼睛（击杀组叠加层）
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.34, 0);
+    ctx.quadraticCurveTo(0, -s * 0.32, s * 0.34, 0);
+    ctx.quadraticCurveTo(0, s * 0.32, -s * 0.34, 0);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (key === 'editorSim') {
+    // 小机器人（AI 试解）：圆头 + 双目 + 天线
+    ctx.beginPath();
+    ctx.arc(0, s * 0.02, s * 0.28, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.28); ctx.lineTo(0, -s * 0.4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, -s * 0.45, s * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-s * 0.11, 0, s * 0.055, 0, Math.PI * 2);
+    ctx.arc(s * 0.11, 0, s * 0.055, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.09, s * 0.14); ctx.lineTo(s * 0.09, s * 0.14);
+    ctx.stroke();
+  } else if (key === 'editorDrawer') {
+    // 柱状图（策略抽屉）
+    const bw = s * 0.14;
+    const hs = [0.26, 0.44, 0.34];
+    hs.forEach((h, i) => {
+      const x = -s * 0.24 + i * (bw + s * 0.09);
+      roundRect(ctx, x, s * 0.2 - s * h, bw, s * h, bw * 0.35);
+      ctx.fill();
+    });
+  }
+  ctx.restore();
+}
+
+/** 顶栏策略工具组：置灰态维护 + 矢量图标 + 激活白环 + 难度徽章 + AI 进度/结果 */
 function drawTopTools(ctx, game, d) {
   const b = game.buttons;
   if (b.editorUndo) b.editorUndo.locked = !(d.undoStack && d.undoStack.length);
   if (b.editorRedo) b.editorRedo.locked = !(d.redoStack && d.redoStack.length);
   if (b.editorSim) b.editorSim.locked = d.issues.length > 0;
-  for (const k of TB_KEYS) if (b[k]) b[k].draw(ctx);
+  for (const k of TB_KEYS) {
+    const btn = b[k];
+    if (!btn) continue;
+    btn.draw(ctx);
+    // 图标：按钮中心，置灰态压暗；白描边保证在彩色胶囊上清晰
+    const cx = btn.x + btn.width / 2;
+    const cy = btn.y + btn.height / 2;
+    const glyph = btn.locked ? 'rgba(255,255,255,0.55)' : '#FFFFFF';
+    ctx.save();
+    ctx.shadowColor = 'rgba(60,40,55,0.35)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetY = 1;
+    drawToolIcon(ctx, k, cx, cy, btn.size || btn.height, glyph);
+    ctx.restore();
+  }
 
   // 激活态白环（叠加层常显 / 抽屉打开）
   const ring = (k) => {
     const btn = b[k];
     if (!btn) return;
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = 2;
-    roundRect(ctx, btn.x - 2, btn.y - 2, btn.width + 4, btn.height + 4, btn.radius + 3);
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.lineWidth = 2.5;
+    roundRect(ctx, btn.x - 3, btn.y - 3, btn.width + 6, btn.height + 6, btn.radius + 3);
     ctx.stroke();
     ctx.restore();
   };
